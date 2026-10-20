@@ -25,10 +25,9 @@ No account was logged into, no private endpoint was probed, and no credential wa
 
 **Recommended first version:**
 
-- `[inferred — confidence: high]` Let the user create an editable limit window, record its start or next reset, compute future resets locally, and schedule a small number of local notifications.
-- `[inferred — confidence: high]` Automatically attach timestamped percentage-used observations to each window. The [usage-tracking study](usage-tracking.md) defines the semantics; [automatic usage acquisition](automatic-usage-acquisition.md) selects Codex app-server and Claude Code status-line sources on Mac; the [upstream audit](upstream-automatic-usage-sources.md) pins their current schemas and freshness differences.
-- `[inferred — confidence: high]` Show the computed reset in Home Screen and Lock Screen widgets using a dynamic date, include Live Activities for eligible short windows, and expose the same stored result through an App Intent.
-- `[inferred — confidence: high]` Keep the data model rule-driven rather than encoding current product names or quotas. Both vendors state that limits vary by plan, model, feature, system conditions, or vendor discretion.
+- `[inferred — confidence: high]` Automatically attach timestamped percentage-used observations and provider reset instants to open-ended allowance windows. The [usage-tracking study](usage-tracking.md) defines the semantics; [automatic usage acquisition](automatic-usage-acquisition.md) selects Codex app-server and Claude Code status-line sources on Mac; the [upstream audit](upstream-automatic-usage-sources.md) pins their current schemas and freshness differences.
+- `[inferred — confidence: high]` Present the four standard Codex and Claude Code five-hour/weekly windows in the app, widgets, Watch app, complication, and read-only App Intent; allow user-started Live Activities for eligible five-hour windows.
+- `[inferred — confidence: high]` Keep the data model open-ended rather than encoding exactly two windows per product. Both vendors state that limits vary by plan, model, feature, system conditions, or vendor discretion.
 - `[inferred — confidence: high]` Reuse first-party CLI sign-in without reading its credentials and require no Reset Radar account or analytics service. The owner conditionally approved a Cloudflare Worker plus SQLite-backed Durable Object as the primary store-and-forward transport, with Cloudflare holding ciphertext but never the content key; final adoption requires the [Cloudflare study's](cloudflare-synchronization.md) synthetic-data spike to pass.
 - `[documented]` Distribute for the owner's personal use with a free Apple account and Sideloadly. The separate [personal-use sideloading study](personal-use-sideloading.md) records the seven-day provisioning constraints and excludes LiveContainer while widgets remain in scope.
 
@@ -194,13 +193,10 @@ The owner resolved the research questions in [Phase 1 owner decisions](../../pha
 
 ### First version
 
-- `[inferred — confidence: high]` Track user-created Claude and ChatGPT windows with a label, service, recurrence kind, duration or weekday/time rule, time zone behavior, and current anchor/reset instant.
-- `[inferred — confidence: high]` Store a timestamped percentage-used observation independently for every window, with source, freshness, and unavailable/stale states.
-- `[documented]` Begin manual ChatGPT setup completely blank, without numeric defaults, templates, or prefilled recurrence examples.
-- `[inferred — confidence: high]` Compute the next reset locally; show the source as “entered by you” or “calculated from your rule.”
-- `[documented]` Bind recurring rules to their selected time zone, display dates in the OS's current local time zone, and rebuild presentation and notifications after an OS time-zone change without changing rule semantics.
-- `[documented]` Schedule local notifications, display Home/Lock Screen widgets, include Live Activities for eligible short windows, and provide a read-only App Intent.
-- `[documented]` Include an Apple Watch app that presents reset times, latest usage, source, and freshness from the paired iPhone's normalized cache.
+- `[inferred — confidence: high]` Store a timestamped percentage-used observation and optional absolute provider reset independently for every open-ended source window, with provenance and explicit freshness or availability.
+- `[documented]` Exclude manual percentage entry and manual reset rules; the later architecture interview superseded the earlier blank-manual-ChatGPT and recurrence decisions.
+- `[documented]` Offer per-window opt-in reset notifications, configurable widgets, user-started Live Activities for eligible short windows, and a read-only App Intent.
+- `[documented]` Include an Apple Watch app with the same two-by-two standard-window grid, product-scoped details, one configurable complication, and an offline cache received through iPhone.
 - `[inferred — confidence: high]` Collect coding-allowance state on one authoritative Mac through installed first-party Codex and Claude Code interfaces and synchronize only normalized, application-encrypted snapshots to iPhone. Adopt the conditionally approved Cloudflare transport only after its spike passes; require no Reset Radar account, analytics, copied vendor credential, or server-side content key.
 - `[documented]` Ship the Mac collector and pairing flow with the first usable version, and use foreground/manual plus opportunistic background refresh without reserving APNs support.
 
@@ -210,6 +206,7 @@ The owner resolved the research questions in [Phase 1 owner decisions](../../pha
 - `[inferred — confidence: high]` No session cookie, password, copied OAuth token, DOM scraping, or undocumented consumer endpoint.
 - `[inferred — confidence: high]` No Team, Business, Enterprise, Edu, or administrator-managed defaults.
 - `[documented]` No API-key mode, percentage threshold alerts, percentage history, pace or exhaustion forecasts, or dependable push backend in the first version.
+- `[documented]` No manual percentage entry, manual reset rule, or broader ChatGPT/Claude consumer-usage entry.
 - `[inferred — confidence: high]` No private consumer endpoint. The Mac collector is required for automatic coding-allowance percentages.
 - `[documented]` No App Store or TestFlight distribution; use the owner's free Apple account and Sideloadly as specified in [personal-use-sideloading.md](personal-use-sideloading.md).
 - `[inferred — confidence: high]` No vendor marks in the app name or icon, and no claim of affiliation.
@@ -220,18 +217,18 @@ The owner resolved the research questions in [Phase 1 owner decisions](../../pha
 |---|---|---|
 | Q2 | Permanently exclude consumer passwords, session cookies, and OAuth tokens; an exception requires a new owner decision and written vendor authorization. | Credential boundary and data sources. |
 | Q3 | Exclude API-key support and do not reserve architecture for it. | Source protocol shape. |
-| Q5 | Begin manual ChatGPT setup completely blank. | Seed data and onboarding. |
+| Q5 | Remove manual percentage and reset-rule entry entirely, superseding the earlier blank setup decision. | Provider-reported observations and absolute reset instants only. |
 | Q6 | Keep the Reset Radar name, use a neutral original icon, and use service names only as descriptive interface text without implied affiliation. | Bundle identity and UI assets. |
 | Q7 | Include Live Activities for eligible short windows; keep weekly windows in the app and widgets. | Target and surface design; lifecycle behavior requires a spike. |
-| Q8 | Keep recurring rules tied to their selected time zone, present times in the OS's current local zone, and rebuild notifications without changing semantics after a zone change. Use a small rolling pending set and determine the exact horizon by spike. | Scheduling model and tests. |
+| Q8 | Store provider resets as absolute instants, present them in the OS-local zone, and maintain at most one opt-in notification for each standard Home window. | Scheduling model and tests. |
 | Q10 | Exclude threshold alerts, percentage history, pace labels, and exhaustion forecasts. Keep only the latest valid observation and its provenance and freshness. | Observation retention, notifications, and presentation. |
 | Q11 | Conditionally approve the encrypted Cloudflare relay, one authoritative Mac, and foreground/manual plus opportunistic background refresh with no APNs reservation. Exact source thresholds come from P1-M2 tests. | Synchronization, security, cost, deployment, and freshness. |
 
 Resolved during this research:
 
-- `[documented]` Former Q1/Q9 asked whether consumer percentage data was manual. The owner requires automatic percentages. The selected sources are Codex app-server and Claude Code status-line snapshots on Mac; manual entry is not the primary path.
+- `[documented]` Former Q1/Q9 asked whether consumer percentage data was manual. The owner now excludes manual entry. The selected sources are Codex app-server and Claude Code status-line snapshots on Mac.
 - `[documented]` Former Q4 asked whether to support multiple arbitrary windows. The owner requires simultaneous usage tracking such as five-hour and weekly percentages used, so the model must support multiple independent windows without a fixed two-field schema.
-- `[documented]` An earlier question asked for Claude's weekly anchor. Claude now documents that paid weekly limits reset at a fixed account-assigned day/time, unchanged by session or subscription start, and visible in Settings > Usage. The automatic source may supply the instant; a user rule remains a reset-only fallback when it does not.
+- `[documented]` An earlier question asked for Claude's weekly anchor. Claude now documents that paid weekly limits reset at a fixed account-assigned day/time, unchanged by session or subscription start, and visible in Settings > Usage. Reset Radar uses the automatic source's instant when present and shows it unavailable when absent.
 
 Risks:
 
@@ -246,10 +243,9 @@ Risks:
 
 Proposed experiments, not performed here:
 
-- `[inferred — confidence: high]` Test one-shot and recurring `UNCalendarNotificationTrigger` behavior across a DST transition and a manual time-zone change on an iOS 26 simulator/device.
-- `[inferred — confidence: high]` Schedule more than 64 `UNNotificationRequest` objects in a throwaway app and inspect pending requests; do not make a product guarantee from deprecated API documentation.
+- `[inferred — confidence: high]` Test absolute notification replacement, cancellation, expiry, denial, and OS-local rendering after clock or time-zone changes.
 - `[inferred — confidence: high]` Validate widget timer rendering at reset and after a device clock/time-zone change without relying on a timeline reload.
-- `[inferred — confidence: high]` Test usage observation clamping, used-to-remaining conversion, stale transitions, missing windows, and reset-cycle boundaries without fabricating a 100% value at a predicted reset.
+- `[inferred — confidence: high]` Test usage observation clamping, orientation, stale transitions, missing windows, and reset-cycle boundaries without fabricating a 0% value at a predicted reset.
 - `[inferred — confidence: high]` Complete the synthetic-data Cloudflare, cellular, quota, deletion, and deployment checks in [cloudflare-synchronization.md](cloudflare-synchronization.md) before the conditionally approved transport becomes final or receives real usage data.
 
 ## 9. Research completion audit
@@ -264,7 +260,7 @@ Proposed experiments, not performed here:
 | Claude status line | `[documented]` The status-line payload is the narrow credential-free export path. | Prove installation preserves an existing user status line, writes atomically, and becomes stale correctly without generating a Claude turn. |
 | Mac lifecycle | `[documented]` `SMAppService` is Apple's macOS 13+ API for login items and launch agents; Developer ID notarization is the recommended outside-store distribution path but requires paid-program credentials. | The owner chose local development signing without first-version notarization or an automatic updater; prove launch-at-login, Gatekeeper instructions, CLI child-process access, update safety, and uninstall cleanup on the owner's Mac. |
 | Apple-device signing | `[documented]` Free provisioning, App Groups, Sideloadly, WidgetKit, and the first-version Apple Watch decision are recorded in [personal-use-sideloading.md](personal-use-sideloading.md). | Physical iPhone and paired-watch signing and seven-day refresh cycle, including Keychain/cache/widget/notification/watch-state preservation. |
-| Reset scheduling | `[documented]` Local notifications persist once scheduled, but current APIs publish no numeric pending-request ceiling and background execution is not timely. | Test the approved selected-zone recurrence and OS-local presentation semantics across DST/time-zone changes, then choose the rolling pending horizon. |
+| Reset scheduling | `[documented]` Local notifications persist once scheduled, while background execution is not timely. | Test at most four absolute per-window requests for replacement, cancellation, expiry, authorization, clock changes, and OS-local presentation. |
 
 Q2, Q3, Q5 to Q8, Q10, and Q11 are resolved in [Phase 1 owner decisions](../../phase-1/owner-decisions.md). More research should be commissioned only if validation fails or the owner changes a decided boundary—for example, multiple publishing Macs, dependable background alerts, API-key mode, or general ChatGPT/Claude automatic coverage.
 

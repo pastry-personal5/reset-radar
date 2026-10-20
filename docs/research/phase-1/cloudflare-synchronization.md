@@ -17,7 +17,7 @@ The owner has accepted the included `workers.dev` hostname. A custom domain is n
 - `[inferred — confidence: high]` A single Durable Object per owner relay can atomically reject sequence rollback, serialize replacement of the latest snapshot, support conditional reads, and delete the active relay state. Those correctness properties matter more here than KV's globally cached read latency.
 - `[documented]` At the expected personal-use volume, Workers and Durable Objects fit comfortably within the current free allocations. A Workers Free account has hard daily limits; excess Worker requests fail instead of becoming metered overages.
 - `[inferred — confidence: high]` Cloudflare costs exactly US$0 only under the configuration contract in section 2. The owner must not enroll the account or Worker in Workers Paid, which currently has a US$5 monthly minimum and metered overages.
-- `[inferred — confidence: high]` Cloudflare must store ciphertext only. The content-encryption key remains on the paired Apple devices; request-authentication credentials are separate and grant read, write, or deletion authority without decrypting the snapshot.
+- `[inferred — confidence: high]` Cloudflare must store usage snapshots only as ciphertext, alongside minimal authorization, ordering, and manual-request metadata. The content-encryption key remains on the paired Apple devices; request-authentication credentials are separate and grant read, write, or deletion authority without decrypting the snapshot.
 - `[documented]` A relay does not wake the iOS app. It improves store-and-forward availability over cellular, but foreground refresh and opportunistic background execution remain the first-version delivery model under free Apple signing.
 
 This is an architecture recommendation, not proof from a deployed system. The spike in section 10 must pass before the relay becomes a frozen dependency.
@@ -62,7 +62,7 @@ The relay carries only normalized coding-allowance observations produced by the 
 The first-version trust boundary is:
 
 - the Mac collector is the only publisher;
-- one iPhone is the reader;
+- up to three iPhones or iPads are readers, each with its own read token and a shared content key (owner decision 2026-10-19);
 - Cloudflare terminates TLS and can observe request metadata, authentication material while a request executes, and opaque ciphertext, but must not receive the content-encryption key or plaintext snapshot;
 - the Worker has no vendor token, account email, prompt, response, project path, CLI path, or raw provider output;
 - the iPhone retains its last valid local cache when the relay is unavailable or returns invalid data;
@@ -84,18 +84,24 @@ The selected Durable Object contains:
 - the latest accepted opaque publisher ID and unsigned sequence number;
 - the latest versioned encrypted envelope and a strong entity tag;
 - the time the Worker accepted it;
-- a protocol-state version needed to reject incompatible requests.
+- a protocol-state version needed to reject incompatible requests;
+- up to three registered reader-token digests, activation flags, and pending deadlines; and
+- up to three short-lived opaque manual-refresh requests, with per-reader rate-limit metadata.
 
 No history is retained by Reset Radar in Cloudflare. Replacing a snapshot overwrites the active record. Cloudflare's SQLite-backed Durable Object point-in-time recovery can restore database state from the preceding 30 days, so product copy must not promise immediate physical erasure from every provider recovery system.
 
 ## 5. Relay protocol
 
-The validation spike should prove a deliberately small HTTPS API:
+The validation spike should prove the canonical [relay protocol](../../architecture/relay.md#protocol), summarized here:
 
 | Operation | Authority | Behavior |
 |---|---|---|
 | `PUT /v1/snapshot` | Write token | Accept one versioned encrypted envelope no larger than 64 KiB. Atomically reject an unexpected publisher, an equal or lower sequence, malformed metadata, or an unsupported mandatory version. Return the accepted sequence and entity tag. |
 | `GET /v1/snapshot` | Read token | Return the current envelope with `Cache-Control: no-store` and an entity tag. Support `If-None-Match`; return not-found when no snapshot has been published. |
+| `POST /v1/readers/activate` | Registered read token | Idempotently activate the token after local save, before its pending expiry. |
+| `POST /v1/refresh-requests` | Activated read token | Accept a bounded, rate-limited, opaque Codex request ID for an awake Mac to poll. |
+| `GET` and `DELETE /v1/refresh-requests` | Write token | List unexpired requests and acknowledge one only after publishing its encrypted result. |
+| Reader registration, listing, and revocation | Administration token | Register, list, and revoke up to three independent reader tokens through the paths in the canonical protocol. |
 | `DELETE /v1/relay` | Destructive administration token | Atomically call `deleteAll()` after explicit owner confirmation in a trusted local UI. The client then discards its credentials and cache. |
 
 All other methods and paths return a generic error. Secrets never appear in a URL, query string, response body, or log message.
@@ -114,29 +120,28 @@ Provider windows, observation times, source versions, availability, and reset da
 
 ## 6. Authentication, pairing, and recovery
 
-Generate four independent random 256-bit values on the Mac:
+Generate three independent random 256-bit values on the Mac at setup, plus a separate random 256-bit read token for each paired reader:
 
 1. a content-encryption key shared only with the iPhone;
 2. a write bearer token retained by the Mac;
-3. a read bearer token transferred to the iPhone;
-4. a destructive administration token retained by the Mac.
+3. a destructive administration token retained by the Mac.
 
-Store only SHA-256 digests of the three authorization tokens as encrypted Worker secrets and compare presented-token digests in constant time. Cloudflare documents encrypted Worker secret bindings and `crypto.subtle.timingSafeEqual`; secrets must not be placed in `vars`, source, Wrangler configuration, terminal arguments, or committed development files.
+Store SHA-256 digests of the write and administration tokens as Worker secrets, and reader-token digests in the Durable Object. Compare presented-token digests in constant time. Cloudflare documents encrypted Worker secret bindings and `crypto.subtle.timingSafeEqual`; secrets must not be placed in `vars`, source, Wrangler configuration, terminal arguments, or committed development files.
 
 The first version should use an owner-deployed, single-tenant Worker rather than a public provisioning service. Setup is:
 
 1. The owner creates or selects an otherwise-unused Cloudflare account, confirms that Workers Free is active with no paid subscription or add-on, and deploys the version-pinned Worker to its assigned `workers.dev` endpoint. Endpoint obscurity is not an authentication control.
 2. A local setup command prompts for the token digests and writes them as Worker secrets without echoing values or placing them in shell history.
-3. The Mac collector displays a short-lived, owner-confirmed QR payload containing the endpoint, read token, content key, opaque publisher ID, key version, and current minimum acceptable sequence.
-4. The iPhone stores its read token and content key in Keychain as non-synchronizing `ThisDeviceOnly` items. `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` is appropriate only if a later approved background path needs locked-device access; otherwise use the more restrictive when-unlocked class.
+3. The Mac binds its publisher, registers a reader, and displays a short-lived, owner-confirmed QR payload containing the endpoint, `ReaderID`, that reader's token, content key, opaque publisher ID, key version, minimum acceptable sequence, and relay-assigned five-minute registration expiry.
+4. The iPhone or iPad preflight-reads and validates the snapshot, then stores its read token and content key in Keychain as non-synchronizing `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` items so approved background and widget refresh can decrypt after first unlock. Only after local pairing state is committed does it send an idempotent authenticated activation request. A preflight read alone never closes the Mac pairing screen; expired pending registrations cannot activate.
 
-There is no server-side recovery for the content key. Loss, suspected compromise, reader revocation, or publisher replacement destroys the relay and creates a new relay identity, tokens, publisher ID, and content key. This is simpler and safer than a recovery service for one owner.
+There is no server-side recovery for the content key. Ordinary reader retirement revokes only its read token; a lost or compromised reader, publisher replacement, or suspected key compromise destroys and recreates the relay identity, tokens, publisher ID, and content key, then re-pairs readers. This is simpler and safer than a recovery service for one owner.
 
 Multiple publisher Macs are deferred. Supporting them requires a separate publisher identity, token, and sequence space per Mac plus a defined merge rule for observations. It must not be implemented by letting several Macs share one write token and overwrite one sequence.
 
 ## 7. Abuse and replay controls
 
-- Reject oversized and malformed requests cheaply before storage access. A Workers rate-limiting binding may be added after successful token validation, keyed by a token digest and operation rather than the mobile IP address, only if the Free-account spike confirms that it does not enroll a billable product. Cloudflare warns that IP-based keys can group unrelated users behind shared networks. Invalid credentials must never reach Durable Object storage.
+- Reject oversized and malformed requests cheaply. The Worker rejects invalid write and administration credentials before storage access; the Durable Object checks read-token digests and an invalid read token causes no write. The Durable Object enforces the per-reader manual-request limit. A separate Workers rate-limiting binding would need a new cost and dependency decision.
 - Enforce small request headers and a 64 KiB application body limit even though the platform allows much larger requests.
 - Authenticate before parsing or storing the ciphertext body beyond the minimum needed to enforce the size limit.
 - Reject write sequences that are not strictly greater than the stored sequence. A repeated captured `PUT` is therefore idempotently rejected.
@@ -166,16 +171,16 @@ Operational requirements:
 
 ## 9. Capacity and failure model
 
-A deliberately conservative schedule of one 4 KiB publish every five minutes plus one iPhone read every five minutes is 576 Worker requests and 576 Durable Object requests per day. It produces 288 logical snapshot updates per day and well under 2.5 MB of transferred ciphertext. The physical row-write count can be higher if the schema adds indexes or auxiliary rows, so it must be measured. Current free allocations include:
+The original baseline of one 4 KiB publish and one reader fetch every five minutes is 576 Worker and Durable Object requests per day, but it no longer represents the selected foreground, three-reader, and Mac-assisted manual-refresh behavior. The current intended-client estimate is in [Relay capacity](../../architecture.md#relay-capacity); its conservative all-day maximum is about 69,500 Worker requests including request acknowledgements. The physical row-write count can be higher than the logical operation count if the schema adds indexes or auxiliary rows, so it must be measured. Current free allocations include:
 
 - 100,000 Worker requests/day;
 - 100,000 Durable Object requests/day and 13,000 GB-s/day;
 - 100,000 SQLite rows written/day, 5 million rows read/day, and 5 GB total stored data;
 - a 10 ms Worker CPU allowance and 128 MB memory per request.
 
-The normal workload is therefore far below the documented limits. The spike must still measure actual CPU use for token hashing, validation, and routing because the Free-plan Worker CPU ceiling is small.
+The intended-client request estimate remains below the documented Free request limit. The spike must still measure actual CPU use for token hashing, validation, and routing because the Free-plan Worker CPU ceiling is small.
 
-The request schedule consumes about 0.576% of each 100,000-request daily allowance, and the minimum 288 row writes consume about 0.288% of the write allowance. These percentages are not a spending forecast: on Free, they are availability headroom. They are account-wide and must be recomputed if any other workload shares the account. Durable Object duration and actual SQL rows read and written also need measurement; the request-count margin alone does not prove every quota margin. The implementation should avoid WebSockets and alarms and let the object become idle so it does not waste the 13,000 GB-s daily duration allowance.
+The all-day estimate consumes about 70% of each 100,000-request daily allowance before pairing, rejected abuse traffic, or unrelated account work. These figures are availability headroom, not a spending forecast. They are account-wide and must be recomputed if any other workload shares the account. Durable Object duration and actual SQL rows read and written also need measurement; the request-count margin alone does not prove every quota margin. The implementation should avoid WebSockets and alarms and let the object become idle so it does not waste the 13,000 GB-s daily duration allowance.
 
 Map failures to stable client states:
 
@@ -197,12 +202,14 @@ Use synthetic fixtures only. Do not connect a real provider adapter or upload re
 - deploy only to `workers.dev`, using per-Worker secrets, with logs, traces, Logpush, and unused Cloudflare bindings disabled;
 - prove write, conditional read, strict sequence rejection, publisher rejection, body/version validation, and atomic deletion;
 - prove separate read, write, and destructive credentials cannot cross authorities;
+- prove that a preflight read does not activate a pending reader; local-save failure cannot activate it; a lost confirmation response is idempotently recoverable even after the displayed deadline; and relay expiry rejects an unactivated reader;
+- prove with a synthetic Mac source that an activated reader can submit only a bounded, short-lived manual Codex refresh request, the Mac can poll it without consuming it, and the reader recognizes completion only from a matching authenticated encrypted result; test revocation, duplicate/replayed IDs, source failure, publication failure, expiry, and a sleeping Mac;
 - verify Worker logs and traces are disabled and error responses never contain secrets or ciphertext;
 - drive each Free quota to a safe synthetic boundary where practical, confirm that excess work fails without an upgrade or charge, and verify the Worker route fails closed;
 - inspect account-wide usage to prove no unrelated Worker or storage workload invalidates the capacity calculation;
 - exercise token replacement and full destroy/re-pair recovery;
 - publish from Mac Wi-Fi, then read on an iPhone using cellular only after the Mac disconnects;
-- measure p50/p95 round-trip latency, CPU time, requests, rows read/written, and storage for at least 24 hours at the intended refresh schedule;
+- measure p50/p95 round-trip latency, CPU time, requests, rows read/written, and storage for at least 24 hours at the intended refresh schedule, including manual requests at the accepted per-reader rate limit and the reader's bounded follow-up reads;
 - simulate malformed ciphertext, wrong keys, replay, clock skew, rate limiting, quota exhaustion, Worker failure, and incompatible protocol versions;
 - deploy a compatible new version, smoke-test it, promote it, and roll back without corrupting stored state;
 - re-sign the iPhone app and embedded watch app through Sideloadly and confirm Keychain credentials, cached sequence, widgets, local notifications, watch installation, and watch state survive as intended.

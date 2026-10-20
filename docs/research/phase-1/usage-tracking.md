@@ -36,7 +36,7 @@ Each displayed window needs:
 
 - A stable local identifier.
 - A user-facing label such as “5-hour” or “Weekly.”
-- A reset instant or recurrence rule.
+- An optional absolute provider reset instant.
 - Percentage used in the closed range 0 through 100.
 - Observation time (“updated 12 min ago”).
 - Source and confidence: provider-reported through Codex app-server or Claude Code status-line state; other source kinds remain representable for diagnostics.
@@ -125,10 +125,10 @@ The detailed repository inventory remains in [github-prior-art.md](github-prior-
 
 Model a reset window separately from its usage observations:
 
-- `LimitWindow`: identity, service, label, duration/recurrence, reset state, and source configuration.
+- `LimitWindow`: identity, product, label, optional duration and absolute reset, reset state, and source configuration.
 - `UsageObservation`: window ID, used value, unit (`percent` initially), observed-at instant, source, confidence, and optional source metadata.
 - `Availability`: current, stale, unavailable, reset-awaiting-refresh.
-- `WindowCycle`: optional start/reset bounds used to prevent threshold alerts and observations from leaking into the next cycle.
+- `WindowCycle`: optional source-reported start/reset bounds used to prevent observations from leaking into the next cycle.
 
 Do not put `fiveHourUsed` and `weeklyUsed` fields directly on a service. Multiple weekly, per-model, monthly, and feature windows already exist, and sources can omit or add windows.
 
@@ -182,6 +182,7 @@ Required desktop-source experiments:
 - Do not include pace labels or exhaustion forecasts.
 - Ship the Mac collector and pairing flow with the first usable version; a reset-only iOS increment does not count as that release.
 - Limit automatic coverage to Codex and Claude Code coding allowances.
+- Exclude manual percentage entry and manual reset rules.
 - Conditionally approve the Cloudflare metadata boundary and one-authoritative-Mac design, subject to the required synthetic-data spike.
 - Choose separate Codex and Claude stale thresholds from P1-M2 tests rather than assigning an arbitrary shared timeout.
 

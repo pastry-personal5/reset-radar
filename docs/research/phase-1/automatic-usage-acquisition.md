@@ -10,7 +10,7 @@ The two first-party repositories are pinned and analyzed separately in [upstream
 
 ## 1. Decision
 
-Supported coding-allowance percentages must update automatically. Manual percentage entry is not the primary product path. The selected sources do not cover every general ChatGPT or Claude web/mobile allowance.
+Supported coding-allowance percentages and reset instants must update automatically. Manual percentage entry and manual reset rules are excluded. The selected sources do not cover every general ChatGPT or Claude web/mobile allowance.
 
 The recommended acquisition architecture is a Mac collector with provider-specific adapters:
 

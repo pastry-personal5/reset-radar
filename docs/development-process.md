@@ -17,7 +17,7 @@ Work is organized into numbered phases and milestones. General documentation rul
 A milestone is done when:
 
 1. Its completion checklist is checked with acceptance evidence.
-2. The gate passes: `swift-format lint --strict --recursive .`, `swiftlint --strict`, and `xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17'`.
+2. The gate passes: `swift-format lint --strict --recursive .`, `swiftlint --strict`, `xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max'`, plus the iPad, Mac, Watch, and relay checks listed in the [contribution guide](contribution-guide.md).
 3. Affected docs and its phase-doc status are updated in the same change.
 
 Before the executable scaffold exists, a gate command that is inapplicable solely because its planned files, project, scheme, or targets do not yet exist may be deferred to the scaffolding milestone. The earlier milestone must record the attempted command, structural blocker, and target milestone; all applicable commands must pass. The scaffolding milestone cannot use this exception and must pass the complete gate. A tool failure, test failure, or missing dependency that should already exist is not an inapplicable check.
@@ -34,6 +34,7 @@ Create a phase directory when planning that phase.
 | `docs/phase-N/phase-N.md` | Phase goal, exit criteria, and brief milestone entries. |
 | `docs/phase-N/milestone-NN-<theme>-overview.md` | Milestone goal, in/out scope, and completion checklist. |
 | `docs/phase-N/milestone-NN-<theme>-architecture.md` | Affected modules, interfaces, approach, and sequencing. |
+| `docs/architecture.md` | The system's software architecture, free of phase and milestone references. Milestone plans link to it instead of duplicating it; a milestone architecture file is needed only for sequencing that the system document must not contain. |
 | `docs/phase-N/changelog.md` | Reverse-chronological decisions and plan changes not clear from commits. |
 
 `N` is the phase number. `NN` is the zero-padded milestone number matching its ID; `<theme>` is kebab-case. Do not use a generic `phase.md` filename.
