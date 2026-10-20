@@ -23,9 +23,9 @@ Selecting Home shows a two-by-two **Allowance Grid** of circular **Allowance Rin
 | **Codex** | Top left | Top right |
 | **Claude Code** | Bottom left | Bottom right |
 
-Each ring presents percentage used for its assigned allowance window as a circular infographic. The ring fills from 0% toward 100%. The interface must preserve the logical placement above even if accessibility adaptation changes physical sizing or flow.
+Each ring presents Percentage Used for its assigned Allowance Window as a circular infographic. The ring fills from 0% toward 100%. The interface must preserve the logical placement above even if accessibility adaptation changes physical sizing or flow.
 
-Each grid cell identifies its product and window, places the numeric percentage used inside the ring, and provides a compact reset countdown plus freshness state. Selecting a ring opens the product's Usage Details with that window initially emphasized.
+Each grid cell identifies its product and window, places the numeric Percentage Used inside the ring, and provides a compact Reset Time countdown plus data state. Selecting a ring opens the product's Usage Details with that window initially emphasized.
 
 Before pairing or when required setup is incomplete, the same grid stays visible and affected rings use an explicit unavailable state rather than fabricated values. A prominent **Setup Banner** explains the current blocker and offers the next setup or pairing action. It does not replace the grid with mandatory onboarding.
 
@@ -43,7 +43,7 @@ Closing the main window leaves the menu-bar collector running. Its menu shows pr
 
 Watch Home uses the same logical two-by-two Allowance Grid and placement as iPhone and Mac. Rings use compact labels while retaining accessible product, window, percentage-used, reset, and freshness descriptions. Selecting either product's ring opens compact product-scoped Usage Details.
 
-The Watch app also offers an owner-confirmed Erase Reset Radar Data action. It clears the local cache and prevents later usage delivery until Watch pairing is reset. A complication may keep its previously rendered frame until watchOS processes a reload or the owner removes it.
+The Watch app also offers an owner-confirmed **Erase Watch Data** action. It clears the local cache and prevents later usage delivery until the owner chooses **Reset Watch Pairing**. A complication may keep its previously rendered frame until watchOS processes a reload or the owner removes it.
 
 The Allowance Complication shows one configured window's percentage used and freshness. Stale or unavailable data must remain visibly distinct from a current value.
 
@@ -53,13 +53,13 @@ Codex and Claude Code each have one Usage Details view. Both windows remain visi
 
 For each window, show:
 
-- an Allowance Ring and exact percentage used;
+- an Allowance Ring and exact Percentage Used;
 - the window label;
 - a relative reset countdown and the absolute reset date and time in the OS's current local time zone;
-- the observation time and freshness or availability state; and
+- Last Updated and the data state; and
 - an explicit explanation when data is stale, unavailable, incompatible, signed out, offline, or awaiting a post-reset refresh.
 
-The provenance and synchronization area shows the acquisition source, the authoritative Mac's publication status, the receiving device's last successful synchronization time, and source compatibility status. Technical versions and error detail remain behind a diagnostics disclosure instead of competing with primary usage information.
+The provenance and synchronization area shows the acquisition source, the Collector Mac's publication status, Last Synced for the receiving device, and source compatibility status. Technical versions and error detail remain behind a diagnostics disclosure instead of competing with primary usage information.
 
 The primary action requests the freshest data available to that platform. On Mac it refreshes the first-party source subject to adapter backoff. On iPhone and iPad, a Codex or all-product Refresh posts an authenticated, short-lived request for an awake Mac to read Codex, then checks the encrypted relay for a result tied to that request. A Claude Code-only Refresh reads the relay without posting that request. The action reports separately whether the relay was reached and whether the Mac completed the Codex read; timeout or an offline Mac leaves the last valid data visible. The phone never directly contacts Codex or Claude Code, and this action cannot force a new Claude Code response. The view never presents history, forecasts, pace analysis, or threshold controls.
 

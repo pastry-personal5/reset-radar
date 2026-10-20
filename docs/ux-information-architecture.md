@@ -43,7 +43,7 @@ Settings is a separate standard macOS scene. Closing the main window does not st
 
 ## Apple Watch app
 
-Watch Home contains the same logical two-by-two Allowance Grid. Selecting a ring opens compact product-scoped Usage Details with both standard windows; it contains no notification or Live Activity controls. The Watch has no top-level Main Toolbar or Main Sidebar. Its local data controls include an owner-confirmed erase and a separate Reset Pairing action.
+Watch Home contains the same logical two-by-two Allowance Grid. Selecting a ring opens compact product-scoped Usage Details with both standard windows; it contains no notification or Live Activity controls. The Watch has no top-level Main Toolbar or Main Sidebar. Its local data controls include **Erase Watch Data** and the separate **Reset Watch Pairing** action.
 
 The **Allowance Complication** contains one user-selected window. Both the app and complication read only the Watch's last valid local cache.
 

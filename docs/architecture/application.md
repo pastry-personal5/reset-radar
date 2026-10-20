@@ -200,7 +200,7 @@ After a commit it asks `SurfaceReloader` to reload the complication.
 
 **`RequestPhoneRefresh`** asks the iPhone, through `PhoneLink`, to ingest and reply. A reply goes through `CommitWatchPayload`; an unreachable iPhone is not an error.
 
-**`EraseWatchData`** is an owner-confirmed Watch action. It atomically clears the local snapshot, retains the latest delivery-revision tombstone, and sets `localEraseHold`, then requests a complication reload. The hold rejects later usage payloads until the owner invokes Reset Pairing on the Watch; a later clear can still be committed and acknowledged. Reset Pairing never lowers the revision floor for the same iPhone installation, and a changed installation is accepted only from the specific pending payload the owner previews and confirms. This action needs no iPhone connection.
+**`EraseWatchData`** is an owner-confirmed Watch action. It atomically clears the local snapshot, retains the latest delivery-revision tombstone, and sets `localEraseHold`, then requests a complication reload. The hold rejects later usage payloads until the owner invokes Reset Watch Pairing; a later clear can still be committed and acknowledged. Reset Watch Pairing never lowers the revision floor for the same iPhone installation, and a changed installation is accepted only from the specific pending payload the owner previews and confirms. This action needs no iPhone connection.
 
 ### Reset notifications (iOS and macOS)
 

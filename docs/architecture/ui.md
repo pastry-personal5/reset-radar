@@ -67,7 +67,7 @@ flowchart TB
 
 **Actions.** Refresh, notification opt-in, Start Live Activity, pairing, and the diagnostics export each call one injected use case and show its typed outcome.
 
-**Pairing and erasure.** The iPhone Settings model consumes `PairingStatusReadModel` and distinguishes local Forget Mac completion, pending Watch cache erasure, and a matching Watch receipt. It never labels a rendered complication frame as erased on the basis of that receipt. The Watch Settings model calls the owner-confirmed `EraseWatchData` use case and shows the local delivery hold until Reset Pairing.
+**Pairing and erasure.** The iPhone Settings model consumes `PairingStatusReadModel` and distinguishes local Forget Mac completion, pending Watch cache erasure, and a matching Watch receipt. It never labels a rendered complication frame as erased on the basis of that receipt. The Watch Settings model calls the owner-confirmed `EraseWatchData` use case and shows the local delivery hold until Reset Watch Pairing.
 
 **Setup Banner.** `SetupBannerModel` shows the single next blocker in this priority order:
 

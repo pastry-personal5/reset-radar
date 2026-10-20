@@ -2,7 +2,7 @@
 
 Status: Active
 
-This is the canonical vocabulary for visible user interface components, and their code-facing names. Use the exact component terms in UI text and accessibility-visible names; use the mapped lower-camel or snake-case names in implementation identifiers when a component is represented there.
+Canonical vocabulary for interface copy, accessibility text, design discussion, and code. Use visible terms in user-facing text and the mapped lower-camel names in implementation; do not expose code-facing names to users.
 
 ## Canonical product and source terms
 
@@ -14,6 +14,40 @@ The interface distinguishes a tracked product from the mechanism that supplied a
 | Anthropic coding product | **Claude Code** | `claudeCode` | Use for the tracked product and its allowance windows. Do not shorten this to **Claude**, which would imply broader consumer-product coverage. |
 | Codex acquisition source | **Codex app-server** | `codexAppServer` | Use only in source, provenance, compatibility, and diagnostics text. |
 | Claude Code acquisition source | **Claude Code status line** | `claudeCodeStatusLine` | Use only in source, provenance, freshness, compatibility, and diagnostics text. |
+
+## Canonical usage concepts
+
+| Concept | Visible term | Code-facing name | Usage |
+|---|---|---|---|
+| One provider-defined limit and reset cycle | **Allowance Window** | `allowanceWindow` | Use **window** after the first clear reference. Do not call it a quota, bucket, plan, or period in interface text. |
+| Provider-reported consumption | **Percentage Used** | `usedPercent` | Runs from 0% toward 100%. Never relabel or invert it as percentage remaining. |
+| Latest timestamped provider value | **Usage Reading** | `usageObservation` | The percentage and its observation time. Use **reading** in interface text and **observation** in domain or diagnostic text. |
+| Provider-reported end of a window | **Reset Time** | `resetsAt` | Show a relative countdown with the absolute date and time in the device's current time zone where space permits. |
+| Time the provider value was observed | **Last Updated** | `observedAt` | Describes the Usage Reading, not relay or Watch delivery. Prefer “Updated 4 min ago” in compact surfaces. |
+| Time this device last accepted a snapshot | **Last Synced** | `lastSuccessfulSyncAt` | Describes device delivery, not source freshness. Never substitute it for Last Updated. |
+
+## Canonical data states
+
+These labels describe a Usage Reading. Transport and source explanations may add a reason, but do not replace the state or imply that old data is current.
+
+| State | Visible term | Code-facing name | Usage |
+|---|---|---|---|
+| Valid reading inside its source-specific freshness window | **Current** | `current` | Show the Percentage Used and Last Updated time. |
+| Last valid reading is too old or its source is not reporting | **Stale** | `stale` | Keep the last value with a stale treatment and a concise reason. |
+| No presentable reading exists | **Unavailable** | `unavailable` | Show no percentage. Explain the next useful action when one exists. Never render this as 0%. |
+| The reported reset passed and no new reading confirms the next cycle | **Waiting for Update** | `resetAwaitingRefresh` | Show no percentage and do not fabricate replenishment. |
+
+## Canonical actions and device terms
+
+| Concept | Visible term | Code-facing name | Usage |
+|---|---|---|---|
+| Ask for the freshest data available to the platform | **Refresh** | `refresh` | On iPhone and iPad, Codex Refresh may request a new Mac read; Claude Code Refresh cannot create a provider response. |
+| Move an already produced snapshot to a device | **Sync** | `sync` | Reserve for relay or Watch delivery. Refresh may cause a sync, but the terms are not interchangeable. |
+| Mac that reads sources and publishes snapshots | **Collector Mac** | `publisher` | Use in owner-facing setup and status text. **Authoritative Mac** remains the architecture term for its single-writer role. |
+| Connect an iPhone or iPad to the Collector Mac | **Pair Mac** | `pairMac` | Names the setup action. Pairing transfers Reset Radar secrets, never provider credentials. |
+| Remove the Mac relationship and local phone or tablet data | **Forget Mac** | `forgetMac` | Preserve pending Watch-erasure language until a matching Watch receipt arrives. |
+| Clear the Watch cache and stop later delivery | **Erase Watch Data** | `eraseWatchData` | Owner-confirmed Watch action. Do not claim that a previously rendered complication frame was erased immediately. |
+| Allow a Watch erased locally to receive data again | **Reset Watch Pairing** | `resetWatchPairing` | Separate from Erase Watch Data and from pairing an iPhone or iPad to the Collector Mac. |
 
 ## Canonical components
 
