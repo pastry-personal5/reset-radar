@@ -1,6 +1,6 @@
 # ProviderAdapters module
 
-Status: Proposal
+Status: Active
 
 `ResetRadarProviderAdapters` is the macOS source adapter of the [software architecture](../architecture.md). It reads Codex and Claude Code allowance state through their first-party surfaces and normalizes it into `SourceSnapshot`s. It also contains the status-line components that the `ResetRadarStatusLine` helper runs inside Claude Code.
 

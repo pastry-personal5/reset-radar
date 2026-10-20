@@ -1,6 +1,6 @@
 # iOS app
 
-Status: Proposal
+Status: Active
 
 The iOS app is a composition root of the [software architecture](../architecture.md): the universal `ResetRadar` app for iPhone and iPad, its `ResetRadarWidgets` extension, and its App Intents. It wires the adapters to the [Application](application.md) use cases and turns system events into use-case calls. It contains no product rules of its own.
 

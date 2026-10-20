@@ -12,19 +12,19 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [ux-terms.md](ux-terms.md) | Canonical UI terms for products, usage concepts, states, actions, and components, with code-facing identifiers. |
 | [ux-information-architecture.md](ux-information-architecture.md) | The Standard Layout: how the app's components contain one another. |
 | [ux-gui.md](ux-gui.md) | Current interface and owner-approved GUI behavior, with planned behavior kept separate. |
-| [architecture.md](architecture.md) | System architecture: principles, trust boundaries, clean-architecture layers and module map, platform targets, sync and refresh model, pairing and loss, failure behavior, verification, and build contract. Proposal. |
-| [architecture/domain.md](architecture/domain.md) | Domain module: identities, records, wire conventions, Home slot resolution, and availability policies. Proposal. |
-| [architecture/application.md](architecture/application.md) | Application module: use cases, ports, refresh/publication/complication policies, and read models. Proposal. |
-| [architecture/storage.md](architecture/storage.md) | Storage adapter: versioned atomic files, cross-process locks, preferences, migration, and diagnostics. Proposal. |
-| [architecture/transport.md](architecture/transport.md) | Transport adapter: key material, Keychain secret store, envelope encryption, account scope, pairing codec, and relay client. Proposal. |
-| [architecture/scheduling.md](architecture/scheduling.md) | Scheduling adapter: reset notifications and Reset Live Activity mechanics. Proposal. |
-| [architecture/watch-sync.md](architecture/watch-sync.md) | WatchSync adapter: WatchConnectivity channels, payloads, and refresh requests. Proposal. |
-| [architecture/provider-adapters.md](architecture/provider-adapters.md) | ProviderAdapters: Codex app-server and Claude Code status-line sources, setup, and the status-line helper. Proposal. |
-| [architecture/ui.md](architecture/ui.md) | UI adapter: screen models, shared components, formatting, and accessibility. Proposal. |
-| [architecture/relay.md](architecture/relay.md) | Cloudflare relay: internal layering, canonical protocol, state, operations, and tests. Proposal. |
-| [architecture/ios-app.md](architecture/ios-app.md) | iOS composition root: iPhone/iPad app, widget extension, App Intent, refresh drivers, and process model. Proposal. |
-| [architecture/mac-app.md](architecture/mac-app.md) | Mac composition root: collector runtime, App Nap and wake handling, signing and Keychain, owner flows, and lifecycle. Proposal. |
-| [architecture/watch-app.md](architecture/watch-app.md) | Watch composition root: payload commit, refresh requests, background delivery, and complication. Proposal. |
+| [architecture.md](architecture.md) | System architecture: principles, trust boundaries, clean-architecture layers and module map, platform targets, sync and refresh model, pairing and loss, failure behavior, verification, and build contract. Active. |
+| [architecture/domain.md](architecture/domain.md) | Domain module: identities, records, wire conventions, Home slot resolution, and availability policies. Active. |
+| [architecture/application.md](architecture/application.md) | Application module: use cases, ports, refresh/publication/complication policies, and read models. Active. |
+| [architecture/storage.md](architecture/storage.md) | Storage adapter: versioned atomic files, cross-process locks, preferences, migration, and diagnostics. Active. |
+| [architecture/transport.md](architecture/transport.md) | Transport adapter: key material, Keychain secret store, envelope encryption, account scope, pairing codec, and relay client. Active. |
+| [architecture/scheduling.md](architecture/scheduling.md) | Scheduling adapter: reset notifications and Reset Live Activity mechanics. Active. |
+| [architecture/watch-sync.md](architecture/watch-sync.md) | WatchSync adapter: WatchConnectivity channels, payloads, and refresh requests. Active. |
+| [architecture/provider-adapters.md](architecture/provider-adapters.md) | ProviderAdapters: Codex app-server and Claude Code status-line sources, setup, and the status-line helper. Active. |
+| [architecture/ui.md](architecture/ui.md) | UI adapter: screen models, shared components, formatting, and accessibility. Active. |
+| [architecture/relay.md](architecture/relay.md) | Cloudflare relay: internal layering, canonical protocol, state, operations, and tests. Active. |
+| [architecture/ios-app.md](architecture/ios-app.md) | iOS composition root: iPhone/iPad app, widget extension, App Intent, refresh drivers, and process model. Active. |
+| [architecture/mac-app.md](architecture/mac-app.md) | Mac composition root: collector runtime, App Nap and wake handling, signing and Keychain, owner flows, and lifecycle. Active. |
+| [architecture/watch-app.md](architecture/watch-app.md) | Watch composition root: payload commit, refresh requests, background delivery, and complication. Active. |
 | [roadmap.md](roadmap.md) | All phases with status; the sole authority for the active phase. |
 | [phase-1/phase-1.md](phase-1/phase-1.md) | Phase 1 goal, exit criteria, and milestones. |
 | [phase-1/milestone-01-research-overview.md](phase-1/milestone-01-research-overview.md) | P1-M1 scope and completion checklist. |

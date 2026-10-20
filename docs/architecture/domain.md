@@ -1,6 +1,6 @@
 # Domain module
 
-Status: Proposal
+Status: Active
 
 `ResetRadarDomain` is the innermost layer of the [software architecture](../architecture.md). It holds the entities, value types, and pure policies every other module shares, and knows nothing about storage, networking, operating-system services, or presentation.
 

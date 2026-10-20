@@ -1,6 +1,6 @@
 # Watch app
 
-Status: Proposal
+Status: Active
 
 The Watch app is a composition root of the [software architecture](../architecture.md): `ResetRadarWatch` and its `ResetRadarWatchWidgets` complication extension. It receives normalized snapshots from the paired iPhone, commits them to the Watch's own cache, and asks the iPhone for a refresh when opened. It never contacts a provider or the relay, and holds no relay credential.
 

@@ -1,6 +1,6 @@
 # Transport module
 
-Status: Proposal
+Status: Active
 
 `ResetRadarTransport` is the security and relay-client adapter of the [software architecture](../architecture.md). It implements the [Application](application.md) ports for secrets, key generation, envelope encryption, account scoping, pairing packages, and HTTPS relay access on iOS and macOS.
 

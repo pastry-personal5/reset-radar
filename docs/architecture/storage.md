@@ -1,6 +1,6 @@
 # Storage module
 
-Status: Proposal
+Status: Active
 
 `ResetRadarStorage` is the local-persistence adapter of the [software architecture](../architecture.md). It implements the [Application](application.md) store ports with versioned JSON files, atomic replacement, cross-process locking, typed preferences, and redacted diagnostics, on every platform.
 

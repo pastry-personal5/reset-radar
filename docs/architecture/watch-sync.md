@@ -1,6 +1,6 @@
 # WatchSync module
 
-Status: Proposal
+Status: Active
 
 `ResetRadarWatchSync` is the iPhone-to-Watch link adapter of the [software architecture](../architecture.md). It moves versioned `WatchPayload`s, refresh requests, and Watch-erasure receipts over WatchConnectivity, and leaves every ordering and commit decision to the [Application](application.md) use cases.
 

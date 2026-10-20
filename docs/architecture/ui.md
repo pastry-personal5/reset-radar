@@ -1,6 +1,6 @@
 # UI module
 
-Status: Proposal
+Status: Active
 
 `ResetRadarUI` is the presentation adapter of the [software architecture](../architecture.md). It turns [Application](application.md) read models into SwiftUI views on iPhone, iPad, Mac, and Apple Watch, and forwards user intents to use cases. It owns the shared components named in [ux-terms.md](../ux-terms.md).
 

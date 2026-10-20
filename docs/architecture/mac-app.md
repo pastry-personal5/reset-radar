@@ -1,6 +1,6 @@
 # Mac app
 
-Status: Proposal
+Status: Active
 
 The Mac app is the collector's composition root in the [software architecture](../architecture.md). `ResetRadarMac` runs the provider sources and is the only publisher to the relay. It also hosts the Mac interface and the menu-bar companion, and installs the `ResetRadarStatusLine` helper. It wires adapters to the [Application](application.md) use cases, and owns process lifecycle, signing, and Keychain access.
 

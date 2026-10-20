@@ -1,6 +1,6 @@
 # Software architecture
 
-Status: Proposal
+Status: Active
 
 System-level architecture for Reset Radar across iPhone, iPad, Apple Watch, Mac, and the Cloudflare relay. It defines the layers and modules, linking to a design document for each, along with the platform targets and the end-to-end sync and refresh model. It also covers pairing and loss, trust boundaries, failure behavior, verification, and the build and project contract.
 

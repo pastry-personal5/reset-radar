@@ -1,6 +1,6 @@
 # Application module
 
-Status: Proposal
+Status: Active
 
 `ResetRadarApplication` is the use-case layer of the [software architecture](../architecture.md). It decides what Reset Radar does and when, through use cases, policies, and read models. It reaches storage, the relay, Keychain, system services, and provider sources only through ports that it defines and outer modules implement.
 

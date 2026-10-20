@@ -1,6 +1,6 @@
 # Relay module
 
-Status: Proposal
+Status: Active
 
 The relay is the Cloudflare part of the [software architecture](../architecture.md): a single-tenant Worker and one SQLite-backed Durable Object on `workers.dev`. It stores the latest encrypted envelope, enforces authority and ordering, and cannot decrypt anything. This document is the canonical relay protocol for both the Worker and the Swift [Transport](transport.md) client.
 

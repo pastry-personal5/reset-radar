@@ -1,6 +1,6 @@
 # Scheduling module
 
-Status: Proposal
+Status: Active
 
 `ResetRadarScheduling` is the system-scheduling adapter of the [software architecture](../architecture.md). It turns the [Application](application.md) notification and Live Activity decisions into UserNotifications requests and ActivityKit activities. It also owns the activity attributes shared with the iOS widget extension.
 
