@@ -146,8 +146,8 @@ Watch targets and the status-line helper never import Transport, so they cannot 
 
 | Platform | Minimum OS and deployment target | Reference device | Simulator destination |
 |---|---|---|---|
-| iPhone | iOS 26.1 | iPhone 17 Pro Max | `platform=iOS Simulator,name=iPhone 17 Pro Max` |
-| iPad | iPadOS 26.1 (same universal target) | iPad Air 11-inch (M2) | `platform=iOS Simulator,name=iPad Air 11-inch (M2)` |
+| iPhone | iOS 26.1 | iPhone 17 Pro Max | `platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1` |
+| iPad | iPadOS 26.1 (same universal target) | iPad Air 11-inch (M2) | `platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1` |
 | Apple Watch | watchOS 26.6 | Apple Watch Series 11 (42mm) | `platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)` |
 | Mac | macOS 26.7.1 | MacBook Pro, Apple M5 Max, 128 GB | `platform=macOS` |
 
@@ -404,11 +404,14 @@ Failure of the cost, plaintext, credential, cellular, deletion, or recovery boun
 The complete gate is:
 
 ```sh
-swift-format lint --strict --recursive .
+Scripts/generate-project.sh
+Scripts/lint-swift-format.sh
 swiftlint --strict
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max'
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2)'
+Scripts/check-imports.sh
+xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1'
+xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
 xcodebuild test -scheme ResetRadarWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'
-npm --prefix relay test && npm --prefix relay run typecheck
+npm --prefix relay ci
+npm --prefix relay test && npm --prefix relay run typecheck && npm --prefix relay run deploy:dry-run
 ```

@@ -1,0 +1,7 @@
+#include "Shared.xcconfig"
+// Development builds are unsigned; the Mac signing check applies to Release only.
+CODE_SIGN_IDENTITY =
+CODE_SIGNING_ALLOWED = NO
+CODE_SIGNING_REQUIRED = NO
+SWIFT_OPTIMIZATION_LEVEL = -Onone
+ONLY_ACTIVE_ARCH = YES

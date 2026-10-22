@@ -1,6 +1,6 @@
 # P1-M3: Scaffolding overview
 
-Status: Planned
+Status: Active
 
 Create the empty-but-real Xcode project, `ResetRadarKit` package, relay package, and lint/format configuration described by the [software architecture](../architecture.md), so a fresh checkout passes the complete gate with no deferrals. No production use case, provider integration, or real-data path is implemented.
 
@@ -12,11 +12,11 @@ A fresh checkout builds every target in [Composition roots and test targets](../
 
 Do not start implementation until all of these hold.
 
-P1-M2 is currently `Active`, so the first criterion is intentionally unmet. The owner chose on 2026-10-22 to wait for every P1-M2 item rather than carry any forward; the Keychain eight-day read cannot occur before 2026-10-30. Plan review may finish now; scaffold implementation may not start merely because this document exists.
+On 2026-10-22 the owner started this milestone without waiting for P1-M2 (see [changelog.md](changelog.md)). P1-M2 stays `Active`, and its open spikes are neither carried into nor blocking this milestone.
 
-- [ ] P1-M2 is `Done`, with every open item (Keychain spike, platform spikes, runtime security review, gate record) resolved. A failed Mac Keychain spike returns the storage design to the owner before scaffolding.
+- [x] Owner override: P1-M2 does not gate P1-M3. Evidence: 2026-10-22 owner entry in the changelog. No physical-device checks are carried forward.
 - [x] The owner has answered the questions in [Owner decisions](#owner-decisions). Evidence: 2026-10-22 owner entry in [changelog.md](changelog.md).
-- [ ] The owner has approved the exact relay development dependency versions and the bundle identifier list in [the sequence plan](milestone-03-scaffolding-sequence.md). Evidence: changelog entry.
+- [x] The owner has approved the exact relay development dependency versions and the bundle identifier list in [the sequence plan](milestone-03-scaffolding-sequence.md). Evidence: 2026-10-22 changelog entry.
 - [ ] The toolchain prerequisites in [the architecture plan](milestone-03-scaffolding-sequence.md#toolchain-prerequisites) are met, including simulator runtimes that can create the exact gate destinations.
 - [x] [Repository layout](../architecture/repository-layout.md) is accepted and `Active`. Evidence: 2026-10-22 owner entry in [changelog.md](changelog.md).
 
@@ -68,6 +68,6 @@ Owner input is required; do not invent answers (see [AGENTS.md](../../AGENTS.md)
 - [ ] The checked-in format script passes explicit maintained source roots to `swift-format`, and SwiftLint exclusions cover generated, external, build, and spike output. Evidence: script inspection and lint output with inputs and exclusions listed.
 - [ ] The relay installs from the lockfile with `npm ci`, pins direct development dependencies and the compatibility date, and generates ignored `worker-configuration.d.ts` on demand before type-checking. Evidence: clean-checkout install, generation, test, dry-run bundle, and type-check output.
 - [ ] Shared protocol fixtures are present and read by both Swift Transport tests and relay tests.
-- [ ] Every carried-forward physical-device check is completed with synthetic data, or the milestone remains incomplete. Evidence: the linked P1-M2 checklist item and dated result.
+- [x] No physical-device check is carried forward from P1-M2 (owner override). Evidence: 2026-10-22 changelog entry.
 - [ ] Docs are updated: README no longer says the apps are unscaffolded; the contribution guide and architecture use the same clean-checkout gate, including `npm ci` and the non-deploying Wrangler dry run; and the documentation index lists new docs.
 - [ ] From a clean checkout with no `node_modules/`, the complete gate installs relay dependencies and passes with no deferral in one run. Evidence: every command and result in the contribution guide.

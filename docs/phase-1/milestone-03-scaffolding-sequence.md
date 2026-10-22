@@ -1,6 +1,6 @@
 # P1-M3: Scaffolding sequencing
 
-Status: Planned
+Status: Active
 
 Order of work, prerequisites, and risks for [P1-M3](milestone-03-scaffolding-overview.md). The system design stays in the [software architecture](../architecture.md); the target directory tree is in [repository layout](../architecture/repository-layout.md).
 
@@ -58,8 +58,9 @@ P1-M3 updates the contribution guide and the build contract together so a clean 
 Scripts/generate-project.sh
 Scripts/lint-swift-format.sh
 swiftlint --strict
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max'
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2)'
+Scripts/check-imports.sh
+xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1'
+xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
 xcodebuild test -scheme ResetRadarWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'
 npm --prefix relay ci
@@ -70,13 +71,13 @@ The generation script must invoke the documented XcodeGen version against the ch
 
 The relay dry run must not authenticate, create a Preview URL, deploy a Worker, or contact an existing Worker. It validates only the checked-in package and configuration.
 
-Until those files and scripts land together, the existing contribution guide remains the current gate; this section specifies the required post-scaffold replacement and is not a claim that the planned commands exist yet.
+The iOS destinations carry `OS=26.1` because `name=` alone resolves to the newest installed runtime (27.1), where the reference iPhone and iPad device types do not exist. The commands above are now the gate in the [contribution guide](../contribution-guide.md).
 
 ## Risks
 
 - **Runtime and device mismatch** blocks the gate (see prerequisites). The iOS 26.1 floor is simulator-proven only.
-- **Signing-check placement.** The Release check may not be able to run as an ordinary build phase because it must observe the final signature.
-- **Import-boundary gaps.** See the package step; the dependency rule is unproven until the Xcode-target and partial-Scheduling cases are covered.
+- **Signing-check placement (resolved).** A script phase would run before code signing, so the Release check is the `ResetRadarMac` scheme's build post-action. It runs only through that scheme (`xcodebuild -scheme ResetRadarMac`, Archive); a bare target build skips it.
+- **Import-boundary coverage (resolved).** `Scripts/check-imports.sh` runs SwiftPM's explicit dependency import check on the package and compares each Xcode target's `ResetRadar*` imports with `Config/import-boundaries.txt`; the iOS widget extension may import Scheduling only through a scoped import of a listed symbol. Only `ResetActivityAttributes` is listed; add the notification-reconciliation symbol when Scheduling defines it.
 - **Free-account limits.** Count App IDs (iOS app, widget extension, Watch app, Watch complication) against the 10-per-7-days budget and keep identifiers stable; validate App Group availability when carried-forward physical signing is run.
 - **Gate scope.** Extension and helper targets are built only through scheme dependencies; confirm each scheme's build and test actions actually build them.
 - **Generated-project drift.** `ResetRadar.xcodeproj` is disposable output. Review and version the XcodeGen specification, never a hand-edited project file, and prove repeatable generation before the gate.

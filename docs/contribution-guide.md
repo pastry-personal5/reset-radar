@@ -9,36 +9,43 @@ How to set up `reset-radar`, validate a change, write commit messages, and open 
 - macOS 26.7.1 or newer, with an Xcode whose SDKs are at least iOS 26.1, watchOS 26.6, and macOS 26.7, and iOS and watchOS simulator runtimes at or above the minimum OS versions in [Platform targets](architecture.md#platform-targets). Select that Xcode with `xcode-select` and accept its license before building.
 - swiftlint, for example `brew install swiftlint`.
 - swift-format, bundled with the Swift toolchain.
-- Node.js 26 and npm 11 for the planned TypeScript Cloudflare relay and its validation harness.
+- XcodeGen 2.46.0 exactly, for example `brew install xcodegen`; `Scripts/generate-project.sh` refuses any other version.
+- Node.js 26 and npm 11 for the TypeScript Cloudflare relay and its validation harness.
+- Simulators: an iOS 26.1 runtime with the iPhone 17 Pro Max and iPad Air 11-inch (M2), and a watchOS runtime at or above 26.6 with the Apple Watch Series 11 (42mm). The iOS destinations name the runtime because `name=` alone resolves to the newest installed runtime, which cannot host these devices.
 
 ```sh
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max'  # run the tests
-swift-format format --in-place --recursive .                                             # format
-swift-format lint --strict --recursive .                                                 # check formatting
-swiftlint --strict                                                                       # lint
+Scripts/generate-project.sh                                                                # generate the ignored Xcode project
+xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1'  # run the tests
+swift-format format --in-place --recursive <maintained roots in Scripts/swift-roots.txt>   # format
+Scripts/lint-swift-format.sh                                                               # check formatting
+swiftlint --strict                                                                         # lint
+Scripts/check-imports.sh                                                                   # enforce the dependency rule
 ```
 
-The relay workspace will expose reproducible npm scripts for TypeScript checking, Workers Vitest tests, and a Wrangler deployment dry run when its files are added. Do not run a real deployment until the synthetic-data procedure confirms Workers Free, disabled observability, and owner-present approval.
+The relay exposes reproducible npm scripts for TypeScript checking, Workers Vitest tests, and a Wrangler deployment dry run that never contacts Cloudflare. Mac Release builds need an untracked `Config/Build/Local.xcconfig` copied from `Local.xcconfig.template`; Development builds and the gate do not. Do not run a real deployment until the synthetic-data procedure confirms Workers Free, disabled observability, and owner-present approval.
 
 ## Required validation
 
 Before opening a pull request, run the full checks from the repository root:
 
 ```sh
-swift-format lint --strict --recursive .
+Scripts/generate-project.sh
+Scripts/lint-swift-format.sh
 swiftlint --strict
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max'
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2)'
+Scripts/check-imports.sh
+xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1'
+xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
 xcodebuild test -scheme ResetRadarWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'
-npm --prefix relay test && npm --prefix relay run typecheck
+npm --prefix relay ci
+npm --prefix relay test && npm --prefix relay run typecheck && npm --prefix relay run deploy:dry-run
 ```
 
 The relay has no separate linter or formatter; adding one is a dependency decision that needs owner approval.
 
 ## Personal-device installation
 
-The first version uses a free Apple account and Sideloadly rather than App Store or TestFlight distribution. Physical validation uses the reference devices in [Platform targets](architecture.md#platform-targets). The signing constraints, required physical-device checks, and future repeatable installation workflow are tracked in [personal-use-sideloading.md](research/phase-1/personal-use-sideloading.md). The workflow cannot be completed until P1-M3 creates the Xcode targets and an IPA.
+The first version uses a free Apple account and Sideloadly rather than App Store or TestFlight distribution. Physical validation uses the reference devices in [Platform targets](architecture.md#platform-targets). The signing constraints, required physical-device checks, and future repeatable installation workflow are tracked in [personal-use-sideloading.md](research/phase-1/personal-use-sideloading.md). P1-M3 created the Xcode targets; the repeatable IPA workflow is still to be written.
 
 ## Commit messages
 

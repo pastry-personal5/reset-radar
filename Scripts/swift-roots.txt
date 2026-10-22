@@ -1,0 +1,13 @@
+ResetRadarKit/Package.swift
+ResetRadarKit/Sources
+ResetRadarKit/Tests
+ResetRadar
+ResetRadarWidgets
+ResetRadarWatch
+ResetRadarWatchWidgets
+ResetRadarMac
+ResetRadarStatusLine
+ResetRadarTests
+ResetRadarUITests
+ResetRadarMacTests
+ResetRadarWatchTests

@@ -1,0 +1,26 @@
+included:
+  - ResetRadarKit
+  - ResetRadar
+  - ResetRadarWidgets
+  - ResetRadarWatch
+  - ResetRadarWatchWidgets
+  - ResetRadarMac
+  - ResetRadarStatusLine
+  - ResetRadarTests
+  - ResetRadarUITests
+  - ResetRadarMacTests
+  - ResetRadarWatchTests
+excluded:
+  - relay
+  - spikes
+  - node_modules
+  - .build
+  - DerivedData
+  - "**/.build"
+  - "**/DerivedData"
+  - "**/Generated"
+line_length:
+  warning: 100
+  error: 120
+disabled_rules:
+  - trailing_comma

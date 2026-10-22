@@ -1,0 +1,5 @@
+{
+  "fixtureVersion": 1,
+  "description": "Synthetic scaffold fixture read by both the relay and Transport tests.",
+  "marker": "reset-radar-scaffold"
+}

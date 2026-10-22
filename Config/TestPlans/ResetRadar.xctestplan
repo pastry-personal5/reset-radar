@@ -1,0 +1,76 @@
+{
+  "configurations": [
+    {
+      "id": "A1A1A1A1-0000-4000-8000-000000000001",
+      "name": "Configuration 1",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {},
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:ResetRadarKit",
+        "identifier": "ResetRadarDomainTests",
+        "name": "ResetRadarDomainTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:ResetRadarKit",
+        "identifier": "ResetRadarApplicationTests",
+        "name": "ResetRadarApplicationTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:ResetRadarKit",
+        "identifier": "ResetRadarStorageTests",
+        "name": "ResetRadarStorageTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:ResetRadarKit",
+        "identifier": "ResetRadarTransportTests",
+        "name": "ResetRadarTransportTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:ResetRadarKit",
+        "identifier": "ResetRadarSchedulingTests",
+        "name": "ResetRadarSchedulingTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:ResetRadarKit",
+        "identifier": "ResetRadarWatchSyncTests",
+        "name": "ResetRadarWatchSyncTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:ResetRadarKit",
+        "identifier": "ResetRadarUIComponentTests",
+        "name": "ResetRadarUIComponentTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:ResetRadar.xcodeproj",
+        "identifier": "ResetRadarTests",
+        "name": "ResetRadarTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:ResetRadar.xcodeproj",
+        "identifier": "ResetRadarUITests",
+        "name": "ResetRadarUITests"
+      }
+    }
+  ],
+  "version": 1
+}

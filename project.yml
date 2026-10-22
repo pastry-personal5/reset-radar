@@ -1,0 +1,308 @@
+name: ResetRadar
+options:
+  bundleIdPrefix: com.unidentifiedstealthstartup
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  deploymentTarget:
+    iOS: "26.1"
+    watchOS: "26.6"
+    macOS: "26.7.1"
+configs:
+  Development: debug
+  Release: release
+configFiles:
+  Development: Config/Build/Development.xcconfig
+  Release: Config/Build/Release.xcconfig
+packages:
+  ResetRadarKit:
+    path: ResetRadarKit
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+schemes:
+  ResetRadar:
+    build:
+      targets:
+        ResetRadar: all
+        ResetRadarWidgets: all
+        ResetRadarWatch: all
+        ResetRadarWatchWidgets: all
+    run:
+      config: Development
+    test:
+      config: Development
+      testPlans:
+        - path: Config/TestPlans/ResetRadar.xctestplan
+          defaultPlan: true
+    profile:
+      config: Release
+    analyze:
+      config: Development
+    archive:
+      config: Release
+  ResetRadarMac:
+    build:
+      targets:
+        ResetRadarMac: all
+        ResetRadarStatusLine: all
+      postActions:
+        - name: Check Mac signing
+          script: '"${SRCROOT}/Scripts/check-mac-signing.sh"'
+          settingsTarget: ResetRadarMac
+    run:
+      config: Development
+    test:
+      config: Development
+      testPlans:
+        - path: Config/TestPlans/ResetRadarMac.xctestplan
+          defaultPlan: true
+    profile:
+      config: Release
+    analyze:
+      config: Development
+    archive:
+      config: Release
+  ResetRadarWatch:
+    build:
+      targets:
+        ResetRadarWatch: all
+        ResetRadarWatchWidgets: all
+    run:
+      config: Development
+    test:
+      config: Development
+      testPlans:
+        - path: Config/TestPlans/ResetRadarWatch.xctestplan
+          defaultPlan: true
+    profile:
+      config: Release
+    analyze:
+      config: Development
+    archive:
+      config: Release
+targetTemplates:
+  UnitTests:
+    type: bundle.unit-test
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+targets:
+  ResetRadar:
+    type: application
+    platform: iOS
+    sources: [ResetRadar]
+    info:
+      path: .generated/ResetRadar/Info.plist
+      properties:
+        CFBundleDisplayName: Reset Radar
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSSupportsLiveActivities: true
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.unidentifiedstealthstartup.ResetRadar.refresh
+        NSCameraUsageDescription: Reset Radar uses the camera to scan the pairing code.
+    entitlements:
+      path: Config/Entitlements/ResetRadar.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.unidentifiedstealthstartup.ResetRadar
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)group.com.unidentifiedstealthstartup.ResetRadar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.unidentifiedstealthstartup.ResetRadar
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+    dependencies:
+      - target: ResetRadarWidgets
+      - target: ResetRadarWatch
+      - package: ResetRadarKit
+        product: ResetRadarDomain
+      - package: ResetRadarKit
+        product: ResetRadarApplication
+      - package: ResetRadarKit
+        product: ResetRadarStorage
+      - package: ResetRadarKit
+        product: ResetRadarTransport
+      - package: ResetRadarKit
+        product: ResetRadarScheduling
+      - package: ResetRadarKit
+        product: ResetRadarWatchSync
+      - package: ResetRadarKit
+        product: ResetRadarUI
+  ResetRadarWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [ResetRadarWidgets]
+    info:
+      path: .generated/ResetRadarWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Reset Radar Widgets
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Config/Entitlements/ResetRadarWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.unidentifiedstealthstartup.ResetRadar
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)group.com.unidentifiedstealthstartup.ResetRadar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.unidentifiedstealthstartup.ResetRadar.Widgets
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - package: ResetRadarKit
+        product: ResetRadarDomain
+      - package: ResetRadarKit
+        product: ResetRadarApplication
+      - package: ResetRadarKit
+        product: ResetRadarStorage
+      - package: ResetRadarKit
+        product: ResetRadarTransport
+      - package: ResetRadarKit
+        product: ResetRadarScheduling
+      - package: ResetRadarKit
+        product: ResetRadarUI
+  ResetRadarWatch:
+    type: application
+    platform: watchOS
+    sources: [ResetRadarWatch]
+    info:
+      path: .generated/ResetRadarWatch/Info.plist
+      properties:
+        CFBundleDisplayName: Reset Radar
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.unidentifiedstealthstartup.ResetRadar
+    entitlements:
+      path: Config/Entitlements/ResetRadarWatch.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.unidentifiedstealthstartup.ResetRadar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.unidentifiedstealthstartup.ResetRadar.watchkitapp
+    dependencies:
+      - target: ResetRadarWatchWidgets
+      - package: ResetRadarKit
+        product: ResetRadarDomain
+      - package: ResetRadarKit
+        product: ResetRadarApplication
+      - package: ResetRadarKit
+        product: ResetRadarStorage
+      - package: ResetRadarKit
+        product: ResetRadarWatchSync
+      - package: ResetRadarKit
+        product: ResetRadarUI
+  ResetRadarWatchWidgets:
+    type: app-extension
+    platform: watchOS
+    sources: [ResetRadarWatchWidgets]
+    info:
+      path: .generated/ResetRadarWatchWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Reset Radar Complication
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Config/Entitlements/ResetRadarWatchWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.unidentifiedstealthstartup.ResetRadar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.unidentifiedstealthstartup.ResetRadar.watchkitapp.Widgets
+    dependencies:
+      - package: ResetRadarKit
+        product: ResetRadarDomain
+      - package: ResetRadarKit
+        product: ResetRadarApplication
+      - package: ResetRadarKit
+        product: ResetRadarStorage
+      - package: ResetRadarKit
+        product: ResetRadarUI
+  ResetRadarMac:
+    type: application
+    platform: macOS
+    sources: [ResetRadarMac]
+    info:
+      path: .generated/ResetRadarMac/Info.plist
+      properties:
+        CFBundleDisplayName: Reset Radar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.unidentifiedstealthstartup.ResetRadarMac
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: NO
+    dependencies:
+      - target: ResetRadarStatusLine
+        embed: true
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
+      - package: ResetRadarKit
+        product: ResetRadarDomain
+      - package: ResetRadarKit
+        product: ResetRadarApplication
+      - package: ResetRadarKit
+        product: ResetRadarStorage
+      - package: ResetRadarKit
+        product: ResetRadarTransport
+      - package: ResetRadarKit
+        product: ResetRadarScheduling
+      - package: ResetRadarKit
+        product: ResetRadarProviderAdapters
+      - package: ResetRadarKit
+        product: ResetRadarUI
+  ResetRadarStatusLine:
+    type: tool
+    platform: macOS
+    sources: [ResetRadarStatusLine]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.unidentifiedstealthstartup.ResetRadarMac.StatusLine
+        ENABLE_HARDENED_RUNTIME: YES
+    dependencies:
+      - package: ResetRadarKit
+        product: ResetRadarDomain
+      - package: ResetRadarKit
+        product: ResetRadarProviderAdapters
+  ResetRadarTests:
+    templates: [UnitTests]
+    platform: iOS
+    sources: [ResetRadarTests]
+    dependencies:
+      - target: ResetRadar
+  ResetRadarUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [ResetRadarUITests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: ResetRadar
+  ResetRadarMacTests:
+    templates: [UnitTests]
+    platform: macOS
+    sources: [ResetRadarMacTests]
+    dependencies:
+      - target: ResetRadarMac
+  ResetRadarWatchTests:
+    templates: [UnitTests]
+    platform: watchOS
+    sources: [ResetRadarWatchTests]
+    dependencies:
+      - target: ResetRadarWatch

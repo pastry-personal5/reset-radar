@@ -1,0 +1,4 @@
+#include "Shared.xcconfig"
+// Machine-local team and identity values live in the untracked Local.xcconfig.
+#include? "Local.xcconfig"
+SWIFT_OPTIMIZATION_LEVEL = -O

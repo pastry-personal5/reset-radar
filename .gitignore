@@ -7,3 +7,7 @@ xcuserdata/
 *.xcuserstate
 node_modules/
 .wrangler/
+ResetRadar.xcodeproj/
+Config/Build/Local.xcconfig
+relay/worker-configuration.d.ts
+.generated/

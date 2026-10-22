@@ -6,7 +6,7 @@ Reset Radar monitors Codex and Claude Code allowance usage across your Mac, iPho
 
 The Collector Mac reads coding-allowance data from Codex and Claude Code without copying provider credentials. Reset Radar shares encrypted, timestamped readings with the owner's iPhone, iPad, and Apple Watch, where it shows Percentage Used, Reset Times, and data state in apps, widgets, Reset Live Activities, and an Allowance Complication.
 
-The project is in its Foundation phase: the product and architecture are defined, but the production apps have not been scaffolded. It is designed for personal sideloading with a free Apple account, not App Store or TestFlight distribution.
+The project is in its Foundation phase: the product and architecture are defined, and the Xcode project, `ResetRadarKit` package, and relay are scaffolded as empty-but-real targets with no product behavior yet. It is designed for personal sideloading with a free Apple account, not App Store or TestFlight distribution.
 
 ## Documentation
 
