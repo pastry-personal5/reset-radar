@@ -81,6 +81,8 @@ All persisted and transported records are `Codable`, `Sendable`, and explicitly 
 
 Validation is per window. An invalid percentage, timestamp, or duration rejects that window's observation and produces a redacted `DiagnosticEvent`, while valid windows in the same snapshot are kept. An unknown mandatory schema version rejects the whole record.
 
+Wire details: dates are ISO-8601 UTC strings with millisecond precision, produced by one `WireCoding` encoder/decoder pair with sorted keys. Fixed-length identifiers are lowercase hexadecimal strings. Observation precision is `fractionDigits` of 0 or 1. Provider limit state is `reached`, `ordinaryUsageAllowed`, or `unknown`. `DiagnosticEvent` categories are a closed enum that decodes an unrecognized value to `unknown`. A snapshot with a `heartbeatSeconds` outside `1...3600` is rejected whole, and an unknown `TransportStatus` in a `WatchPayload` decodes to `incompatible`. A window that fails validation is dropped whole, with its diagnostic.
+
 ## Identity
 
 | Type | Rule |
@@ -151,7 +153,7 @@ Availability has independent inputs, so the passage of time never depends on a d
 **Presentation state** is derived for each window from the snapshot, the product's current-data window, and a `now` argument. It is never serialized. The first matching rule wins:
 
 1. `unavailable`: the window has no observation, or it is `retained` and has no reset instant or its last known reset has passed. The old observation remains in diagnostics but is not presented as a ring value.
-2. `resetAwaitingRefresh`: `resetsAt` is at or before `now`. No percentage is presented and none is fabricated; the observation remains available for diagnostics.
+2. `resetAwaitingRefresh`: a `reported` window whose `resetsAt` is at or before `now`. No percentage is presented and none is fabricated; the observation remains available for diagnostics.
 3. `stale`: any of these holds:
    - the product's source state is not `reporting`;
    - the window is `retained`;

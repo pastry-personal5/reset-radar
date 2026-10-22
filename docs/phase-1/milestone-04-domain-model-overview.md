@@ -1,6 +1,6 @@
 # P1-M4: Domain model overview
 
-Status: Planned
+Status: Done
 
 Implement `ResetRadarDomain` as specified in [Domain](../architecture/domain.md): identities, records, wire conventions, per-window validation, Home slot resolution, and the availability policies, all pure and covered by Swift Testing. No other module changes; nothing here touches storage, networking, providers, or UI.
 
@@ -10,9 +10,9 @@ Implement `ResetRadarDomain` as specified in [Domain](../architecture/domain.md)
 
 ## Entry criteria
 
-- [ ] P1-M3 is `Done` and merged to `main`; P1-M4 work starts on a fresh branch from `main`, not on `feat/p1-m3-scaffolding`. Evidence: branch base.
+- [x] P1-M3 is `Done` and merged to `main`; P1-M4 work starts on a fresh branch from `main`, not on `feat/p1-m3-scaffolding`. Evidence: branch `feat/p1-m4-domain-model` based on `main` after a local fast-forward (2026-10-23 changelog).
 - [x] The owner has answered the [open questions](#open-questions), or accepted each recommendation. Evidence: 2026-10-22 changelog entry.
-- [ ] A clean-checkout gate passes before any change (baseline). Evidence: command results.
+- [x] A clean-checkout gate passes before any change (baseline). Evidence: all seven gate commands passed on 2026-10-23 before the first source change.
 
 ## In scope
 
@@ -43,16 +43,16 @@ Domain.md left these wire-level details open. The owner accepted every recommend
 
 ## Completion checklist
 
-- [ ] Entry criteria hold. Evidence: changelog entry and baseline gate output.
-- [ ] Every type and policy named in domain.md exists in `ResetRadarDomain`; `Package.swift` still declares Foundation-only dependencies for the target. Evidence: type inventory against the doc and `swift package describe`.
-- [ ] `ResetRadarDomain` imports only Foundation, and `Scripts/check-imports.sh` passes. Evidence: command output.
-- [ ] Percentages `0`, fractional, `100`, NaN, ±infinity, negative, and above 100 are accepted or rejected per window, valid siblings kept, with a redacted diagnostic. Evidence: named tests.
-- [ ] Unknown optional enum values decode to `unknown`; an unknown mandatory schema version rejects the record. Evidence: named tests.
-- [ ] Home slot resolution covers match, no match, and two default windows with equal duration (unavailable plus diagnostic). Evidence: named tests.
-- [ ] Presentation precedence is tested at every threshold boundary, including a retained window past its reset, `resetsAt == now`, `observedAt == now + 5 minutes`, and the returned next-change instant. Evidence: named tests.
-- [ ] Manual-refresh validation covers the four-per-reader and twelve-total caps, the two-minute expiry, and wrong-reader matching. Evidence: named tests.
-- [ ] Mac liveness uses three heartbeats and never makes an old observation current. Evidence: named tests.
-- [ ] `DiagnosticEvent` has no initializer accepting a free-form string. Evidence: public-interface inspection.
-- [ ] Round-trip and golden-JSON tests exist for every `Codable` record. Evidence: test list.
-- [ ] Complete gate passes from a clean checkout. Evidence: every command and result in the contribution guide.
-- [ ] Docs updated: phase-1.md status, changelog, README index, and domain.md if an answer changed it. Evidence: diff.
+- [x] Entry criteria hold. Evidence: 2026-10-22 and 2026-10-23 changelog entries; baseline gate passed.
+- [x] Every type and policy named in domain.md exists in `ResetRadarDomain`; `Package.swift` still declares Foundation-only dependencies for the target. Evidence: the 18 source files in `ResetRadarKit/Sources/ResetRadarDomain` cover every domain.md type and policy; `Package.swift` is unchanged (`ResetRadarDomain` has no dependencies).
+- [x] `ResetRadarDomain` imports only Foundation, and `Scripts/check-imports.sh` passes. Evidence: `Scripts/check-imports.sh` passed; every domain source file imports only Foundation.
+- [x] Percentages `0`, fractional, `100`, NaN, ±infinity, negative, and above 100 are accepted or rejected per window, valid siblings kept, with a redacted diagnostic. Evidence: `WindowValidationTests` (65 tests pass).
+- [x] Unknown optional enum values decode to `unknown`; an unknown mandatory schema version rejects the record. Evidence: `IdentityTests`, `UsageSnapshotTests`, `TransportRecordsTests` (65 tests pass).
+- [x] Home slot resolution covers match, no match, and two default windows with equal duration (unavailable plus diagnostic). Evidence: `HomeSlotResolutionTests` (65 tests pass).
+- [x] Presentation precedence is tested at every threshold boundary, including a retained window past its reset, `resetsAt == now`, `observedAt == now + 5 minutes`, and the returned next-change instant. Evidence: `PresentationTests` (65 tests pass).
+- [x] Manual-refresh validation covers the four-per-reader and twelve-total caps, the two-minute expiry, and wrong-reader matching. Evidence: `ManualRefreshResultTests` (65 tests pass).
+- [x] Mac liveness uses three heartbeats and never makes an old observation current. Evidence: `MacLivenessTests` (65 tests pass).
+- [x] `DiagnosticEvent` has no initializer accepting a free-form string. Evidence: no `String` initializer or factory parameter in `DiagnosticEvent.swift`; encoded-values test in `DiagnosticEventTests`.
+- [x] Round-trip and golden-JSON tests exist for every `Codable` record. Evidence: `UsageSnapshotTests`, `TransportRecordsTests`, `DiagnosticEventTests`, `ManualRefreshResultTests`, `WindowValidationTests`, `IdentityTests`.
+- [x] Complete gate passes from a clean checkout. Evidence: all seven gate commands passed on 2026-10-23 after the final change (65 domain tests).
+- [x] Docs updated: phase-1.md status, changelog, README index, and domain.md if an answer changed it. Evidence: phase-1.md, changelog, this file, and domain.md (README index already lists the milestone files).

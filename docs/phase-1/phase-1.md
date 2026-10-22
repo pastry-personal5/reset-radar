@@ -85,7 +85,7 @@ Plan: [overview](milestone-03-scaffolding-overview.md), [sequencing](milestone-0
 The remaining milestones are planned only; each gets an overview file when it starts. The Mac is built before iOS. The iOS, iPad, and Watch `xcodebuild test` runs are suspended in the gate until P1-M14 re-enables the iOS and iPad runs and P1-M16 the Watch run.
 
 ### P1-M4: Domain model
-Status: Planned
+Status: Done
 Goal: Allowance windows, used-percent values, reset rules, freshness and availability state, with pure tests.
 Plan: [overview](milestone-04-domain-model-overview.md), [sequencing](milestone-04-domain-model-sequence.md), [Domain](../architecture/domain.md)
 
