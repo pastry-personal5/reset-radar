@@ -12,7 +12,7 @@ A fresh checkout builds every target in [Composition roots and test targets](../
 
 Do not start implementation until all of these hold.
 
-On 2026-10-22 the owner started this milestone without waiting for P1-M2 (see [changelog.md](changelog.md)). P1-M2 stays `Active`, and its open spikes are neither carried into nor blocking this milestone.
+On 2026-10-22 the owner started this milestone without waiting for P1-M2 (see [changelog.md](changelog.md)). P1-M2 stayed `Active` then; its open spikes were neither carried into nor blocking this milestone and are now archived in [P1-M2 open work](../archive/p1-m2-open-work.md).
 
 - [x] Owner override: P1-M2 does not gate P1-M3. Evidence: 2026-10-22 owner entry in the changelog. No physical-device checks are carried forward.
 - [x] The owner has answered the questions in [Owner decisions](#owner-decisions). Evidence: 2026-10-22 owner entry in [changelog.md](changelog.md).

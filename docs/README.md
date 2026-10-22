@@ -29,7 +29,8 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [roadmap.md](roadmap.md) | All phases with status; the sole authority for the active phase. |
 | [phase-1/phase-1.md](phase-1/phase-1.md) | Phase 1 goal, exit criteria, and milestones. |
 | [phase-1/milestone-01-research-overview.md](phase-1/milestone-01-research-overview.md) | P1-M1 scope and completion checklist. |
-| [phase-1/milestone-02-software-architecture-overview.md](phase-1/milestone-02-software-architecture-overview.md) | P1-M2 scope, deliverables, validation work, and completion checklist. |
+| [phase-1/milestone-02-software-architecture-overview.md](phase-1/milestone-02-software-architecture-overview.md) | P1-M2 scope, deliverables, and completion checklist. Done. |
+| [archive/p1-m2-open-work.md](archive/p1-m2-open-work.md) | Archived: P1-M2's unfinished validation work, assigned to the owning modules. Not maintained. |
 | [phase-1/milestone-03-scaffolding-overview.md](phase-1/milestone-03-scaffolding-overview.md) | P1-M3 scope, entry criteria, open questions, and completion checklist. |
 | [phase-1/milestone-03-scaffolding-sequence.md](phase-1/milestone-03-scaffolding-sequence.md) | P1-M3 toolchain prerequisites, identifiers, work sequence, and risks. |
 | [phase-1/owner-decisions.md](phase-1/owner-decisions.md) | Owner-approved P1-M1 product, security, scheduling, synchronization, and distribution decisions that constrain P1-M2. |

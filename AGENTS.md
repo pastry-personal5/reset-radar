@@ -51,6 +51,7 @@ No P1-M1 or P1-M2 owner question remains open. The conditional evidence gates in
 - Update affected docs with code. Update `README.md` for user-visible changes and this file for tooling, commands, or decisions.
 - Link instead of copying facts.
 - Archive completed or superseded docs according to the [development process](docs/development-process.md). Archived docs are not maintained.
+- Refer to archived docs as archived work or records, never as plans. Archived open work (see [P1-M2 open work](docs/archive/p1-m2-open-work.md)) is implemented and verified by the module that owns the related feature; do not track it as a milestone.
 
 ## Token efficiency
 

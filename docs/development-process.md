@@ -76,5 +76,6 @@ Status: Active
 ## Document lifecycle
 
 - Other docs use `Draft`, `Proposal`, `Active`, `Superseded by <link>`, or `Archived`. Proposals are not decisions.
-- Archive completed phase plans, superseded designs, and concluded research; fix their links in `docs/roadmap.md`.
+- Archive completed phase plans, superseded designs, and concluded research; fix their links in `docs/roadmap.md`. Once archived, call the material archived work or a record, not a plan.
+- When a milestone closes with unfinished validation work, extract it to an archived `docs/archive/` file that names the owning module for each item. That module implements and verifies it with its related feature; it is not a milestone item.
 - Record resolved open questions under "Decided" in `AGENTS.md`.

@@ -18,9 +18,10 @@ Goal: Produce sourced feasibility studies on allowance-usage tracking, reset tim
 Plan: [overview](milestone-01-research-overview.md)
 
 ### P1-M2: Software architecture
-Status: Active
+Status: Done
 Goal: Choose and document the Apple-platform structure, window/observation model, Mac provider adapters, iPhone-to-watch data flow, authenticated synchronization, reset scheduling, and notification approach based on the P1-M1 findings.
 Plan: [overview](milestone-02-software-architecture-overview.md), [architecture](../architecture.md)
+Notes: Open validation work is archived in [P1-M2 open work](../archive/p1-m2-open-work.md) and carried by the owning modules.
 
 ### P1-M3: Scaffolding
 Status: Done
