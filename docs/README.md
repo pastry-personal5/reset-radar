@@ -33,6 +33,8 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [archive/p1-m2-open-work.md](archive/p1-m2-open-work.md) | Archived: P1-M2's unfinished validation work, assigned to the owning modules. Not maintained. |
 | [phase-1/milestone-03-scaffolding-overview.md](phase-1/milestone-03-scaffolding-overview.md) | P1-M3 scope, entry criteria, open questions, and completion checklist. |
 | [phase-1/milestone-03-scaffolding-sequence.md](phase-1/milestone-03-scaffolding-sequence.md) | P1-M3 toolchain prerequisites, identifiers, work sequence, and risks. |
+| [phase-1/milestone-04-domain-model-overview.md](phase-1/milestone-04-domain-model-overview.md) | P1-M4 scope, entry criteria, open questions, and completion checklist. |
+| [phase-1/milestone-04-domain-model-sequence.md](phase-1/milestone-04-domain-model-sequence.md) | P1-M4 task order, interfaces, tests, and review focus. |
 | [phase-1/owner-decisions.md](phase-1/owner-decisions.md) | Owner-approved P1-M1 product, security, scheduling, synchronization, and distribution decisions that constrain P1-M2. |
 | [research/phase-1/initial-research-on-feasibility.md](research/phase-1/initial-research-on-feasibility.md) | P1-M1 feasibility study: service limits, reset-time sources, iOS capabilities, prior art, and owner-approved scope. Active. |
 | [research/phase-1/github-prior-art.md](research/phase-1/github-prior-art.md) | P1-M1 GitHub survey: open-source reset trackers, data sources, credentials, licenses, maintenance signals, and issue patterns. Active. |

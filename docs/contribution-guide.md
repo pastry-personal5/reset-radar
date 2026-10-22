@@ -15,7 +15,7 @@ How to set up `reset-radar`, validate a change, write commit messages, and open 
 
 ```sh
 Scripts/generate-project.sh                                                                # generate the ignored Xcode project
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1'  # run the tests
+xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'                       # run the tests
 swift-format format --in-place --recursive <maintained roots in Scripts/swift-roots.txt>   # format
 Scripts/lint-swift-format.sh                                                               # check formatting
 swiftlint --strict                                                                         # lint
@@ -33,10 +33,8 @@ Scripts/generate-project.sh
 Scripts/lint-swift-format.sh
 swiftlint --strict
 Scripts/check-imports.sh
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1'
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
-xcodebuild test -scheme ResetRadarWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'
+# iOS, iPad, and Watch test runs are suspended until P1-M14 and P1-M16; see docs/phase-1/changelog.md
 npm --prefix relay ci
 npm --prefix relay test && npm --prefix relay run typecheck && npm --prefix relay run deploy:dry-run
 ```
