@@ -55,6 +55,8 @@ The binding contract is in the [Mac app](../../architecture/mac-app.md#signing-a
 
 Run with a throwaway harness app on the owner's Mac, using synthetic secrets only. Record each result in [spike results](spike-results.md).
 
+The owner-run [Mac Keychain validation spike runbook](mac-keychain-validation-spike-runbook.md) provides the isolated harness source, exact commands, observation rules, and cleanup sequence. It is an execution aid; this section remains the binding question and pass criterion.
+
 1. **Identity.** Create the Personal Team Apple Development identity in Xcode. Record its type and team identifier, but not the certificate's personal name.
 2. **Stable rebuild.** Sign the harness with that identity, create an item, change the code, rebuild, and read the item again. Record `codesign -d -r-` output with the personal name redacted, and whether any dialog appeared.
 3. **Ad-hoc failure.** Build the harness ad-hoc and read the same item with each candidate non-interactive mechanism:
