@@ -12,11 +12,12 @@ A fresh checkout builds every target in [Composition roots and test targets](../
 
 Do not start implementation until all of these hold.
 
-P1-M2 is currently `Active`, so the first criterion is intentionally unmet. Plan review may finish now; scaffold implementation may not start merely because this document exists.
+P1-M2 is currently `Active`, so the first criterion is intentionally unmet. The owner chose on 2026-10-22 to wait for every P1-M2 item rather than carry any forward; the Keychain eight-day read cannot occur before 2026-10-30. Plan review may finish now; scaffold implementation may not start merely because this document exists.
 
-- [ ] P1-M2 is `Done`. Its open items (Keychain spike, platform spikes, runtime security review, gate record) are resolved or explicitly carried into this milestone in [changelog.md](changelog.md). A failed Mac Keychain spike returns the storage design to the owner before scaffolding.
+- [ ] P1-M2 is `Done`, with every open item (Keychain spike, platform spikes, runtime security review, gate record) resolved. A failed Mac Keychain spike returns the storage design to the owner before scaffolding.
 - [x] The owner has answered the questions in [Owner decisions](#owner-decisions). Evidence: 2026-10-22 owner entry in [changelog.md](changelog.md).
-- [ ] The toolchain prerequisites in [the architecture plan](milestone-03-scaffolding-architecture.md#toolchain-prerequisites) are met, including simulator runtimes that can create the exact gate destinations.
+- [ ] The owner has approved the exact relay development dependency versions and the bundle identifier list in [the sequence plan](milestone-03-scaffolding-sequence.md). Evidence: changelog entry.
+- [ ] The toolchain prerequisites in [the architecture plan](milestone-03-scaffolding-sequence.md#toolchain-prerequisites) are met, including simulator runtimes that can create the exact gate destinations.
 - [x] [Repository layout](../architecture/repository-layout.md) is accepted and `Active`. Evidence: 2026-10-22 owner entry in [changelog.md](changelog.md).
 
 ## In scope
@@ -25,7 +26,7 @@ P1-M2 is currently `Active`, so the first criterion is intentionally unmet. Plan
 - The `ResetRadarKit` package with nine library modules, one individually consumable library product per module, and eight test targets. The `ResetRadarTestSupport` product is available only to test dependency graphs and intentionally has no test target of its own.
 - The `relay/` package: strict TypeScript, Workers Vitest, Wrangler pinned, committed lockfile, `test` and `typecheck` scripts.
 - `.swift-format`, `.swiftlint.yml`, and ignore rules.
-- Entitlements, bundle identifiers, App Group, and signing settings; the Mac signing build check.
+- Entitlements, bundle identifiers, App Group, and signing settings; the Release-only Mac signing check.
 - Three generator-owned shared scheme definitions and checked-in test plans, shared synthetic fixtures, empty asset catalogs with UX-vocabulary slots, and no temporary artwork that could be mistaken for an approved icon.
 - Any physical-device signing, App Group, WidgetKit, Keychain re-sign, or seven-day Sideloadly evidence explicitly carried forward from P1-M2.
 - Updates to `README.md`, the contribution guide, and the [documentation index](../README.md).
@@ -43,18 +44,24 @@ Owner input is required; do not invent answers (see [AGENTS.md](../../AGENTS.md)
 
 - **Decided — XcodeGen.** The owner chose XcodeGen. Its checked-in specification is authoritative, and `ResetRadar.xcodeproj` is generated and ignored rather than maintained as a second source of truth.
 - **Decided — identifiers.** Use bundle prefix `com.unidentifiedstealthstartup`, main-app identifier `com.unidentifiedstealthstartup.ResetRadar`, and App Group `group.com.unidentifiedstealthstartup.ResetRadar`. Target suffixes must be deterministic and listed before any App ID is registered.
-- **Decided — simulator destinations.** Preserve iPhone 17 Pro Max and iPad Air 11-inch (M2), and install a compatible iOS 26.x runtime rather than changing the approved reference models.
+- **Decided — simulator destinations.** Preserve iPhone 17 Pro Max and iPad Air 11-inch (M2). The owner lowered the iOS and iPadOS floor to 26.1 so the installed 26.1 runtime hosts both; no other model changes.
+- **Decided — test frameworks.** Swift Testing for package test targets; XCTest for the app-level and UI bundles.
+- **Decided — XcodeGen pin.** `Scripts/generate-project.sh` requires XcodeGen 2.46.0 exactly.
+- **Decided — Mac signing scope.** Only Release builds are signed with the identity and checked; Development builds are unsigned.
 - **Decided — repository layout.** The owner accepted the XcodeGen-based [repository layout](../architecture/repository-layout.md), which is now `Active`.
 
 ## Completion checklist
 
 - [ ] Entry criteria all hold. Evidence: links to the changelog entries and command output.
 - [x] Owner decisions are complete and recorded in [changelog.md](changelog.md) and [AGENTS.md](../../AGENTS.md). Evidence: 2026-10-22 owner entry and the binding scaffolding decision.
-- [ ] Patch-level deployment targets (iOS/iPadOS 26.6.2, watchOS 26.6, macOS 26.7.1) are accepted by Xcode and SwiftPM, or the documented minor-version fallback is applied and recorded. Evidence: build settings and command output.
+- [ ] Deployment targets (iOS/iPadOS 26.1, watchOS 26.6, macOS 26.7.1) are accepted by Xcode and SwiftPM, or the documented minor-version fallback is applied and recorded. Evidence: build settings and command output.
 - [ ] Every target builds with Swift 6 language mode and strict concurrency. Evidence: build log summary.
 - [ ] The generated target inventory is exact: six production Xcode targets, four Xcode test targets, nine Swift package library targets/products, eight Swift package test targets, and three shared schemes/test plans. Evidence: XcodeGen specification, `xcodebuild -list`, Swift package description, and test-plan listing.
 - [ ] A deliberately violating import (an adapter importing another adapter, and a Domain import of Application) fails the build; the probe is removed afterward. Evidence: failing command output.
-- [ ] The Mac signing build check passes with the Personal Team identity and fails an ad-hoc build. Evidence: both build outcomes.
+- [ ] The Release Mac signing check passes with the Personal Team identity and fails an ad-hoc Release build; its placement relative to code signing is recorded. Development builds and the gate run without a local signing file. Evidence: build outcomes.
+- [ ] The import-boundary check rejects a transitive import from an Xcode target and the iOS widget extension's import of Scheduling beyond notifications and activity attributes. Evidence: failing probes, removed afterward.
+- [ ] Each simulator destination name resolves to one device on the intended runtime. Evidence: `xcrun simctl list devices` excerpt.
+- [ ] `Scripts/generate-project.sh` rejects any XcodeGen version other than 2.46.0. Evidence: failing and passing output.
 - [ ] Entitlements match each composition root's configuration table; no Push Notifications, iCloud, CloudKit, analytics, provider-credential, or profile-requiring Mac entitlement. Evidence: entitlements inspection.
 - [ ] App ID count is within the free account's 10-per-7-days budget and bundle identifiers are stable. Evidence: the identifier list and count.
 - [ ] One shared test plan per scheme runs the package test targets for its platform plus its app-level bundle; the `ResetRadar` plan also runs `ResetRadarUITests` on both iPhone and iPad. Evidence: test-plan listing and test run.

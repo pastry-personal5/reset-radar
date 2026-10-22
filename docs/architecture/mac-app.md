@@ -81,11 +81,11 @@ The Mac app must never show a Keychain prompt.
 
 **Contract.**
 
-1. **One identity.** Every build configuration of `ResetRadarMac` and `ResetRadarStatusLine` is signed with the owner's Personal Team Apple Development identity. Its designated requirement names the bundle identifier and the certificate, so rebuilds and manual updates keep Keychain access.
-2. **Build check.** A build phase inspects the signed app and fails the build when it has no team identifier, which rejects ad-hoc signing before the binary can touch the Keychain.
+1. **One identity.** Every Release build of `ResetRadarMac` and `ResetRadarStatusLine` is signed with the owner's Personal Team Apple Development identity. Its designated requirement names the bundle identifier and the certificate, so rebuilds and manual updates keep Keychain access.
+2. **Build check.** In the Release configuration, a check inspects the signed app and fails the build when it has no team identifier, which rejects ad-hoc signing before the binary can touch the Keychain. Development builds are not signed with the identity and skip the check. Where the check runs relative to code signing is confirmed during P1-M3; a script phase can run before signing, so the check may need to be a scheme post-action or a separate verification step.
 3. **No provisioning profile.** The app uses no entitlement that requires one, so nothing expires weekly. Secrets therefore live in the file-based login keychain (see [Transport](transport.md#secret-store)).
 4. **Non-interactive access.** Every Keychain call runs with user interaction disabled. Secrets are read once per launch and kept in memory.
-5. **Separation from development.** Debug builds use a separate Keychain service and data directory, and tests use the in-memory `SecretStore`, so neither development nor the gate touches the installed app's items.
+5. **Separation from development.** Development builds use a separate Keychain service and data directory, and tests use the in-memory `SecretStore`, so neither development nor the gate touches the installed app's items.
 
 **Failure handling.** At launch, `SigningCheck` compares the running signature's team identifier with the one recorded at relay setup.
 
@@ -154,7 +154,7 @@ Recovery documentation covers a missing app, a lost Mac, a rejected login item, 
 | App Sandbox | Off |
 | Hardened Runtime | On |
 | Entitlements | None that require a provisioning profile |
-| Signing | Personal Team Apple Development identity for every configuration, enforced by the build check |
+| Signing | Personal Team Apple Development identity for every Release build, enforced by the build check; Development builds are unsigned |
 | Helper | `ResetRadarStatusLine`, a command-line target embedded in the app bundle's helpers directory |
 
 ## Tests

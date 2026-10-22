@@ -74,13 +74,13 @@ The owner made these decisions on 2026-10-19 while reviewing the [software archi
 - **Widgets.** Widgets may refresh the shared cache from the relay during a system reload, at most when the last successful refresh is over five minutes old.
 - **Foreground refresh.** While the iOS app is in the foreground, it fetches from the relay every 60 seconds.
 - **Manual Mac-assisted refresh.** On iPhone and iPad, a user-started Codex or all-product Refresh asks an awake Mac through the authenticated relay to read Codex immediately. It waits briefly for an encrypted result tied to that request, then falls back to the latest valid cache if the Mac is asleep, offline, or the request expires. A Claude Code-only Refresh reads the relay without posting a request; no request forces a Claude Code response. This path requires its own synthetic security, quota, and latency spike before real data uses it.
-- **Mac secrets.** The Mac stores relay secrets in the login keychain. Every build is signed with one Personal Team Apple Development identity, ad-hoc builds are rejected, and Keychain calls are non-interactive. See [Mac Keychain access](../research/phase-1/mac-keychain-access.md).
+- **Mac secrets.** The Mac stores relay secrets in the login keychain. Every Release build is signed with one Personal Team Apple Development identity, ad-hoc Release builds are rejected, and Keychain calls are non-interactive. See [Mac Keychain access](../research/phase-1/mac-keychain-access.md).
 - **Platform targets.**
 
   | Device | Model | Minimum OS |
   |---|---|---|
-  | iPhone | iPhone 17 Pro Max | iOS 26.6.2 |
-  | iPad | iPad Air 11-inch (M2) | iPadOS 26.6.2 |
+  | iPhone | iPhone 17 Pro Max | iOS 26.1 |
+  | iPad | iPad Air 11-inch (M2) | iPadOS 26.1 |
   | Apple Watch | Apple Watch Series 11 (42mm) | watchOS 26.6 |
   | Mac | MacBook Pro, Apple M5 Max, 128 GB | macOS 26.7.1 |
 

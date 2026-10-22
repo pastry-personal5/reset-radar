@@ -146,12 +146,12 @@ Watch targets and the status-line helper never import Transport, so they cannot 
 
 | Platform | Minimum OS and deployment target | Reference device | Simulator destination |
 |---|---|---|---|
-| iPhone | iOS 26.6.2 | iPhone 17 Pro Max | `platform=iOS Simulator,name=iPhone 17 Pro Max` |
-| iPad | iPadOS 26.6.2 (same universal target) | iPad Air 11-inch (M2) | `platform=iOS Simulator,name=iPad Air 11-inch (M2)` |
+| iPhone | iOS 26.1 | iPhone 17 Pro Max | `platform=iOS Simulator,name=iPhone 17 Pro Max` |
+| iPad | iPadOS 26.1 (same universal target) | iPad Air 11-inch (M2) | `platform=iOS Simulator,name=iPad Air 11-inch (M2)` |
 | Apple Watch | watchOS 26.6 | Apple Watch Series 11 (42mm) | `platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)` |
 | Mac | macOS 26.7.1 | MacBook Pro, Apple M5 Max, 128 GB | `platform=macOS` |
 
-Building requires an Xcode whose SDKs are at least iOS 26.6, watchOS 26.6, and macOS 26.7, plus iOS and watchOS simulator runtimes at or above the minimums. Scaffolding confirms that Xcode and the Swift package accept the patch-level deployment targets. If either does not, the build setting uses the minor version (26.6 or 26.7), and the patch minimum remains the supported floor, validated on the reference devices.
+Building requires an Xcode whose SDKs are at least iOS 26.1, watchOS 26.6, and macOS 26.7, plus iOS and watchOS simulator runtimes at or above the minimums. Scaffolding confirms that Xcode and the Swift package accept the patch-level deployment targets. If either does not, the build setting uses the minor version (26.6 or 26.7), and the patch minimum remains the supported floor, validated on the reference devices. The iOS and iPadOS floor is the minor version 26.1, the oldest installable simulator runtime that creates both reference devices; it is proven only in the simulator, because the physical reference devices run a newer release.
 
 ## Interface structure
 

@@ -100,7 +100,7 @@ All readers share one content key. Revoking a reader therefore removes its relay
 **macOS: file-based login keychain.**
 - On macOS, the iOS-style data-protection keychain requires the `keychain-access-groups` entitlement. That entitlement must be authorized by a provisioning profile, and the Mac app deliberately has none.
 - Items therefore live in the login keychain. Their access list trusts the creating app, identified by its code-signing designated requirement and team.
-- The Mac app is always signed with one Apple Development identity, so rebuilds and updates still satisfy that requirement, and access needs no interaction.
+- Release builds of the Mac app are always signed with one Apple Development identity, so rebuilds and updates still satisfy that requirement, and access needs no interaction.
 - Every call runs with user interaction disabled. A locked keychain or a changed signing identity therefore returns `interactionRequired` instead of a dialog.
 - Secrets are read once per process into `SessionSecretCache`. A login Keychain already locked when the process starts makes that read fail and pauses publication. If the Keychain locks after a successful read, the running process retains the cached secrets and continues publication until quit, setup, destruction, or an explicit cache invalidation. Locking the Keychain is therefore not a stop-publishing action.
 - Writing or deleting a secret invalidates its cached value before the operation returns. Relay setup and destruction also clear the complete per-process cache, so a running publisher cannot reuse superseded tokens or keys.
