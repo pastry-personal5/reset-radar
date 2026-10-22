@@ -1,6 +1,6 @@
 # P1-M3: Scaffolding sequencing
 
-Status: Active
+Status: Done
 
 Order of work, prerequisites, and risks for [P1-M3](milestone-03-scaffolding-overview.md). The system design stays in the [software architecture](../architecture.md); the target directory tree is in [repository layout](../architecture/repository-layout.md).
 

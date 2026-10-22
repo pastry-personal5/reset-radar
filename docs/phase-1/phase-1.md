@@ -23,6 +23,6 @@ Goal: Choose and document the Apple-platform structure, window/observation model
 Plan: [overview](milestone-02-software-architecture-overview.md), [architecture](../architecture.md)
 
 ### P1-M3: Scaffolding
-Status: Active
+Status: Done
 Goal: Create the Xcode project, all composition-root and test targets, the `ResetRadarKit` package, the relay package, SwiftLint and swift-format config, and a complete gate that passes with no deferrals and matches the P1-M2 architecture.
 Plan: [overview](milestone-03-scaffolding-overview.md), [sequencing](milestone-03-scaffolding-sequence.md), [repository layout](../architecture/repository-layout.md)
