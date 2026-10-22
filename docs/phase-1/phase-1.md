@@ -24,5 +24,5 @@ Plan: [overview](milestone-02-software-architecture-overview.md), [architecture]
 
 ### P1-M3: Scaffolding
 Status: Planned
-Goal: Create the Xcode project, iPhone/watch/Mac targets, SwiftLint and swift-format config, and a passing gate that matches the P1-M2 architecture.
-Plan: overview and architecture docs are created when this milestone starts.
+Goal: Create the Xcode project, all composition-root and test targets, the `ResetRadarKit` package, the relay package, SwiftLint and swift-format config, and a complete gate that passes with no deferrals and matches the P1-M2 architecture.
+Plan: [overview](milestone-03-scaffolding-overview.md), [sequencing](milestone-03-scaffolding-architecture.md), [repository layout](../architecture/repository-layout.md)
