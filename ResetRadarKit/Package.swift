@@ -42,7 +42,10 @@ let package = Package(
             dependencies: ["ResetRadarDomain", "ResetRadarApplication", "ResetRadarTestSupport"]),
         .testTarget(
             name: "ResetRadarStorageTests",
-            dependencies: ["ResetRadarStorage", "ResetRadarTestSupport"]),
+            dependencies: [
+                "ResetRadarDomain", "ResetRadarApplication", "ResetRadarStorage",
+                "ResetRadarTestSupport",
+            ]),
         .testTarget(
             name: "ResetRadarTransportTests",
             dependencies: ["ResetRadarTransport", "ResetRadarTestSupport"]),
