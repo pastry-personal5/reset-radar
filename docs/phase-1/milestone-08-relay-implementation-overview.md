@@ -1,6 +1,6 @@
 # P1-M8: Relay implementation overview
 
-Status: Active
+Status: Done
 
 Implement the ciphertext-only Cloudflare Worker and SQLite-backed Durable Object in `relay/` against the [relay protocol](../architecture/relay.md) and the shared P1-M7 [Transport fixtures](milestone-07-transport-overview.md). The [sequence](milestone-08-relay-implementation-sequence.md) orders the work and identifies the tests and handoff to P1-M9.
 
@@ -11,7 +11,7 @@ All ten relay operations enforce their approved authority, wire, state, and resp
 ## Entry criteria
 
 - [x] The P1-M7 checkpoint A outer-envelope, request, response, error, and ETag fixtures are frozen and read directly by both language suites. Fixture revision: `5d69907210abdf502a855136c6cd00900c0dde80314e7995886f40ce901d5c81`; see the [fixture README](../../Fixtures/Protocol/README.md) and M7 final evidence. Any change requires cross-module review.
-- [ ] Record the starting commit and worktree state. Use an isolated baseline so unrelated Storage or Transport follow-up work is not attributed to M8. Evidence: `git status --short` and commit ID recorded below when implementation begins. The starting state is recorded; isolation remains open because of pre-existing worktree changes.
+- [x] Record the starting commit and worktree state. The pre-existing M7 handoff was committed separately as `85d533a`; the M8 implementation was then isolated in `6b9efcc`. The unrelated untracked `tmp/` directory remains untouched.
 - [x] The complete gate passes at the baseline before relay implementation. Evidence: command results recorded below; the `test_runner` performs command execution and first-pass failure analysis.
 - [x] Plan review confirms the scaffold, ten operations, v1 body profile, and M9 deployment boundary, and identifies the registration-retry and completed-ID state questions below. Evidence: `relay/src/index.ts`, `relay/test/index.spec.ts`, `relay/wrangler.jsonc`, [relay design](../architecture/relay.md), [Transport wire profile](../architecture/transport.md#v1-wire-profile), and [phase plan](phase-1.md), reviewed 2026-10-23.
 
@@ -35,17 +35,17 @@ All ten relay operations enforce their approved authority, wire, state, and resp
 
 ## Completion checklist
 
-- [ ] Entry criteria hold, including a recorded M7 fixture revision and clean baseline gate.
+- [x] Entry criteria hold, including a recorded M7 fixture revision and clean baseline gate. Evidence: the M7 handoff is `85d533a`; M8 is isolated in `6b9efcc` and the final gate below passes.
 - [x] The two contract question groups below have owner-approved outcomes, recorded in the changelog and shared fixtures before their state machines are implemented. Evidence: the M7 fixture revision `5d69907210abdf502a855136c6cd00900c0dde80314e7995886f40ce901d5c81` includes all eight approved collision and replay scenarios.
-- [ ] The scaffold is replaced by the layered Worker and SQLite Durable Object described in the [relay design](../architecture/relay.md#internal-architecture); all ten routes work, and no unsupported route is mistaken for an empty first snapshot.
-- [ ] The SQLite state has an explicit schema version; an incompatible version fails closed without reading or changing relay state. Evidence: a Workers Vitest schema-version test.
-- [ ] Every operation enforces the approved role, bearer encoding, authentication-before-parse order, exact v1 request shape, route size limit, and generic bounded errors. Token-role crossover, missing secrets, malformed tokens, and direct invalid read tokens are rejected without leaking state or mutating storage.
-- [ ] Snapshot tests prove first-publish binding, later publisher and sequence conflicts, both sides of the `2^53 - 1` boundary, the 64 KiB byte-reader limit and largest valid envelope below it, byte-preserving retrieval, strong ETag, authenticated `304`, and no snapshot state change on rejected requests.
-- [ ] Reader tests prove pending preflight, save-then-activate, activation retry after a lost response or displayed expiry, pending expiry, activated-reader persistence, list ordering, revocation, and the three-reader cap with expired rows removed first. Duplicate IDs and digests never replace or activate an existing reader; their approved outcomes are tested.
-- [ ] Refresh tests prove activation requirement, one live request per reader, same-ID retry with its original expiry, last-completed-ID replay even while a newer request is pending, a different ID inside 60 seconds, expiry, cross-reader ID collision, sorted non-consuming Mac polling, idempotent acknowledgement, revocation cleanup, and at most three live requests.
-- [ ] Destruction tests prove atomic state removal and repeatable `204`; successful responses, error rows, media types, no-store headers, body ceilings, and no intentional redirect match the shared fixtures and [relay response contract](../architecture/relay.md#v1-http-body-profile).
-- [ ] Tests confirm the Durable Object has no plaintext usage, content key, provider credential, token bytes, or product history in persisted state or diagnostic output. Worker secrets are outside source, configuration, logs, and command arguments.
-- [ ] The complete gate passes with `test_runner` evidence. The overview records results, affected docs and fixture notes are updated, and P1-M8 in [phase-1.md](phase-1.md) moves to `Done` only after all acceptance evidence exists.
+- [x] The scaffold is replaced by the layered Worker and SQLite Durable Object described in the [relay design](../architecture/relay.md#internal-architecture); all ten routes work, and no unsupported route is mistaken for an empty first snapshot. Evidence: the 21-test Workers Vitest suite exercises each real route through `SELF`.
+- [x] The SQLite state has an explicit schema version; an incompatible version fails closed without reading or changing relay state. Evidence: the Workers Vitest schema-version test changes the stored version and observes bounded `503 relayUnavailable`.
+- [x] Every operation enforces the approved role, bearer encoding, authentication-before-parse order, exact v1 request shape, route size limit, and generic bounded errors. Token-role crossover, missing/equal/malformed secrets, malformed tokens, and direct invalid read tokens are rejected without leaking state or mutating storage.
+- [x] Snapshot tests prove first-publish binding, later publisher and sequence conflicts, both sides of the `2^53 - 1` boundary, the 64 KiB byte-reader limit and largest valid envelope below it, byte-preserving retrieval, strong ETag, authenticated `304`, and no snapshot state change on rejected requests.
+- [x] Reader tests prove pending preflight, save-then-activate, activation retry after a lost response or displayed expiry, pending expiry, activated-reader persistence, list ordering, revocation, and the three-reader cap with expired rows removed first. Duplicate IDs and digests never replace or activate an existing reader; their approved outcomes are tested.
+- [x] Refresh tests prove activation requirement, one live request per reader, same-ID retry with its original expiry, last-completed-ID replay even while a newer request is pending, a different ID inside 60 seconds, expiry, cross-reader ID collision, sorted non-consuming Mac polling, idempotent acknowledgement, revocation cleanup, and at most three live requests.
+- [x] Destruction tests prove atomic state removal and repeatable `204`; successful responses, error rows, media types, no-store headers, body ceilings, and no intentional redirect match the shared fixtures and [relay response contract](../architecture/relay.md#v1-http-body-profile).
+- [x] Tests confirm the Durable Object has no plaintext usage, content key, provider credential, token bytes, or product history in persisted state or diagnostic output. Worker secrets are outside source, configuration, logs, and command arguments.
+- [x] The complete gate passes with `test_runner` evidence. The overview records results, affected docs and fixture notes are updated, and P1-M8 in [phase-1.md](phase-1.md) moves to `Done` only after all acceptance evidence exists.
 
 ## Checkpoints
 
@@ -63,15 +63,13 @@ The owner also approved separate per-reader last-accepted and last-completed req
 
 ### M8 implementation checklist
 
-- [x] Replace the relay scaffold with the fixture-backed Worker and SQLite Durable Object, with local Workers Vitest evidence for all ten operations. Evidence: 13 Workers Vitest tests pass against the real Worker and SQLite Durable Object on 2026-10-23.
+- [x] Replace the relay scaffold with the fixture-backed Worker and SQLite Durable Object, with local Workers Vitest evidence for all ten operations. Evidence: 21 Workers Vitest tests pass against the real Worker and SQLite Durable Object on 2026-10-23.
 
 The relay package provides `npm run secrets:provision` for the owner-run M9 deployment step. It accepts the distinct write and administration SHA-256 digests as exactly two lowercase-hex lines on standard input and supplies each only to `wrangler secret put`; it neither echoes nor writes either value into the repository or command arguments.
 
 Starting commit on 2026-10-23: `393334d`. The M8 implementation began from `353043d` with the existing M7 handoff and planning worktree changes shown by `git status --short`; those files, including the Transport implementation and `Fixtures/Protocol/`, predate the request and are preserved. M7 completed its fixture handoff at revision `5d69907210abdf502a855136c6cd00900c0dde80314e7995886f40ce901d5c81`; `Fixtures/Protocol/` contains the frozen envelope, pairing, operation, error, and collision/retry scenario bytes consumed directly by the relay tests. The prior baseline-gate record remains baseline evidence, not relay implementation acceptance.
 
-M8 close-out validation on 2026-10-23 passed: the `test_runner` ran `npm --prefix relay ci`, 13 Workers Vitest tests, TypeScript typecheck, Wrangler deployment dry-run, `swift-format` lint, strict SwiftLint (zero violations), and `git diff --check`. Its sandbox could not access Xcode and CoreSimulator caches; with approved host-cache access, project generation, import checks, and `xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'` also passed (85 package tests in 16 suites plus the Mac smoke test). The secret-provisioning script rejected invalid standard input with exit 2 without invoking Wrangler. No Cloudflare deployment or live data access occurred.
-
-M7 checkpoint A and its final gate are complete. When M8 resumes, record its isolated starting state and consume the fixture revision above; planning and the scaffold smoke test do not count as implementation evidence.
+M8 close-out validation on 2026-10-23 passed: the `test_runner` ran `npm --prefix relay ci`, 21 Workers Vitest tests, TypeScript typecheck, Wrangler deployment dry-run, `swift-format` lint, strict SwiftLint (zero violations), and `git diff --check`. Its sandbox could not access Xcode and CoreSimulator caches; with approved host-cache access, project generation, import checks, and `xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'` also passed (85 package tests in 16 suites plus the Mac smoke test). The secret-provisioning script rejected invalid standard input with exit 2 without invoking Wrangler. No Cloudflare deployment or live data access occurred.
 
 After recording the owner's decisions, the `test_runner` reran the complete contribution-guide gate on the documentation worktree: project generation, Swift format lint, strict SwiftLint (zero violations across 183 files), import check, Mac tests, two scaffold relay Vitest tests, TypeScript typecheck, and Wrangler dry run passed. npm dependency materialization needed a permitted host-access retry. `git diff --check` passed. This validates the documented decisions, not M8 implementation.
 

@@ -1,6 +1,6 @@
 # P1-M8: Relay implementation sequence
 
-Status: Active
+Status: Done
 
 Work order and acceptance tests for the [M8 overview](milestone-08-relay-implementation-overview.md). The [relay design](../architecture/relay.md) and the M7 [v1 wire fixtures](milestone-07-transport-sequence.md#task-1-shared-wire-fixtures-and-generator) define behavior; this file identifies implementation seams and local verification before the P1-M9 Cloudflare gate.
 

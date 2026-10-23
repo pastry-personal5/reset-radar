@@ -1,6 +1,8 @@
 import { env, reset, runInDurableObject, SELF } from "cloudflare:test";
 import { afterEach, describe, expect, it } from "vitest";
 
+import worker, { type RelayObject } from "../src/index";
+
 import envelope from "../../Fixtures/Protocol/envelope.json";
 import errorAwaitingFirstPublish from "../../Fixtures/Protocol/error-awaiting-first-publish.json";
 import errorBadRequest from "../../Fixtures/Protocol/error-bad-request.json";
@@ -28,6 +30,7 @@ const tokens = {
   admin: "IiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiI",
   reader: "iYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYk",
   readerTwo: "REREREREREREREREREREREREREREREREREREREREREQ",
+  readerThree: "VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU",
   writer: "ERERERERERERERERERERERERERERERERERERERERERE",
   wrong: "MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM",
 };
@@ -35,11 +38,14 @@ const tokens = {
 const digests = {
   reader: "4c07be22f86c52fd94ac9b44b023583c4fd5180d193ff28491d2885653c2c81e",
   readerTwo: "bb391415c05e39d77ca17381d3be3f7d0cd5e5332e5a579311adaa0aa62106e9",
+  readerThree: "84126d0dd850199be29021aadbaee68cb9199047b1cb7ec9894ddb1e3562783c",
 };
 
 const readerOneID = "45454545454545454545454545454545";
 const readerTwoID = "46464646464646464646464646464646";
 const readerThreeID = "47474747474747474747474747474747";
+const registrationStart = 1_700_000_000_000;
+const refreshStart = 1_700_000_240_000;
 
 afterEach(async () => { await reset(); });
 
@@ -52,7 +58,7 @@ function request(
 ): Promise<Response> {
   const requestHeaders = new Headers(headers);
   if (token !== undefined) requestHeaders.set("Authorization", `Bearer ${token}`);
-  if (body !== undefined) requestHeaders.set("Content-Type", "application/json");
+  if (body !== undefined && !requestHeaders.has("Content-Type")) requestHeaders.set("Content-Type", "application/json");
   return SELF.fetch(`https://relay.invalid${path}`, { body, headers: requestHeaders, method });
 }
 
@@ -65,16 +71,33 @@ async function activateReader(token = tokens.reader): Promise<Response> {
   return request("/v1/readers/activate", "POST", token);
 }
 
+async function setClock(milliseconds: number): Promise<void> {
+  const stub = env.RELAY.get(env.RELAY.idFromName("relay"));
+  await runInDurableObject(stub, (instance: RelayObject) => {
+    instance.setClockForTesting(milliseconds);
+  });
+}
+
+async function objectStorage<T>(callback: (state: DurableObjectState) => T | Promise<T>): Promise<T> {
+  const stub = env.RELAY.get(env.RELAY.idFromName("relay"));
+  return runInDurableObject(stub, (_instance, state) => callback(state));
+}
+
 describe("Relay Worker v1", () => {
   it("consumes the snapshot, reader, and activation fixtures byte-for-byte", async () => {
+    await setClock(registrationStart);
     const registration = await request(registerReader.path, registerReader.method, tokens.admin, registerReader.requestBody);
     expect(registration.status).toBe(registerReader.status);
-    expect(JSON.parse(await registration.text())).toMatchObject({ protocolVersion: 1 });
+    expect(await registration.text()).toBe(registerReader.responseBody);
 
     const beforePublish = await request(getSnapshot.path, getSnapshot.method, tokens.reader);
     expect(beforePublish.status).toBe(errorAwaitingFirstPublish.status);
     expect(await beforePublish.text()).toBe(errorAwaitingFirstPublish.body);
     expect(beforePublish.headers.get("Cache-Control")).toBe("no-store");
+    const pending = JSON.parse(await (await request(listReaders.path, listReaders.method, tokens.admin)).text()) as {
+      readers: Array<{ activated: boolean; readerID: string }>;
+    };
+    expect(pending.readers).toEqual([{ activated: false, readerID: readerOneID }]);
 
     const publication = await request(putSnapshot.path, putSnapshot.method, tokens.writer, putSnapshot.requestBody);
     expect(publication.status).toBe(putSnapshot.status);
@@ -99,6 +122,9 @@ describe("Relay Worker v1", () => {
     expect(await activation.text()).toBe(activate.responseBody);
     const activationRetry = await request(activate.path, activate.method, tokens.reader);
     expect(await activationRetry.text()).toBe(activate.responseBody);
+    const readers = await request(listReaders.path, listReaders.method, tokens.admin);
+    expect(readers.status).toBe(listReaders.status);
+    expect(await readers.text()).toBe(listReaders.responseBody);
   });
 
   it("authenticates write and administration routes before accepting malformed data", async () => {
@@ -114,6 +140,29 @@ describe("Relay Worker v1", () => {
     const unknown = await request("/v1/nope", "GET", tokens.writer);
     expect(unknown.status).toBe(errorUnknownRoute.status);
     expect(await unknown.text()).toBe(errorUnknownRoute.body);
+  });
+
+  it("fails closed when Worker-secret digests are absent, malformed, or equal", async () => {
+    const requestValue = new Request("https://relay.invalid/v1/snapshot", {
+      body: putSnapshot.requestBody,
+      headers: {
+        Authorization: `Bearer ${tokens.writer}`,
+        "Content-Type": "application/json",
+      },
+      method: "PUT",
+    });
+    for (const bindings of [
+      {},
+      { ADMIN_TOKEN_DIGEST: "invalid", WRITE_TOKEN_DIGEST: "invalid" },
+      {
+        ADMIN_TOKEN_DIGEST: "02d449a31fbb267c8f352e9968a79e3e5fc95c1bbeaa502fd6454ebde5a4bedc",
+        WRITE_TOKEN_DIGEST: "02d449a31fbb267c8f352e9968a79e3e5fc95c1bbeaa502fd6454ebde5a4bedc",
+      },
+    ]) {
+      const response = await worker.fetch(requestValue.clone(), bindings as Env);
+      expect(response.status).toBe(errorUnauthorized.status);
+      expect(await response.text()).toBe(errorUnauthorized.body);
+    }
   });
 
   it("enforces canonical envelopes, size bounds, ordering, and publisher binding", async () => {
@@ -143,6 +192,81 @@ describe("Relay Worker v1", () => {
       putSnapshot.requestBody.replaceAll("2323232323232323232323232323232323232323232323232323232323232323", "2424242424242424242424242424242424242424242424242424242424242424").replace("\"sequence\":7", "\"sequence\":8"));
     expect(otherPublisher.status).toBe(409);
     expect(await otherPublisher.text()).toBe("{\"code\":\"publisherMismatch\",\"protocolVersion\":1}");
+    const retained = await objectStorage((state) => state.storage.sql.exec(
+      "SELECT envelope, last_sequence FROM relay_state WHERE id = 1",
+    ).toArray());
+    expect(retained).toEqual([{ envelope: putSnapshot.requestBody, last_sequence: 7 }]);
+  });
+
+  it("accepts the maximum safe sequence and the largest valid canonical envelope below the byte cap", async () => {
+    const maximumSequence = putSnapshot.requestBody.replace("\"sequence\":7", "\"sequence\":9007199254740991");
+    const maximum = await request(putSnapshot.path, putSnapshot.method, tokens.writer, maximumSequence);
+    expect(maximum.status).toBe(200);
+    expect(await maximum.text()).toBe("{\"protocolVersion\":1,\"sequence\":9007199254740991}");
+
+    await reset();
+    const outer = JSON.parse(putSnapshot.requestBody) as Record<string, unknown>;
+    const emptyCiphertext = JSON.stringify({ ...outer, ciphertext: "" });
+    let ciphertextLength = 64 * 1024 - new TextEncoder().encode(emptyCiphertext).byteLength;
+    if (ciphertextLength % 4 === 1) ciphertextLength -= 1;
+    const largestValid = JSON.stringify({ ...outer, ciphertext: "A".repeat(ciphertextLength) });
+    expect(new TextEncoder().encode(largestValid).byteLength).toBeGreaterThanOrEqual(64 * 1024 - 1);
+    expect(new TextEncoder().encode(largestValid).byteLength).toBeLessThanOrEqual(64 * 1024);
+    expect((await request(putSnapshot.path, putSnapshot.method, tokens.writer, largestValid)).status).toBe(200);
+  });
+
+  it("enforces streamed limits before media-type validation and rejects noncanonical JSON", async () => {
+    const oversizedRefresh = await request(postRefresh.path, postRefresh.method, tokens.reader, "x".repeat(129), {
+      "Content-Length": "1",
+      "Content-Type": "text/plain",
+    });
+    expect(oversizedRefresh.status).toBe(errorUnauthorized.status);
+
+    expect((await register()).status).toBe(200);
+    expect((await activateReader()).status).toBe(200);
+    const oversizedAuthenticatedRefresh = await request(postRefresh.path, postRefresh.method, tokens.reader, "x".repeat(129), {
+      "Content-Length": "1",
+      "Content-Type": "text/plain",
+    });
+    expect(oversizedAuthenticatedRefresh.status).toBe(errorPayloadTooLarge.status);
+
+    const wrongMediaType = await SELF.fetch("https://relay.invalid/v1/refresh-requests", {
+      body: postRefresh.requestBody,
+      headers: { Authorization: `Bearer ${tokens.reader}`, "Content-Type": "text/plain" },
+      method: "POST",
+    });
+    expect(wrongMediaType.status).toBe(errorBadRequest.status);
+
+    const duplicateKey = await request(putSnapshot.path, putSnapshot.method, tokens.writer,
+      putSnapshot.requestBody.replace("\"protocolVersion\":1", "\"protocolVersion\":1,\"protocolVersion\":1"));
+    expect(duplicateKey.status).toBe(errorBadRequest.status);
+    const invalidUTF8 = await SELF.fetch("https://relay.invalid/v1/snapshot", {
+      body: new Uint8Array([0xff]),
+      headers: { Authorization: `Bearer ${tokens.writer}`, "Content-Type": "application/json" },
+      method: "PUT",
+    });
+    expect(invalidUTF8.status).toBe(errorBadRequest.status);
+  });
+
+  it("counts actual request bytes one below, at, and above every route limit", async () => {
+    const snapshotBodies = [64 * 1024 - 1, 64 * 1024, 64 * 1024 + 1];
+    for (const size of snapshotBodies) {
+      const response = await request(putSnapshot.path, putSnapshot.method, tokens.writer, "x".repeat(size));
+      expect(response.status).toBe(size > 64 * 1024 ? 413 : 400);
+    }
+
+    const registrationBodies = [255, 256, 257];
+    for (const size of registrationBodies) {
+      const response = await request(registerReader.path, registerReader.method, tokens.admin, "x".repeat(size));
+      expect(response.status).toBe(size > 256 ? 413 : 400);
+    }
+
+    expect((await register()).status).toBe(200);
+    expect((await activateReader()).status).toBe(200);
+    for (const size of [127, 128, 129]) {
+      const response = await request(postRefresh.path, postRefresh.method, tokens.reader, "x".repeat(size));
+      expect(response.status).toBe(size > 128 ? 413 : 400);
+    }
   });
 
   it("keeps registrations bounded, ordered, retryable, and revocable", async () => {
@@ -153,6 +277,17 @@ describe("Relay Worker v1", () => {
 
     const changedDigest = await register(readerOneID, digests.readerTwo);
     expect(changedDigest.status).toBe(errorBadRequest.status);
+    const reusedDigest = await register(readerTwoID, digests.reader);
+    expect(reusedDigest.status).toBe(errorBadRequest.status);
+    const preservedReader = await objectStorage((state) => state.storage.sql.exec(
+      "SELECT activated, reader_id, token_digest FROM readers WHERE reader_id = ?",
+      readerOneID,
+    ).toArray());
+    expect(preservedReader).toEqual([{
+      activated: 0,
+      reader_id: readerOneID,
+      token_digest: digests.reader,
+    }]);
     const privilegedDigest = await register(readerTwoID, "02d449a31fbb267c8f352e9968a79e3e5fc95c1bbeaa502fd6454ebde5a4bedc");
     expect(privilegedDigest.status).toBe(errorBadRequest.status);
 
@@ -175,15 +310,57 @@ describe("Relay Worker v1", () => {
     expect((await request(getSnapshot.path, getSnapshot.method, tokens.reader)).status).toBe(errorUnauthorized.status);
   });
 
+  it("keeps concurrent snapshot, registration, and mailbox transitions atomic", async () => {
+    const concurrentPublications = await Promise.all([
+      request(putSnapshot.path, putSnapshot.method, tokens.writer, putSnapshot.requestBody),
+      request(putSnapshot.path, putSnapshot.method, tokens.writer, putSnapshot.requestBody),
+    ]);
+    expect(concurrentPublications.map((response) => response.status).sort()).toEqual([200, 409]);
+
+    const registrations = await Promise.all([
+      register(readerOneID, digests.reader),
+      register(readerTwoID, digests.readerTwo),
+      register(readerThreeID, digests.readerThree),
+      register("48484848484848484848484848484848", "352302489bc2fcf025cf00cda8308033f97ac87712ce90b4d7cd72c58e4c3af9"),
+    ]);
+    expect(registrations.filter((response) => response.status === 200)).toHaveLength(3);
+    expect(registrations.filter((response) => response.status === 409)).toHaveLength(1);
+
+    expect((await activateReader(tokens.reader)).status).toBe(200);
+    expect((await activateReader(tokens.readerTwo)).status).toBe(200);
+    expect((await activateReader(tokens.readerThree)).status).toBe(200);
+    const requestIDs = [
+      "56565656565656565656565656565656",
+      "57575757575757575757575757575757",
+      "58585858585858585858585858585858",
+    ];
+    const mailbox = await Promise.all([
+      request(postRefresh.path, postRefresh.method, tokens.reader, JSON.stringify({ protocolVersion: 1, requestID: requestIDs[0] })),
+      request(postRefresh.path, postRefresh.method, tokens.readerTwo, JSON.stringify({ protocolVersion: 1, requestID: requestIDs[1] })),
+      request(postRefresh.path, postRefresh.method, tokens.readerThree, JSON.stringify({ protocolVersion: 1, requestID: requestIDs[2] })),
+    ]);
+    expect(mailbox.map((response) => response.status)).toEqual([202, 202, 202]);
+    const listed = JSON.parse(await (await request(listRefresh.path, listRefresh.method, tokens.writer)).text()) as {
+      requests: Array<{ readerID: string; requestID: string }>;
+    };
+    expect(listed.requests.map(({ readerID, requestID }) => ({ readerID, requestID }))).toEqual([
+      { readerID: readerOneID, requestID: requestIDs[0] },
+      { readerID: readerTwoID, requestID: requestIDs[1] },
+      { readerID: readerThreeID, requestID: requestIDs[2] },
+    ]);
+  });
+
   it("implements the activated-reader refresh mailbox and completed-ID replay guard", async () => {
     expect((await register()).status).toBe(200);
     expect((await activateReader()).status).toBe(200);
+    await setClock(refreshStart);
     const posted = await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody);
     expect(posted.status).toBe(postRefresh.status);
-    expect(JSON.parse(await posted.text())).toMatchObject({ protocolVersion: 1 });
+    expect(await posted.text()).toBe(postRefresh.responseBody);
 
     const retry = await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody);
     expect(retry.status).toBe(postRefresh.status);
+    expect(await retry.text()).toBe(postRefresh.responseBody);
     const rateLimited = await request(postRefresh.path, postRefresh.method, tokens.reader,
       postRefresh.requestBody.replaceAll("56565656565656565656565656565656", "57575757575757575757575757575757"));
     expect(rateLimited.status).toBe(errorRequestRateLimited.status);
@@ -191,6 +368,7 @@ describe("Relay Worker v1", () => {
 
     const requests = await request(listRefresh.path, listRefresh.method, tokens.writer);
     expect(requests.status).toBe(listRefresh.status);
+    expect(await requests.clone().text()).toBe(listRefresh.responseBody);
     const requestList = JSON.parse(await requests.text()) as {
       requests: Array<{ expiresAt: string; readerID: string; requestID: string }>;
     };
@@ -209,6 +387,30 @@ describe("Relay Worker v1", () => {
     const completedReplay = await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody);
     expect(completedReplay.status).toBe(errorRequestAlreadyCompleted.status);
     expect(await completedReplay.text()).toBe(errorRequestAlreadyCompleted.body);
+  });
+
+  it("uses relay time at registration and refresh expiry boundaries", async () => {
+    await setClock(registrationStart);
+    expect(await (await request(registerReader.path, registerReader.method, tokens.admin, registerReader.requestBody)).text())
+      .toBe(registerReader.responseBody);
+
+    await setClock(registrationStart + 299_999);
+    expect((await activateReader()).status).toBe(200);
+    await setClock(registrationStart + 300_000);
+    expect(await (await activateReader()).text()).toBe(activate.responseBody);
+
+    await setClock(refreshStart);
+    const first = await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody);
+    expect(await first.text()).toBe(postRefresh.responseBody);
+    await setClock(refreshStart + 59_999);
+    expect(await (await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody)).text())
+      .toBe(postRefresh.responseBody);
+    await setClock(refreshStart + 60_000);
+    const expiredRetry = await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody);
+    expect(expiredRetry.status).toBe(errorBadRequest.status);
+    const differentAfterLimit = await request(postRefresh.path, postRefresh.method, tokens.reader,
+      postRefresh.requestBody.replaceAll("56565656565656565656565656565656", "57575757575757575757575757575757"));
+    expect(differentAfterLimit.status).toBe(202);
   });
 
   it("rejects cross-reader live IDs and retains completed IDs while a newer request is pending", async () => {
@@ -247,13 +449,60 @@ describe("Relay Worker v1", () => {
     expect((await request(getSnapshot.path, getSnapshot.method, tokens.readerTwo)).status).toBe(404);
   });
 
+  it("does not mutate expired-reader rows for an invalid read token", async () => {
+    await setClock(registrationStart);
+    expect((await register()).status).toBe(200);
+    await setClock(registrationStart + 300_000);
+    const invalidRead = await request(getSnapshot.path, getSnapshot.method, tokens.wrong);
+    expect(invalidRead.status).toBe(errorUnauthorized.status);
+    const stored = await objectStorage((state) => state.storage.sql.exec(
+      "SELECT activated, pending_expires_at FROM readers WHERE reader_id = ?",
+      readerOneID,
+    ).toArray());
+    expect(stored).toEqual([{ activated: 0, pending_expires_at: registrationStart + 300_000 }]);
+
+    expect((await request(getSnapshot.path, getSnapshot.method, tokens.reader)).status).toBe(401);
+    expect((await activateReader()).status).toBe(401);
+  });
+
+  it("removes revoked-reader requests and stores no plaintext or raw token bytes", async () => {
+    expect((await register()).status).toBe(200);
+    expect((await activateReader()).status).toBe(200);
+    expect((await request(putSnapshot.path, putSnapshot.method, tokens.writer, putSnapshot.requestBody)).status).toBe(200);
+    expect((await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody)).status).toBe(202);
+    const persisted = await objectStorage((state) => [
+      ...state.storage.sql.exec("SELECT * FROM relay_state").toArray(),
+      ...state.storage.sql.exec("SELECT * FROM readers").toArray(),
+      ...state.storage.sql.exec("SELECT * FROM refresh_requests").toArray(),
+    ]);
+    const persistedText = JSON.stringify(persisted);
+    for (const token of Object.values(tokens)) {
+      expect(persistedText).not.toContain(token);
+    }
+    expect(persistedText).not.toContain("plaintext");
+    expect(persistedText).not.toContain("contentKey");
+
+    expect((await request(revokeReader.path, revokeReader.method, tokens.admin)).status).toBe(204);
+    const requests = await request(listRefresh.path, listRefresh.method, tokens.writer);
+    expect(await requests.text()).toBe("{\"protocolVersion\":1,\"requests\":[]}");
+    expect((await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody)).status).toBe(401);
+  });
+
   it("removes all state atomically and fails closed on an incompatible schema", async () => {
     expect((await register()).status).toBe(200);
+    expect((await activateReader()).status).toBe(200);
     expect((await request(putSnapshot.path, putSnapshot.method, tokens.writer, putSnapshot.requestBody)).status).toBe(200);
+    expect((await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody)).status).toBe(202);
     const destroyed = await request(destroyRelay.path, destroyRelay.method, tokens.admin);
     expect(destroyed.status).toBe(destroyRelay.status);
     expect(await destroyed.text()).toBe(destroyRelay.responseBody);
     expect((await request(getSnapshot.path, getSnapshot.method, tokens.reader)).status).toBe(401);
+    expect(await (await request(listRefresh.path, listRefresh.method, tokens.writer)).text())
+      .toBe("{\"protocolVersion\":1,\"requests\":[]}");
+    const newPublisher = putSnapshot.requestBody
+      .replaceAll("2323232323232323232323232323232323232323232323232323232323232323", "2424242424242424242424242424242424242424242424242424242424242424")
+      .replace("\"sequence\":7", "\"sequence\":1");
+    expect((await request(putSnapshot.path, putSnapshot.method, tokens.writer, newPublisher)).status).toBe(200);
     expect((await request(destroyRelay.path, destroyRelay.method, tokens.admin)).status).toBe(204);
 
     await request("/v1/nope", "GET");

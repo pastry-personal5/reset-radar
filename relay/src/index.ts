@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 
 import { bearerDigest, timingSafeDigestEqual } from "./adapters/security";
+import { FixedClock, type Clock, SystemClock } from "./application/clock";
 import {
   canonicalJSON,
   decodeUTF8,
@@ -126,10 +127,17 @@ function requestHasNoBody(request: Request): Promise<BodyResult> { return readBo
 /** The single authoritative-state object. It persists only ciphertext and protocol metadata. */
 export class RelayObject extends DurableObject {
   private readonly secretEnv: SecretEnv;
+  private clock: Clock;
 
-  constructor(ctx: DurableObjectState, env: Env & SecretEnv) {
+  constructor(ctx: DurableObjectState, env: Env & SecretEnv, clock: Clock = new SystemClock()) {
     super(ctx, env);
     this.secretEnv = env;
+    this.clock = clock;
+  }
+
+  /** Test-only clock injection; production construction always supplies SystemClock. */
+  setClockForTesting(milliseconds: number): void {
+    this.clock = new FixedClock(milliseconds);
   }
 
   override async fetch(request: Request): Promise<Response> {
@@ -189,14 +197,14 @@ export class RelayObject extends DurableObject {
 
   private async putSnapshot(request: Request): Promise<Response> {
     if (!this.isInternal(request, "write")) return failure("unauthorized");
-    if (!validJSONContentType(request)) return failure("badRequest");
     const body = await readBody(request, SNAPSHOT_LIMIT);
     if ("error" in body) return failure(body.error);
+    if (!validJSONContentType(request)) return failure("badRequest");
     const parsed = parseEnvelope(body.text);
     if ("failure" in parsed) return failure(parsed.failure);
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body.text));
     const etag = `"${[...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("")}"`;
-    const acceptedAt = Date.now();
+    const acceptedAt = this.clock.now();
     const result = this.ctx.storage.transactionSync(() => {
       const current = this.one<StoredSnapshot>("SELECT publisher_id, last_sequence, envelope, etag FROM relay_state WHERE id = 1");
       if (current !== undefined && current.publisher_id !== parsed.value.publisherID) return "publisherMismatch" as const;
@@ -210,7 +218,7 @@ export class RelayObject extends DurableObject {
 
   private async getSnapshot(request: Request): Promise<Response> {
     const reader = await this.authenticatedReader(request);
-    if (reader === undefined || !this.readerIsUsable(reader, Date.now())) return failure("unauthorized", { noStore: true });
+    if (reader === undefined || !this.readerIsUsable(reader, this.clock.now())) return failure("unauthorized", { noStore: true });
     const empty = await requestHasNoBody(request);
     if ("error" in empty) return failure(empty.error, { noStore: true });
     const snapshot = this.one<StoredSnapshot>("SELECT publisher_id, last_sequence, envelope, etag FROM relay_state WHERE id = 1");
@@ -221,7 +229,7 @@ export class RelayObject extends DurableObject {
 
   private async activateReader(request: Request): Promise<Response> {
     const reader = await this.authenticatedReader(request);
-    const now = Date.now();
+    const now = this.clock.now();
     if (reader === undefined || !this.readerIsUsable(reader, now)) return failure("unauthorized");
     const empty = await requestHasNoBody(request);
     if ("error" in empty) return failure(empty.error);
@@ -231,12 +239,12 @@ export class RelayObject extends DurableObject {
 
   private async registerReader(request: Request, readerID: string): Promise<Response> {
     if (!this.isInternal(request, "admin")) return failure("unauthorized");
-    if (!validJSONContentType(request)) return failure("badRequest");
     const body = await readBody(request, REGISTRATION_LIMIT);
     if ("error" in body) return failure(body.error);
+    if (!validJSONContentType(request)) return failure("badRequest");
     const parsed = parseRegistration(body.text);
     if ("failure" in parsed) return failure(parsed.failure);
-    const now = Date.now();
+    const now = this.clock.now();
     const outcome = this.ctx.storage.transactionSync(() => {
       this.ctx.storage.sql.exec("DELETE FROM readers WHERE activated = 0 AND pending_expires_at <= ?", now);
       const existingID = this.one<StoredReader>("SELECT reader_id, token_digest, activated, pending_expires_at, last_accepted_at, last_accepted_id, last_completed_id FROM readers WHERE reader_id = ?", readerID);
@@ -257,7 +265,7 @@ export class RelayObject extends DurableObject {
     if (!this.isInternal(request, "admin")) return failure("unauthorized");
     const empty = await requestHasNoBody(request);
     if ("error" in empty) return failure(empty.error);
-    const now = Date.now();
+    const now = this.clock.now();
     const readers = this.ctx.storage.transactionSync(() => {
       this.ctx.storage.sql.exec("DELETE FROM readers WHERE activated = 0 AND pending_expires_at <= ?", now);
       return this.all<Pick<StoredReader, "activated" | "reader_id">>("SELECT reader_id, activated FROM readers ORDER BY reader_id ASC");
@@ -278,11 +286,11 @@ export class RelayObject extends DurableObject {
 
   private async postRefreshRequest(request: Request): Promise<Response> {
     const reader = await this.authenticatedReader(request);
-    const now = Date.now();
+    const now = this.clock.now();
     if (reader === undefined || reader.activated !== 1) return failure("unauthorized");
-    if (!validJSONContentType(request)) return failure("badRequest");
     const body = await readBody(request, REFRESH_LIMIT);
     if ("error" in body) return failure(body.error);
+    if (!validJSONContentType(request)) return failure("badRequest");
     const parsed = parseRefreshRequest(body.text);
     if ("failure" in parsed) return failure(parsed.failure);
     const outcome = this.ctx.storage.transactionSync(() => {
@@ -309,7 +317,7 @@ export class RelayObject extends DurableObject {
     if (!this.isInternal(request, "write")) return failure("unauthorized");
     const empty = await requestHasNoBody(request);
     if ("error" in empty) return failure(empty.error, { noStore: true });
-    const now = Date.now();
+    const now = this.clock.now();
     const requests = this.ctx.storage.transactionSync(() => {
       this.ctx.storage.sql.exec("DELETE FROM refresh_requests WHERE expires_at <= ?", now);
       return this.all<StoredRefreshRequest>("SELECT request_id, reader_id, accepted_at, expires_at FROM refresh_requests ORDER BY reader_id ASC, request_id ASC");
@@ -321,7 +329,7 @@ export class RelayObject extends DurableObject {
     if (!this.isInternal(request, "write")) return failure("unauthorized");
     const empty = await requestHasNoBody(request);
     if ("error" in empty) return failure(empty.error);
-    const now = Date.now();
+    const now = this.clock.now();
     this.ctx.storage.transactionSync(() => {
       const current = this.one<StoredRefreshRequest>("SELECT request_id, reader_id, accepted_at, expires_at FROM refresh_requests WHERE request_id = ?", requestID);
       if (current === undefined) return;
