@@ -251,11 +251,25 @@ export class RelayObject extends DurableObject {
 
   private async getSnapshot(request: Request): Promise<Response> {
     const reader = await this.authenticatedReader(request);
-    if (reader === undefined || !this.readerIsUsable(reader, this.clock.now())) return failure("unauthorized", { noStore: true });
+    if (reader === undefined || !this.readerIsUsable(reader, this.clock.now())) {
+      return failure("unauthorized", { noStore: true });
+    }
     const empty = await requestHasNoBody(request);
     if ("error" in empty) return failure(empty.error, { noStore: true });
-    const snapshot = this.one<StoredSnapshot>("SELECT publisher_id, last_sequence, envelope, etag FROM relay_state WHERE id = 1");
-    if (snapshot === undefined) return failure("awaitingFirstPublish", { noStore: true });
+    const result = this.ctx.storage.transactionSync(() => {
+      const current = this.one<StoredReader>("SELECT reader_id, token_digest, activated, pending_expires_at, last_accepted_at, last_accepted_id, last_completed_id FROM readers WHERE reader_id = ?", reader.reader_id);
+      if (
+        current === undefined ||
+        !timingSafeDigestEqual(current.token_digest, reader.token_digest) ||
+        !this.readerIsUsable(current, this.clock.now())
+      ) {
+        return { code: "unauthorized" as const };
+      }
+      const snapshot = this.one<StoredSnapshot>("SELECT publisher_id, last_sequence, envelope, etag FROM relay_state WHERE id = 1");
+      return snapshot === undefined ? { code: "awaitingFirstPublish" as const } : { snapshot };
+    });
+    if (!("snapshot" in result)) return failure(result.code, { noStore: true });
+    const { snapshot } = result;
     if (request.headers.get("If-None-Match") === snapshot.etag) return success(304, undefined, { etag: snapshot.etag, noStore: true });
     return success(200, snapshot.envelope, {
       bodyLimit: SNAPSHOT_LIMIT,
@@ -270,7 +284,21 @@ export class RelayObject extends DurableObject {
     if (reader === undefined || !this.readerIsUsable(reader, now)) return failure("unauthorized");
     const empty = await requestHasNoBody(request);
     if ("error" in empty) return failure(empty.error);
-    if (reader.activated === 0) this.ctx.storage.sql.exec("UPDATE readers SET activated = 1 WHERE reader_id = ?", reader.reader_id);
+    const activated = this.ctx.storage.transactionSync(() => {
+      const current = this.one<StoredReader>("SELECT reader_id, token_digest, activated, pending_expires_at, last_accepted_at, last_accepted_id, last_completed_id FROM readers WHERE reader_id = ?", reader.reader_id);
+      if (
+        current === undefined ||
+        !timingSafeDigestEqual(current.token_digest, reader.token_digest) ||
+        !this.readerIsUsable(current, this.clock.now())
+      ) {
+        return false;
+      }
+      if (current.activated === 0) {
+        this.ctx.storage.sql.exec("UPDATE readers SET activated = 1 WHERE reader_id = ?", current.reader_id);
+      }
+      return true;
+    });
+    if (!activated) return failure("unauthorized");
     return success(200, canonicalJSON({ activated: true, protocolVersion: 1 }));
   }
 

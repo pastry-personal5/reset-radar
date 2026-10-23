@@ -112,6 +112,7 @@ Plan: [overview](milestone-08-relay-implementation-overview.md), [sequencing](mi
 ### P1-M9: Relay synthetic-data gate
 Status: Planned
 Goal: Owner-run Cloudflare spike on synthetic data covering the conformance criteria and a US$0 billing check; real usage stays blocked until it passes.
+Plan: [overview](milestone-09-relay-synthetic-gate-overview.md), [sequencing](milestone-09-relay-synthetic-gate-sequence.md), [relay](../architecture/relay.md)
 
 ### P1-M10: Codex adapter
 Status: Planned
