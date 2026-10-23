@@ -14,8 +14,8 @@ Implement `ResetRadarStorage` as specified in [Storage](../architecture/storage.
 
 ## Entry criteria
 
-- [ ] P1-M5 is `Done` and merged to `main`; P1-M6 starts on a fresh branch from `main` (`feat/p1-m6-storage`). Evidence: `main` contains `9752fd1`.
-- [ ] The owner has answered the [open questions](#open-questions) or accepted each recommendation, and the answers are in the [changelog](changelog.md).
+- [x] P1-M5 is `Done` and merged to `main`; P1-M6 starts on a fresh branch (`feat/p1-m6-storage`). Evidence: the branch is cut from `9752fd1`, the merged P1-M5 head.
+- [x] The owner has answered the [open questions](#open-questions) or accepted each recommendation, and the answers are in the [changelog](changelog.md). Evidence: 2026-10-23 changelog entry.
 - [ ] A clean-checkout gate passes before any change (baseline).
 
 ## In scope
@@ -36,7 +36,7 @@ Implement `ResetRadarStorage` as specified in [Storage](../architecture/storage.
 
 ## Open questions
 
-Each has a recommended default; the milestone stays `Planned` until the owner answers or accepts them.
+Answered by the owner on 2026-10-23: every recommended default is accepted (see [changelog.md](changelog.md)). They are decided.
 
 1. **Location injection.** Recommend `StorageLocations(root: URL, flavor: .release | .debug)` with `.debug` appending a `Debug` subdirectory, and a Mac convenience `StorageLocations.macApplicationSupport(flavor:)`. Composition roots pass the App Group URL on iOS and watchOS. Alternative: Storage resolves `containerURL(forSecurityApplicationGroupIdentifier:)` itself, which needs the group ID inside the package.
 2. **Lock waiting.** `flock` blocks a thread, and store calls are `async`. Recommend `LOCK_NB` polling every 10 ms with a 5 s timeout that throws `StorageError.lockTimeout`, so a stuck process cannot starve the cooperative pool. Alternative: a dedicated serial queue with a blocking `flock`.
