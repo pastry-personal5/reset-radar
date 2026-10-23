@@ -29,7 +29,22 @@ public actor PublishSnapshot {
     private var backoffUntil: Date?
     private var failureCount = 0
     private var stop: StopReason?
-    private var oversizedShape: Set<WindowID>?
+    private var oversizedShape: Shape?
+    private var sending = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    /// What drives the encoded size. A refused envelope is not retried until this changes.
+    private struct Shape: Equatable {
+        let windows: Set<WindowID>
+        let results: Int
+        let diagnostics: Int
+
+        init(_ snapshot: UsageSnapshot) {
+            windows = Set(snapshot.windows.map(\.id))
+            results = snapshot.manualRefreshResults.count
+            diagnostics = snapshot.diagnostics.count
+        }
+    }
 
     public init(
         publisher: any PublisherStore, secrets: any SecretStore, cipher: any EnvelopeCipher,
@@ -63,8 +78,10 @@ public actor PublishSnapshot {
     public func publish(
         _ snapshot: UsageSnapshot, change: ChangeClass, trigger: PublishTrigger
     ) async -> PublishOutcome {
+        await acquire()
+        defer { release() }
         guard let target = await activeTarget(requiring: .active) else { return .paused }
-        let shape = Set(snapshot.windows.map(\.id))
+        let shape = Shape(snapshot)
         if let stop { return .stopped(stop) }
         if let oversizedShape, oversizedShape == shape { return .envelopeTooLarge }
         let state = PublicationState(lastPublishedAt: lastPublishedAt, backoffUntil: backoffUntil)
@@ -79,8 +96,28 @@ public actor PublishSnapshot {
     /// The first publication of relay setup: it binds the new publisher on the empty relay and
     /// ignores the publication policy. Only valid while setup is pending.
     public func bind(_ snapshot: UsageSnapshot) async -> PublishOutcome {
+        await acquire()
+        defer { release() }
         guard let target = await activeTarget(requiring: .setupPending) else { return .paused }
         return await send(snapshot, to: target)
+    }
+
+    /// Sends run one at a time: a second caller waits, then re-evaluates the policy against the
+    /// first send's result, so two overlapping publications never race for the relay sequence.
+    private func acquire() async {
+        if sending {
+            await withCheckedContinuation { waiters.append($0) }
+        } else {
+            sending = true
+        }
+    }
+
+    private func release() {
+        if waiters.isEmpty {
+            sending = false
+        } else {
+            waiters.removeFirst().resume()
+        }
     }
 
     private func activeTarget(requiring lifecycle: RelayLifecycle) async -> Target? {
@@ -96,6 +133,7 @@ public actor PublishSnapshot {
             return .secretsUnavailable
         }
         guard let sequence = try? await publisher.nextSequence() else { return .paused }
+        let snapshot = Self.stamped(snapshot, publisherID: target.publisherID)
         let header = EnvelopeHeader(
             protocolVersion: 1, envelopeVersion: 1, publisherID: target.publisherID,
             sequence: sequence, keyVersion: 1)
@@ -103,13 +141,27 @@ public actor PublishSnapshot {
             return await halt(.incompatible, status: nil, sequence: sequence)
         }
         guard sealed.encoded.count <= Self.maximumEnvelopeBytes else {
-            oversizedShape = Set(snapshot.windows.map(\.id))
+            oversizedShape = Shape(snapshot)
             await diagnostics.record(.envelopeTooLarge(sequence: sequence, at: clock.now))
             return .envelopeTooLarge
         }
         let outcome = await relay.putSnapshot(
             sealed.encoded, endpoint: target.endpoint, writeToken: keys.writeToken)
-        return await finish(outcome, sequence: sequence)
+        return await finish(outcome, sequence: sequence, publisherID: target.publisherID)
+    }
+
+    /// The collector may hold a superseded publisher ID; readers reject a snapshot whose ID
+    /// differs from its envelope header.
+    private static func stamped(
+        _ snapshot: UsageSnapshot, publisherID: PublisherID
+    ) -> UsageSnapshot {
+        guard snapshot.publisherID != publisherID else { return snapshot }
+        return
+            (try? UsageSnapshot(
+                publisherID: publisherID, generatedAt: snapshot.generatedAt,
+                heartbeatSeconds: snapshot.heartbeatSeconds, sources: snapshot.sources,
+                windows: snapshot.windows, diagnostics: snapshot.diagnostics,
+                manualRefreshResults: snapshot.manualRefreshResults)) ?? snapshot
     }
 
     private func readSecrets() async -> Secrets? {
@@ -125,11 +177,16 @@ public actor PublishSnapshot {
         }
     }
 
-    private func finish(_ outcome: RelayOutcome, sequence: UInt64) async -> PublishOutcome {
+    private func finish(
+        _ outcome: RelayOutcome, sequence: UInt64, publisherID: PublisherID
+    ) async -> PublishOutcome {
         switch outcome {
         case .accepted:
             // A failed floor update is safe: a lower pairing floor only accepts more.
-            try? await publisher.transact { $0.lastPublishedSequence = sequence }
+            // A setup that reset the publisher during the send keeps its own floor.
+            try? await publisher.transact { state in
+                if state.publisherID == publisherID { state.lastPublishedSequence = sequence }
+            }
             lastPublishedAt = clock.now
             backoffUntil = nil
             failureCount = 0

@@ -92,6 +92,8 @@ public enum WatchCommitOutcome: Sendable, Equatable {
     case ignoredOlder
     case rejectedConflict
     case rejectedByLocalEraseHold
+    /// The cache could not be read or written; nothing changed.
+    case storageFailed
     /// A different installation ID: held for owner confirmation.
     case heldForOwnerConfirmation
 }

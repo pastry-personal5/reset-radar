@@ -15,14 +15,12 @@ public actor HandleManualRefreshRequests {
     private let secrets: any SecretStore
     private let relay: any RelayGateway
     private let clock: any AppClock
-    private let heartbeatSeconds: Int
     private var lastForcedRead: Date?
 
     public init(
         publisher: any PublisherStore, snapshots: any LocalSnapshotCommitting,
         collector: CollectUsage, sources: [any UsageSource], publishing: PublishSnapshot,
-        secrets: any SecretStore, relay: any RelayGateway, clock: any AppClock,
-        heartbeatSeconds: Int
+        secrets: any SecretStore, relay: any RelayGateway, clock: any AppClock
     ) {
         self.publisher = publisher
         self.snapshots = snapshots
@@ -32,7 +30,6 @@ public actor HandleManualRefreshRequests {
         self.secrets = secrets
         self.relay = relay
         self.clock = clock
-        self.heartbeatSeconds = heartbeatSeconds
     }
 
     public func handle(pending: [PendingRefreshRequest]) async -> HandleOutcome {
@@ -60,47 +57,34 @@ public actor HandleManualRefreshRequests {
         lastForcedRead = clock.now
         var receipt = await codex.refresh()
         if receipt.finishedAt < observedAt { receipt = await codex.refresh() }
-        if let report = receipt.report { _ = try? await collector.ingest(report) }
+        if let report = receipt.report {
+            do { _ = try await collector.ingest(report) } catch { return .sourceUnavailable }
+        }
         return receipt.succeeded ? .codexRead : .sourceUnavailable
     }
 
-    /// Persists the handled IDs first, so a crash or retry never starts another read, then adds
-    /// the results to the local snapshot.
+    /// Commits the results to the local snapshot, then persists the handled IDs. If the commit
+    /// fails nothing is marked handled, so the requests are retried instead of being
+    /// acknowledged with no result. A crash between the two steps repeats one read at worst.
     private func record(
         _ requests: [PendingRefreshRequest], outcome: ManualRefreshResult.Outcome, now: Date
     ) async -> Bool {
         let until = now.addingTimeInterval(Self.resultRetention)
         let ids = requests.map(\.id)
+        let added = requests.map {
+            ManualRefreshResult(
+                readerID: $0.readerID, requestID: $0.id, completedAt: now, outcome: outcome)
+        }
         do {
+            try await collector.addManualResults(added)
             try await publisher.transact { state in
                 state.handledRequests = state.handledRequests.filter { $0.value > now }
                 for id in ids { state.handledRequests[id] = until }
             }
-            let base = try await currentSnapshot(now: now)
-            let added = requests.map {
-                ManualRefreshResult(
-                    readerID: $0.readerID, requestID: $0.id, completedAt: now, outcome: outcome)
-            }
-            let results = ManualRefreshResults.retained(base.manualRefreshResults + added, now: now)
-            try await snapshots.commitLocal(
-                try UsageSnapshot(
-                    publisherID: base.publisherID, generatedAt: now,
-                    heartbeatSeconds: base.heartbeatSeconds, sources: base.sources,
-                    windows: base.windows, diagnostics: base.diagnostics,
-                    manualRefreshResults: results))
             return true
         } catch {
             return false
         }
-    }
-
-    private func currentSnapshot(now: Date) async throws -> UsageSnapshot {
-        if let existing = try await snapshots.load() { return existing }
-        let state = try await publisher.load()
-        guard let publisherID = state.publisherID else { throw ManualRefreshError.notConfigured }
-        return try UsageSnapshot(
-            publisherID: publisherID, generatedAt: now, heartbeatSeconds: heartbeatSeconds,
-            sources: [], windows: [])
     }
 
     private func publishAndAcknowledge(_ requests: [PendingRefreshRequest]) async -> HandleOutcome {
@@ -118,8 +102,4 @@ public actor HandleManualRefreshRequests {
         }
         return .handled(count: acknowledged)
     }
-}
-
-enum ManualRefreshError: Error {
-    case notConfigured
 }

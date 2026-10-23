@@ -30,7 +30,9 @@ public actor ReconcileLiveActivities: AfterCommitStep {
 
     public func run() async {
         let enabled = await controller.areActivitiesEnabled()
-        let snapshot = await visible.current()
+        // An unreadable store leaves the running activities alone.
+        let snapshot: UsageSnapshot?
+        do { snapshot = try await visible.load() } catch { return }
         let now = clock.now
         for activity in await controller.list() {
             guard enabled, let live = Self.live(activity.slot, snapshot, now),

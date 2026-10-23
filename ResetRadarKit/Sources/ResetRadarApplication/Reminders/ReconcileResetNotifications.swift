@@ -36,7 +36,8 @@ public actor ReconcileResetNotifications: AfterCommitStep {
 
     private func reconcile() async -> ReconcileOutcome {
         let now = clock.now
-        let snapshot = await visible.current()
+        let snapshot: UsageSnapshot?
+        do { snapshot = try await visible.load() } catch { return .retryable }
         let authorized = await scheduler.authorization() == .authorized
         let pending = Dictionary(
             await scheduler.pending().map { ($0.slot, $0) }, uniquingKeysWith: { first, _ in first }

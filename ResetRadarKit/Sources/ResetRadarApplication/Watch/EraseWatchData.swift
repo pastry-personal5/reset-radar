@@ -12,16 +12,27 @@ public actor EraseWatchData {
 
     /// Clears the snapshot, keeps the revision tombstone, and holds later usage payloads until
     /// the owner resets Watch pairing.
-    public func erase() async {
-        let erased: Void? = try? await cache.transact { state in
-            state.snapshot = nil
-            state.relaySequence = nil
-            state.transportStatus = .notPaired
-            state.lastRelayContactAt = nil
-            state.lastCommitAt = nil
-            state.cleared = true
-            state.localEraseHold = true
+    @discardableResult
+    public func erase() async -> EraseOutcome {
+        do {
+            try await cache.transact { state in
+                state.snapshot = nil
+                state.relaySequence = nil
+                state.transportStatus = .notPaired
+                state.lastRelayContactAt = nil
+                state.lastCommitAt = nil
+                state.cleared = true
+                state.localEraseHold = true
+            }
+        } catch {
+            return .failed
         }
-        if erased != nil { reloader.reloadComplications() }
+        reloader.reloadComplications()
+        return .erased
     }
+}
+
+public enum EraseOutcome: Sendable, Equatable {
+    case erased
+    case failed
 }

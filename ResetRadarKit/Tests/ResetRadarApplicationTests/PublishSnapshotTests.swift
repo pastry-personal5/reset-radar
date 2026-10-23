@@ -219,4 +219,36 @@ final class PublishRig: @unchecked Sendable {
         let active = PublishRig(lifecycle: .active)
         #expect(await active.makePublisher().bind(snapshot(windows: [])) == .paused)
     }
+
+    @Test func overlappingPublicationsSendOneAtATimeInSequenceOrder() async {
+        let use = rig.makePublisher()
+        rig.relay.holdNext(.putSnapshot)
+        async let first = publish(use)
+        await rig.relay.waitForCalls(.putSnapshot)
+        async let second = publish(use, nil, .transition, .heartbeat)
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(rig.relay.calls(.putSnapshot).count == 1)
+        #expect(rig.store.nextSequenceCalls == 1)
+        rig.relay.release(.putSnapshot)
+        #expect(await first == .published(sequence: 1))
+        // The waiting caller sends only after the first finished, with the next sequence.
+        #expect(await second == .published(sequence: 2))
+        #expect(rig.cipher.sealedHeaders.map(\.sequence) == [1, 2])
+        #expect(rig.relay.calls(.putSnapshot).count == 2)
+    }
+
+    @Test func aSnapshotFromASupersededPublisherIsRestamped() async {
+        let use = rig.makePublisher()
+        let stale = snapshot(
+            windows: [window()], generatedAt: rig.clock.now, publisherID: otherPublisher)
+        #expect(await publish(use, stale) == .published(sequence: 1))
+        guard case .putSnapshot(let sent)? = rig.relay.calls(.putSnapshot).first,
+            let opened = try? rig.cipher.open(sent, key: SecretValue(bytes(32, 0x11)))
+        else {
+            Issue.record("expected one sent envelope")
+            return
+        }
+        #expect(opened.snapshot.publisherID == publisher)
+        #expect(opened.header.publisherID == publisher)
+    }
 }

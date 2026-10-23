@@ -17,7 +17,7 @@ public actor CommitWatchPayload {
 
     public func commit(_ payload: WatchPayload) async -> WatchCommitOutcome {
         guard let outcome = try? await cache.transact({ Self.apply(payload, to: &$0) }) else {
-            return .rejectedConflict
+            return .storageFailed
         }
         await finish(outcome, payload: payload)
         return outcome
@@ -32,7 +32,7 @@ public actor CommitWatchPayload {
             state.pendingInstallation = nil
             return Self.apply(payload, to: &state)
         }
-        guard let outcome else { return .rejectedConflict }
+        guard let outcome else { return .storageFailed }
         await finish(outcome, payload: payload)
         return outcome
     }
@@ -76,8 +76,8 @@ public actor CommitWatchPayload {
             if payload.deliveryRevision == state.deliveryRevision {
                 return state.asPayload() == payload ? .idempotent : .rejectedConflict
             }
-            if state.localEraseHold && !payload.cleared { return .rejectedByLocalEraseHold }
         }
+        if state.localEraseHold && !payload.cleared { return .rejectedByLocalEraseHold }
         state.installationID = payload.installationID
         state.deliveryRevision = payload.deliveryRevision
         state.snapshot = payload.snapshot

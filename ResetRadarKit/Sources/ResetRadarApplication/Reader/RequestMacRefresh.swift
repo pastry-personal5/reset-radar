@@ -116,7 +116,8 @@ public actor RequestMacRefresh {
                 return .timedOut  // cancelled: the marker stays so a relaunch resumes the wait
             }
             let outcome = await ingest.run(trigger: .manual, inAppProcess: true)
-            if outcome == .committed, let result = await matchingResult(marker, readerID) {
+            // Another process may have committed the result-bearing snapshot first.
+            if let result = await matchingResult(marker, readerID) {
                 await clearMarker(marker)
                 return .completed(result.outcome)
             }

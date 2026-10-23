@@ -11,13 +11,20 @@ public struct VisibleSnapshot: Sendable {
         self.reader = reader
     }
 
-    public func current() async -> UsageSnapshot? {
+    /// `nil` when nothing may be shown. A failed read throws, so a reconciler can tell a
+    /// transient store failure from "nothing to show" and leave its effects alone.
+    public func load() async throws -> UsageSnapshot? {
         if let reader {
-            guard let state = try? await reader.load(), state.pairing != nil,
-                !state.awaitingActivation, !state.forgetCleanupPending
+            let state = try await reader.load()
+            guard state.pairing != nil, !state.awaitingActivation, !state.forgetCleanupPending
             else { return nil }
         }
-        return (try? await snapshots.load()) ?? nil
+        return try await snapshots.load()
+    }
+
+    /// The same value for read-only queries, where an unreadable store shows as empty.
+    public func current() async -> UsageSnapshot? {
+        (try? await load()) ?? nil
     }
 
     func transportStatus() async -> TransportStatus {

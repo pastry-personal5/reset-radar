@@ -34,7 +34,10 @@ public struct AfterCommitPipeline: Sendable {
             await notifications.afterCommit(event)
         case .app:
             await runAll(event)
-            try? await reader.transact { $0.needsAppReconcile = false }
+            // A widget commit during the run sets the flag for a newer snapshot; keep it then.
+            try? await reader.transact { state in
+                if state.snapshot == event.snapshot { state.needsAppReconcile = false }
+            }
         }
     }
 

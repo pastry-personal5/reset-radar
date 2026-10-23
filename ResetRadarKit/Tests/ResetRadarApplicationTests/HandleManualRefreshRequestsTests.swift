@@ -28,7 +28,7 @@ final class ManualRig: @unchecked Sendable {
         HandleManualRefreshRequests(
             publisher: base.store, snapshots: store, collector: collector,
             sources: [codex, claude], publishing: publishing, secrets: base.secrets,
-            relay: base.relay, clock: clock, heartbeatSeconds: 300)
+            relay: base.relay, clock: clock)
     }
 
     func request(
