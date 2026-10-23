@@ -95,7 +95,7 @@ Goal: Ports, refresh and reset policies, snapshot reduction, and the error taxon
 Plan: [overview](milestone-05-application-use-cases-overview.md), [sequencing](milestone-05-application-use-cases-sequence.md), [Application](../architecture/application.md)
 
 ### P1-M6: Storage
-Status: Active
+Status: Done
 Goal: App Group persistence, the cross-process lock, and the persisted sequence counter.
 Plan: [overview](milestone-06-storage-overview.md), [sequencing](milestone-06-storage-sequence.md), [Storage](../architecture/storage.md)
 

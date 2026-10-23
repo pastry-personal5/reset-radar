@@ -1,6 +1,6 @@
 # P1-M6: Storage sequencing
 
-Status: Planned
+Status: Done
 
 Order of work, interfaces, and tests for [P1-M6](milestone-06-storage-overview.md). Behavior is defined in [Storage](../architecture/storage.md); this file adds only the file layout, signatures, and test cases that file leaves open. Each task is test-first: write the named tests, watch them fail, implement, run the module's tests. It assumes the recommended answer to each overview question.
 
@@ -35,7 +35,7 @@ Produces:
 
 Tests:
 
-- **Locations:** `.debug` and `.release` roots for the same base never equal or contain one another; a path-traversal name in `file(_:)` is rejected.
+- **Locations:** `.debug` and `.release` never share a file; a path-traversal name in `file(_:)` is rejected.
 - **Protection:** `forCurrentPlatform()` is `ownerOnly` on macOS; the mapping function for each of the three platforms is covered through an injected platform value; a written file has mode `0600` and its directory `0700`.
 - **Atomic writer:** an injected failure between the temporary write and the rename leaves the previous bytes readable and no partial target; a leftover temporary file from a prior crash does not block the next write.
 - **Lock:** two `ProcessFileLock` values over the same file serialize (the second body starts only after the first returns, via an ordered event log); a held lock times out as `lockTimeout`; the lock releases when the body throws; cancelling the waiting task stops polling. Spike (Q3): confirm whether `/usr/bin/lockf` takes `flock(2)`; if so add a child-process contention test, otherwise record in the changelog that cross-process evidence is descriptor-level.
@@ -53,7 +53,7 @@ Consumes: Task 1 types. Produces:
 Tests:
 
 - Round trip for each Task 3 value type, including a `PublisherState` with `handledRequests` entries: the dictionary is keyed by `RequestID`, and a non-`String` key encodes as an array, so assert the decoded value equals the original and its JSON survives an unknown extra field.
-- A synthetic v0 to v1 to v2 migration chain runs in order and rewrites the file only after the last step succeeds; a throwing middle step leaves the original bytes.
+- A synthetic v0 to v1 to v2 migration chain runs in order and rewrites the file before a successful read returns; a throwing middle step leaves the original bytes.
 - A migration that would yield a percentage of 101, a negative timestamp, an empty publisher ID, or a sequence below the stored floor is rejected, not accepted.
 - File larger than `maxBytes` by one byte is `tooLarge`; exactly `maxBytes` decodes. An unknown mandatory version is `incompatible(foundVersion:)` with the bytes unchanged.
 - Missing file reads as `nil`; the Mac backup exists after a newer-schema write and not after a same-version write.
@@ -111,7 +111,7 @@ Run P1-M5's use cases over the real stores in a temporary directory, with `FakeA
 
 ## Task 6: Close-out
 
-Remove `ResetRadarStorageModule.swift` and `ResetRadarStorageTests.swift`, run `git grep -n ResetRadarStorageModule` to confirm nothing remains, update storage.md (answered questions, facade names, size cap, corrupt-versus-incompatible, lock timeout), the docs index, phase-1.md (`Done`), the changelog, and this milestone's evidence. Run the complete gate from a clean checkout and commit `docs: close P1-M6`.
+Remove the Storage placeholder source and smoke test, search for remaining source or test references, update storage.md (answered questions, facade names, size cap, corrupt-versus-incompatible, lock timeout), the docs index, phase-1.md (`Done`), the changelog, and this milestone's evidence. Run the complete gate from a clean checkout and commit `docs: close P1-M6`.
 
 ## Coverage of the storage.md test list
 

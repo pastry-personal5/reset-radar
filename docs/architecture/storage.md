@@ -11,7 +11,7 @@ Status: Active
 | Layer | Adapter |
 | Platforms | iOS, macOS, watchOS |
 | Depends on | [Domain](domain.md), [Application](application.md), Foundation, and OSLog |
-| Implements | `SnapshotStore`, `ReaderStore`, `PublisherStore`, `PreferenceStore`, `NotificationReconcileGate`, `DiagnosticsSink` |
+| Implements | `SnapshotStore` (with `LocalSnapshotCommitting`), `ReaderStore`, `PublisherStore`, `WatchCacheStore`, `PreferenceStore`, `NotificationReconcileGate`, `DiagnosticsSink` |
 | Used by | Composition roots only |
 
 Rules:
@@ -25,17 +25,18 @@ Rules:
 ```mermaid
 flowchart TB
   subgraph PortImpls["Port implementations"]
-    FileSnapshotStore["FileSnapshotStore: SnapshotStore"]
+    FileSnapshotStore["FileSnapshotStore: LocalSnapshotCommitting"]
+    ReaderSnapshotStore["ReaderSnapshotStore: SnapshotStore"]
+    WatchSnapshotStore["WatchSnapshotStore: SnapshotStore"]
     FileReaderStore["FileReaderStore: ReaderStore"]
     FilePublisherStore["FilePublisherStore: PublisherStore"]
+    FileWatchCacheStore["FileWatchCacheStore: WatchCacheStore"]
     DefaultsPreferenceStore["DefaultsPreferenceStore: PreferenceStore"]
     FileNotificationReconcileGate["FileNotificationReconcileGate"]
     LogDiagnosticsSink["LogDiagnosticsSink: DiagnosticsSink"]
   end
   subgraph Core["Persistence core"]
     VersionedCodableFile["VersionedCodableFile of T"]
-    ReaderBundle["ReaderBundle: snapshot + reader state (iOS)"]
-    WatchCacheBundle["WatchCacheBundle: snapshot + revision + erase hold"]
     MigrationRegistry
     AtomicFileWriter
     ProcessFileLock["ProcessFileLock (flock)"]
@@ -49,11 +50,9 @@ flowchart TB
   end
   FileSnapshotStore --> VersionedCodableFile
   FileReaderStore --> VersionedCodableFile
-  FileSnapshotStore --> ReaderBundle
-  FileReaderStore --> ReaderBundle
-  FileSnapshotStore --> WatchCacheBundle
-  ReaderBundle --> VersionedCodableFile
-  WatchCacheBundle --> VersionedCodableFile
+  FileWatchCacheStore --> VersionedCodableFile
+  ReaderSnapshotStore --> FileReaderStore
+  WatchSnapshotStore --> FileWatchCacheStore
   FileReaderStore --> ProcessFileLock
   FileSnapshotStore --> ProcessFileLock
   FileNotificationReconcileGate --> ProcessFileLock
@@ -81,11 +80,11 @@ Debug builds use a separate `Debug` subdirectory, so a development build never r
 
 ## Port shape
 
-The Application ports that Storage implements are transactional. `ReaderStore`, `PublisherStore`, and the Watch's `WatchCacheStore` each expose `load()` and `transact(_:)`: the adapter takes its cross-process lock, reads the whole bundle, runs a synchronous closure that performs no I/O and may throw, and replaces the whole bundle in one atomic write. A throwing closure leaves the bundle unchanged. Fetch claims, result commits, pairing, Forget Mac, and receipt confirmation are all expressed as one `transact`, so no separate claim or commit method exists. `ReaderState` contains the committed snapshot, which makes the snapshot and reader state one replacement. `FileSnapshotStore` on iPhone, iPad, and Watch is a read facade (`load`, `clear`) over those bundles; only the Mac's `LocalSnapshotCommitting.commitLocal` writes a snapshot directly. `PublisherStore.nextSequence()` stays an explicit method because it must persist before it returns. The field lists below also include the complication-transfer timestamps and last transferred values (in `ReaderState`) and the complication-enabled flag (in `PreferenceStore`). The `commitRemote`, `commitWatch`, and `claimFetch` names used below describe behavior built on `transact`, not port methods.
+The Application ports that Storage implements are transactional. `ReaderStore`, `PublisherStore`, and the Watch's `WatchCacheStore` each expose `load()` and `transact(_:)`: the adapter takes its cross-process lock, reads the whole bundle, runs a synchronous closure that performs no I/O and may throw, and replaces the whole bundle in one atomic write. A throwing closure leaves the bundle unchanged. Fetch claims, result commits, pairing, Forget Mac, and receipt confirmation are all expressed as one `transact`, so no separate claim or commit method exists. `ReaderState` contains the committed snapshot, which makes the snapshot and reader state one replacement. `ReaderSnapshotStore` on iPhone and iPad and `WatchSnapshotStore` on Watch are read facades (`load`, `clear`) over those bundles; only the Mac's `FileSnapshotStore` writes a snapshot directly through `LocalSnapshotCommitting.commitLocal`. `PublisherStore.nextSequence()` stays an explicit method because it must persist before it returns. The field lists below also include the complication-transfer timestamps and last transferred values (in `ReaderState`) and the complication-enabled flag (in `PreferenceStore`). The `commitRemote`, `commitWatch`, and `claimFetch` names used below describe behavior built on `transact`, not port methods.
 
 ## Stores
 
-**`FileSnapshotStore`** holds the one committed `UsageSnapshot`. On Mac, `commitLocal(_:)` replaces the collected snapshot without assigning a relay sequence; `FilePublisherStore` owns the sequence when that snapshot is published. On iPhone and iPad, `commitRemote(_:sequence:ifGreaterThan:)` stores the accepted relay sequence and uses it for compare-and-swap. The iOS `FileSnapshotStore` and `FileReaderStore` are two port facades over one versioned `ReaderBundle` file containing both snapshot and reader state. A claim, result commit, pairing commit, Forget Mac, or receipt confirmation replaces that entire bundle atomically under one cross-process lock. A process killed between writes therefore sees either the old bundle or the new bundle, never an old snapshot with a new sequence or a cleared pairing with an old snapshot. On Watch, `commitWatch(_:deliveryRevision:)` writes one `WatchCacheBundle` containing the snapshot, relay sequence, iPhone installation ID, delivery revision, clear tombstone, and `localEraseHold`. It orders payloads by delivery revision, so a new publisher can start at a lower relay sequence after re-pairing. A clear removes the Watch snapshot while retaining its revision tombstone; a local erase also persists `localEraseHold`. Commits and `clear()` run under the container's `ProcessFileLock`, so the app and extension never interleave a read-modify-write.
+**`FileSnapshotStore`** holds the Mac's committed `UsageSnapshot`. `commitLocal(_:)` replaces the collected snapshot without assigning a relay sequence; `FilePublisherStore` owns the sequence when that snapshot is published. On iPhone and iPad, the ingestion use case stores the accepted relay sequence and snapshot together in `ReaderState`. `ReaderSnapshotStore` and `FileReaderStore` are two port facades over one versioned reader file. A claim, result commit, pairing commit, Forget Mac, or receipt confirmation replaces that entire bundle atomically under one cross-process lock. A process killed between writes therefore sees either the old bundle or the new bundle, never an old snapshot with a new sequence or a cleared pairing with an old snapshot. On Watch, the commit use case writes one `WatchCacheState` containing the snapshot, relay sequence, iPhone installation ID, delivery revision, clear tombstone, and `localEraseHold`. It orders payloads by delivery revision, so a new publisher can start at a lower relay sequence after re-pairing. A clear removes the Watch snapshot while retaining its revision tombstone; a local erase also persists `localEraseHold`. Commits and `clear()` run under the container's `ProcessFileLock`, so the app and extension never interleave a read-modify-write.
 
 **`FileReaderStore`** holds the iOS reader state:
 
@@ -109,6 +108,16 @@ The Application ports that Storage implements are transactional. `ReaderStore`, 
 **`DefaultsPreferenceStore`** wraps App Group or target-local `UserDefaults` with typed keys. Notification opt-in is stored per `HomeSlot` and per device, and is never synchronized.
 
 **`LogDiagnosticsSink`** forwards `DiagnosticEvent`s to unified logging with privacy markers, and keeps a bounded ring-buffer file for the confirmed diagnostics export. Because events carry no free-form strings (see [Domain](domain.md#records)), the sink cannot log a token, path, or payload.
+
+## Facades and bounds
+
+- **Snapshot facades.** `FileSnapshotStore` is the Mac store (`LocalSnapshotCommitting`) with its own versioned file. `ReaderSnapshotStore` and `WatchSnapshotStore` are read facades (`load`, `clear`) over `ReaderStore` and `WatchCacheStore`; `clear` changes only the snapshot, inside the same bundle replacement.
+- **Locations.** A composition root passes a root URL and a flavor to `StorageLocations`; `.debug` appends `Debug`, so the debug directory sits inside the release directory and the two never share a file. Storage resolves nothing from entitlements. `StorageLocations.macApplicationSupport(flavor:)` is the Mac convenience.
+- **Lock waiting.** `ProcessFileLock` polls `flock(LOCK_EX | LOCK_NB)` every 10 ms and throws `StorageError.lockTimeout` after 5 s, so a stuck process cannot starve the cooperative pool. Cancelling the waiting task stops polling.
+- **Size cap.** Any file larger than 5 MiB is rejected as `tooLarge` before its body is read, and a write that would exceed it is refused.
+- **Corrupt versus incompatible.** Undecodable or invalid content at the current version is moved aside as `<name>.corrupt` and read throws `corrupt` once; the next read starts empty. A migration that fails, or whose result is rejected, throws `corrupt` and leaves the file untouched. A valid migration replaces the file before read returns. Writes validate their value before replacement. An unknown newer version throws `incompatible(foundVersion:)` and neither read nor write touches the file.
+- **Bounds.** The diagnostics ring holds 200 events. A notification-reconcile claim lasts 30 seconds, measured by the injected `AppClock`.
+- **Backup.** On macOS, the first write in a newer schema copies the previous file to `<name>.v<oldVersion>.bak`.
 
 ## Migration
 

@@ -1,6 +1,6 @@
 # P1-M6: Storage overview
 
-Status: Planned
+Status: Done
 
 Implement `ResetRadarStorage` as specified in [Storage](../architecture/storage.md): versioned JSON files, atomic replacement, a cross-process `flock`, migration, typed preferences, and redacted diagnostics behind the P1-M5 store ports. No composition-root, UI, transport, or relay changes.
 
@@ -16,7 +16,7 @@ Implement `ResetRadarStorage` as specified in [Storage](../architecture/storage.
 
 - [x] P1-M5 is `Done` and merged to `main`; P1-M6 starts on a fresh branch (`feat/p1-m6-storage`). Evidence: the branch is cut from `9752fd1`, the merged P1-M5 head.
 - [x] The owner has answered the [open questions](#open-questions) or accepted each recommendation, and the answers are in the [changelog](changelog.md). Evidence: 2026-10-23 changelog entry.
-- [ ] A clean-checkout gate passes before any change (baseline).
+- [x] A clean-checkout gate passes before any change (baseline). Evidence: the complete contribution-guide gate passed in an isolated archive of `a4066de` on 2026-10-23.
 
 ## In scope
 
@@ -48,21 +48,22 @@ Answered by the owner on 2026-10-23: every recommended default is accepted (see 
 
 ## Completion checklist
 
-- [ ] Entry criteria hold, with evidence in the changelog and baseline gate output.
-- [ ] Checkpoint A (Tasks 1 and 2) has passed the gate and is committed, so the stores can build on the core.
-- [ ] `ResetRadarStorage` imports only Domain, Application, Foundation, and OSLog; `Scripts/check-imports.sh` passes.
-- [ ] Interrupted atomic replacement and corrupted JSON leave the last valid file readable, and a decoded file over the size cap is rejected without loading it. Evidence: `AtomicFileWriterTests`, `VersionedCodableFileTests`.
-- [ ] Every supported migration runs one version at a time; an unknown mandatory version leaves the file untouched and surfaces `incompatible`; a migration cannot accept an invalid percentage, timestamp, publisher, or sequence; the Mac backup exists before the first newer-schema write. Evidence: `MigrationRegistryTests`.
-- [ ] Two descriptors contending for `ProcessFileLock` serialize, and a lock times out as `lockTimeout` instead of hanging. Evidence: `ProcessFileLockTests`.
-- [ ] `ReaderStore.transact` and `PublisherStore.transact` replace the whole bundle atomically; a throwing closure changes nothing; concurrent writers lose no update; the iOS snapshot and reader state, and the Watch snapshot and sequence, are never split after an interrupted replacement. Evidence: `FileReaderStoreTests`, `FileWatchCacheStoreTests`, `FilePublisherStoreTests`.
-- [ ] `nextSequence()` is on disk before it returns and never repeats after a crash. Evidence: `FilePublisherStoreTests`.
-- [ ] The P1-M5 lease, late-result, ETag-invalidation, Forget Mac tombstone, and pending-setup cases pass when the real use cases run over the real stores. Evidence: `StorageIntegrationTests`.
-- [ ] Notification reconciliation across two gate instances and an expired claim passes. Evidence: `FileNotificationReconcileGateTests`.
-- [ ] Preferences are per slot and per device and are not shared across stores; the diagnostics ring is bounded and holds only `DiagnosticEvent` values. Evidence: `DefaultsPreferenceStoreTests`, `LogDiagnosticsSinkTests`.
-- [ ] File permissions are `0700`/`0600` on macOS, the `ProtectionPolicy` mapping is tested for each platform, and Debug and release roots never overlap. Evidence: `StorageLocationsTests`, `ProtectionPolicyTests`.
-- [ ] The placeholder `ResetRadarStorageModule` and its smoke test are removed, with no remaining reference.
-- [ ] Complete gate passes from a clean checkout (Mac run only for Xcode tests). Evidence: all gate commands passed after the final change; the Mac `xcodebuild test` run reports the new Storage tests by name.
-- [ ] Docs updated: storage.md answers and names, README index, phase-1.md status, changelog. Evidence: the files changed in the closing commit.
+- [x] Review follow-up: validate values before replacing a file, persist successful migrations atomically, use grant-time clock values for notification claims, and verify sequence exhaustion and lock cancellation. Evidence: `f2f9fc3`; 81 Storage tests and the complete gate passed on 2026-10-23.
+- [x] Entry criteria hold, with evidence in the changelog and baseline gate output.
+- [x] Checkpoint A (Tasks 1 and 2) passed the complete gate and is committed. Evidence: isolated checkout of `db9f7cf` passed all gate commands, with 36 Storage core tests in six suites.
+- [x] `ResetRadarStorage` imports only Domain, Application, Foundation, and OSLog; `Scripts/check-imports.sh` passed.
+- [x] Interrupted atomic replacement leaves the previous valid file readable; corrupted JSON is quarantined and reported once; a file over the size cap is rejected before its body is read. Evidence: `AtomicFileWriterTests`, `VersionedCodableFileTests`.
+- [x] Every supported migration runs one version at a time; an unknown mandatory version leaves the file untouched and surfaces `incompatible`; a migration cannot accept an invalid percentage, timestamp, publisher, or sequence; the Mac backup exists before the first newer-schema write. Evidence: `MigrationRegistryTests`, `VersionedCodableFileTests`.
+- [x] Two descriptors and a child process contending for `ProcessFileLock` serialize, and a lock times out as `lockTimeout` instead of hanging. Evidence: `ProcessFileLockTests`, including forced holder termination.
+- [x] `ReaderStore.transact` and `PublisherStore.transact` replace the whole bundle atomically; a throwing closure changes nothing; concurrent writers lose no update; the iOS snapshot and reader state, and the Watch snapshot and sequence, are never split after an interrupted replacement. Evidence: `FileReaderStoreTests`, `FileWatchCacheStoreTests`, `FilePublisherStoreTests`.
+- [x] `nextSequence()` is on disk before it returns and never repeats after a crash. Evidence: `FilePublisherStoreTests`, `PublisherIntegrationTests`.
+- [x] The P1-M5 lease, late-result, ETag-invalidation, Forget Mac tombstone, pending-setup, interrupted manual-refresh, and Watch erase receipt cases pass when the real use cases run over the real stores. Evidence: `StorageIntegrationTests`.
+- [x] Notification reconciliation across two gate instances and an expired claim passes, and an interrupted pass retains the flag. Evidence: `FileNotificationReconcileGateTests`, `ReaderIntegrationTests`.
+- [x] Preferences are per slot and per device and are not shared across stores; the diagnostics ring is bounded and holds only `DiagnosticEvent` values. Evidence: `DefaultsPreferenceStoreTests`, `LogDiagnosticsSinkTests`.
+- [x] File permissions are `0700`/`0600` on macOS, including existing directories and lock files; the `ProtectionPolicy` mapping is tested for each platform, and Debug and release never share a file. Evidence: `StorageLocationsTests`, `ProtectionPolicyTests`.
+- [x] The Storage placeholder and its smoke test are removed, with no remaining source or test reference. Evidence: the source deletion and a repository search for the removed symbol returning no matches.
+- [x] Complete gate passes from a clean checkout (Mac run only for Xcode tests). Evidence: all gate commands passed after the final change on 2026-10-23; the Mac result bundle reports 81 Storage test cases and 488 total Mac test runs, with zero failures.
+- [x] Docs updated: storage.md answers and names, README index, phase-1.md status, changelog. Evidence: the files changed in the closing commit.
 
 ## Checkpoints
 
