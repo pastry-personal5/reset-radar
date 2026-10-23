@@ -58,8 +58,17 @@ public struct VersionedCodableFile<Value: Codable & Sendable>: Sendable {
             let value = try WireCoding.decoder().decode(Envelope<Value>.self, from: data).payload
             try validate(value)
             return value
+        } catch let error as SchemaError {
+            // A newer build wrote a nested record this build cannot read: not damage.
+            throw Self.incompatible(error)
         } catch {
             throw quarantine()
+        }
+    }
+
+    private static func incompatible(_ error: SchemaError) -> StorageError {
+        switch error {
+        case .unsupported(let found, _): .incompatible(foundVersion: found)
         }
     }
 
@@ -140,6 +149,8 @@ public struct VersionedCodableFile<Value: Codable & Sendable>: Sendable {
             return value
         } catch let error as StorageError {
             throw error
+        } catch let error as SchemaError {
+            throw Self.incompatible(error)
         } catch {
             throw StorageError.corrupt
         }

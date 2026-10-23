@@ -276,3 +276,41 @@ struct FileWatchCacheStoreTests {
         #expect(!state.cleared)
     }
 }
+
+struct NestedSchemaTests {
+    /// A snapshot written by a newer build inside an otherwise current bundle.
+    private func bundleWithNewerSnapshot(_ directory: TemporaryDirectory) async throws -> Data {
+        let store = FileReaderStore(locations: locations(directory))
+        try await store.transact {
+            $0.pairing = pairing
+            $0.snapshot = snapshot()
+        }
+        let url = directory.url.appending(path: "reader.json")
+        var object = try #require(
+            try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        var payload = try #require(object["payload"] as? [String: Any])
+        var nested = try #require(payload["snapshot"] as? [String: Any])
+        nested["schemaVersion"] = 2
+        payload["snapshot"] = nested
+        object["payload"] = payload
+        let edited = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        try edited.write(to: url)
+        return edited
+    }
+
+    @Test func aNewerNestedSnapshotIsIncompatibleAndLeavesTheBundleUntouched() async throws {
+        let directory = TemporaryDirectory()
+        let edited = try await bundleWithNewerSnapshot(directory)
+        let store = FileReaderStore(locations: locations(directory))
+        await #expect(throws: StorageFailure.incompatible(foundVersion: 2)) {
+            try await store.load()
+        }
+        await #expect(throws: StorageFailure.incompatible(foundVersion: 2)) {
+            try await store.transact { $0.failureCount += 1 }
+        }
+        #expect(try bytesOf(directory, "reader.json") == edited)
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: directory.url.appending(path: "reader.json.corrupt").path))
+    }
+}
