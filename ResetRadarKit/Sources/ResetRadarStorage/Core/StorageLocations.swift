@@ -29,6 +29,11 @@ public struct StorageLocations: Sendable, Equatable {
         return directory.appending(path: name, directoryHint: .notDirectory)
     }
 
+    /// A file the module itself names, so there is no caller-supplied name to validate.
+    func ownFile(_ name: String) -> URL {
+        directory.appending(path: name, directoryHint: .notDirectory)
+    }
+
     #if os(macOS)
         public static func macApplicationSupport(flavor: Flavor) -> StorageLocations {
             StorageLocations(
