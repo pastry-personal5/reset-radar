@@ -42,16 +42,23 @@ public protocol ByteIdentifier: Codable, Hashable, Sendable {
 
 extension ByteIdentifier {
     public init?(hex: String) {
-        guard hex.utf8.count == 2 * Self.byteCount else { return nil }
+        // Work on UTF-8 bytes: a multi-byte character must not shift Character-based indexing,
+        // and only lowercase ASCII hexadecimal is valid.
+        let digits = Array(hex.utf8)
+        guard digits.count == 2 * Self.byteCount else { return nil }
+        func nibble(_ digit: UInt8) -> UInt8? {
+            switch digit {
+            case UInt8(ascii: "0")...UInt8(ascii: "9"): digit - UInt8(ascii: "0")
+            case UInt8(ascii: "a")...UInt8(ascii: "f"): digit - UInt8(ascii: "a") + 10
+            default: nil
+            }
+        }
         var bytes = Data()
-        var index = hex.startIndex
-        while index < hex.endIndex {
-            let next = hex.index(index, offsetBy: 2)
-            guard let byte = UInt8(hex[index..<next], radix: 16),
-                hex[index..<next].allSatisfy({ $0.isNumber || ("a"..."f").contains($0) })
-            else { return nil }
-            bytes.append(byte)
-            index = next
+        for pair in stride(from: 0, to: digits.count, by: 2) {
+            guard let high = nibble(digits[pair]), let low = nibble(digits[pair + 1]) else {
+                return nil
+            }
+            bytes.append(high << 4 | low)
         }
         self.init(data: bytes)
     }

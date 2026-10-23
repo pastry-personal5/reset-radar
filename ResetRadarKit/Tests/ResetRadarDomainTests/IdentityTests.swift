@@ -31,6 +31,13 @@ import Testing
         #expect(AccountScope(hex: String(repeating: "AB", count: 16)) == nil)
     }
 
+    /// 15 two-byte characters plus two ASCII ones have 32 UTF-8 bytes but 17 characters.
+    @Test func multiByteHexIsRejectedWithoutTrapping() {
+        #expect(AccountScope(hex: String(repeating: "é", count: 15) + "ab") == nil)
+        #expect(AccountScope(hex: String(repeating: "é", count: 16)) == nil)
+        #expect(AccountScope(hex: String(repeating: "٣٣", count: 8)) == nil)
+    }
+
     @Test func windowIDDependsOnScope() {
         let one = AccountScope(data: bytes(16, 1))!
         let two = AccountScope(data: bytes(16, 2))!
@@ -94,6 +101,26 @@ import Testing
     @Test func malformedDateIsRejected() {
         #expect(throws: DecodingError.self) {
             try WireCoding.decoder().decode([Date].self, from: Data("[\"yesterday\"]".utf8))
+        }
+    }
+
+    @Test func wholeSecondsKeepZeroMilliseconds() throws {
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        let data = try WireCoding.encoder().encode([date])
+        #expect(text(data) == "[\"2023-11-14T22:13:20.000Z\"]")
+        #expect(try WireCoding.decoder().decode([Date].self, from: data) == [date])
+    }
+
+    @Test func decoderToleratesDateWithoutMilliseconds() throws {
+        let decoded = try WireCoding.decoder().decode(
+            [Date].self, from: Data("[\"2023-11-14T22:13:20Z\"]".utf8))
+        #expect(decoded == [Date(timeIntervalSince1970: 1_700_000_000)])
+    }
+
+    @Test(arguments: ["", "2023-11-14"])
+    func incompleteDateIsRejected(value: String) {
+        #expect(throws: DecodingError.self) {
+            try WireCoding.decoder().decode([Date].self, from: Data("[\"\(value)\"]".utf8))
         }
     }
 
