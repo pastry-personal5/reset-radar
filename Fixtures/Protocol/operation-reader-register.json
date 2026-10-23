@@ -1,0 +1,9 @@
+{
+  "method": "PUT",
+  "path": "/v1/readers/45454545454545454545454545454545",
+  "authority": "admin",
+  "requestBody": "{\"protocolVersion\":1,\"tokenDigest\":\"4c07be22f86c52fd94ac9b44b023583c4fd5180d193ff28491d2885653c2c81e\"}",
+  "status": 200,
+  "responseBody": "{\"expiresAt\":\"2023-11-14T22:18:20.000Z\",\"protocolVersion\":1}",
+  "etag": null
+}

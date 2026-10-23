@@ -1,0 +1,9 @@
+{
+  "method": "POST",
+  "path": "/v1/readers/activate",
+  "authority": "read",
+  "requestBody": "",
+  "status": 200,
+  "responseBody": "{\"activated\":true,\"protocolVersion\":1}",
+  "etag": null
+}

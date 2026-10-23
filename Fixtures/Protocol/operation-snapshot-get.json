@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/v1/snapshot",
+  "authority": "read",
+  "requestBody": "",
+  "status": 200,
+  "responseBody": "{\"ciphertext\":\"3OqlElLXZeEhjgZAefNdEci5e9RX-AfHQmDAxRmahp5oP3CYFPKk-3pQhlEs61YDzXDwpDVRC6epGSm3vwOpfBCGTjxRfCZ7YxYLabCVYCN6zj6NiQZ9ZGc8KMOncE3m1v9EgA4bKoXy_WXDLEsk2QBWT5gPIlO7JOsZi24qkMeGLBzjAcC32Z5ay6Q2b47b0iyZjnV7zwnCTOfxw5ZPinN5THuZOldnmNIlp6biZNqDfFPU3V_6gyLy-mcm7WAfwvDUuZ3dt3F3Fw1ojAwjpMyk9ibW5OyJWnxyBe_j3YbL6y7nhyRfUQ\",\"envelopeVersion\":1,\"keyVersion\":1,\"nonce\":\"q6urq6urq6urq6ur\",\"protocolVersion\":1,\"publisherID\":\"2323232323232323232323232323232323232323232323232323232323232323\",\"sequence\":7,\"tag\":\"XmE-OivGqkXodjuSrTtiqQ\"}",
+  "etag": "\"2d41e437b8489eecefb1a6a84657f0252dc05dc4e93eac1aa5ff042025915f86\""
+}

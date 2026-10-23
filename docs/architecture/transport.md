@@ -95,6 +95,7 @@ All readers share one content key. Revoking a reader therefore removes its relay
 **iOS: data-protection keychain.**
 - Items use `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, so background refresh and widget reloads can decrypt after the first unlock.
 - Every add, read, update, and delete explicitly supplies `kSecAttrAccessGroup` set to the shared App Group identifier. [Apple permits an App Group identifier as a Keychain access group](https://developer.apple.com/documentation/security/sharing-access-to-keychain-items-among-a-collection-of-apps), so the widget extension can read the read token and content key without a separate Keychain Sharing entitlement. Omitting this attribute would use a target's private default group and break extension reads.
+- The iOS composition root passes the entitlement-expanded access-group string to the required `KeychainSecretStore` initializer. Transport has no iOS initializer that silently omits the group; stub backend tests inspect all four SecItem operations.
 - Before the first unlock after a restart, reads fail with `interactionRequired`, which ingestion reports as `secretsUnavailable`.
 
 **macOS: file-based login keychain.**
@@ -102,6 +103,7 @@ All readers share one content key. Revoking a reader therefore removes its relay
 - Items therefore live in the login keychain. Their access list trusts the creating app, identified by its code-signing designated requirement and team.
 - Release builds of the Mac app are always signed with one Apple Development identity, so rebuilds and updates still satisfy that requirement, and access needs no interaction.
 - Every call runs with user interaction disabled. A locked keychain or a changed signing identity therefore returns `interactionRequired` instead of a dialog.
+- Every macOS SecItem query supplies an `LAContext` with `interactionNotAllowed` set, following [Apple's Keychain guidance](https://developer.apple.com/documentation/security/ksecuseauthenticationuifail). The stub verifies this for add, read, update, and delete; signed-build behavior is verified on a real Mac.
 - Secrets are read once per process into `SessionSecretCache`. A login Keychain already locked when the process starts makes that read fail and pauses publication. If the Keychain locks after a successful read, the running process retains the cached secrets and continues publication until quit, setup, destruction, or an explicit cache invalidation. Locking the Keychain is therefore not a stop-publishing action.
 - Writing or deleting a secret invalidates its cached value before the operation returns. Relay setup and destruction also clear the complete per-process cache, so a running publisher cannot reuse superseded tokens or keys.
 
@@ -109,7 +111,7 @@ The signing contract and recovery behavior are in the [Mac app](mac-app.md#signi
 
 ## Account scope
 
-`HMACAccountScoper` computes HMAC-SHA-256 of the account identifier the Codex app-server reports, truncated to 128 bits. It is keyed by a random per-install secret in the Mac Keychain. The identifier is used only inside this call and is never stored, logged, or returned.
+`HMACAccountScoper` computes HMAC-SHA-256 of the account identifier the Codex app-server reports, truncated to 128 bits. It is keyed by a random 256-bit per-install secret in the Mac Keychain; a missing key is generated once and a malformed stored or generated key is rejected. The identifier is used only inside this call and is never stored, logged, or returned.
 
 ## Envelope
 
@@ -172,4 +174,4 @@ The Mac offers manual copying only after an explicit action and a warning that t
 - secret-store error mapping against a stubbed Keychain backend; and
 - cache invalidation on write, delete, setup replacement, and destruction.
 
-The real Keychain is never exercised in the gate: unit tests use the in-memory `SecretStore` from `ResetRadarTestSupport`. Real Keychain behavior is proven on the reference devices; see [Platform behavior](../architecture.md#platform-behavior-to-be-proven-on-real-runtimes).
+The real Keychain is never exercised in the gate: unit tests inject a `SecItemBackend` stub, and use-case tests also use the in-memory `SecretStore` from `ResetRadarTestSupport`. Real Keychain behavior is proven on the reference devices; see [Platform behavior](../architecture.md#platform-behavior-to-be-proven-on-real-runtimes).

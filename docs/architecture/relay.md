@@ -61,10 +61,10 @@ flowchart TB
 | `PUT /v1/snapshot` | Write token | Accept at most 64 KiB. On empty storage, bind the envelope's publisher ID and sequence. Otherwise atomically reject an unexpected publisher, an equal or lower sequence, malformed outer metadata, or an unsupported mandatory version. Return the sequence and a strong ETag. |
 | `GET /v1/snapshot` | Any registered read token | Authenticate a pending reader's preflight without activating it. Return the latest envelope with `Cache-Control: no-store`, support `If-None-Match`, and return not-found before the first publish. |
 | `POST /v1/readers/activate` | Registered read token | Derive `ReaderID` from the token and idempotently mark that reader activated after the client has saved its pairing locally. Return `200` even if already activated. Reject an expired or revoked pending reader with `401`; never accept a reader ID supplied in the body. |
-| `POST /v1/refresh-requests` | Activated read token | Accept a client-generated random 128-bit request ID for a Codex read in a body capped at 128 bytes. Store at most one pending request per reader for 60 seconds. Repeating the same ID while pending returns the same `202` and expiry without a new request; repeating the last completed ID returns `409`; a different ID inside the reader's 60-second rate limit returns `429`. Return `202` and the relay-assigned expiry for a new request. The request carries no usage value, account data, or provider credential. |
+| `POST /v1/refresh-requests` | Activated read token | Accept a client-generated random 128-bit request ID for a Codex read in a body capped at 128 bytes. Store at most one pending request per reader for 60 seconds. Repeating the same ID while pending returns the same `202` and expiry without a new request; repeating the last completed ID returns `409`; retrying the reader's last accepted ID after expiry or using another reader's live ID returns `400`; a different ID inside the reader's 60-second rate limit returns `429`. Return `202` and the relay-assigned expiry for a new request. The request carries no usage value, account data, or provider credential. |
 | `GET /v1/refresh-requests` | Write token | Return at most three unexpired request IDs with their `ReaderID`s and relay-assigned expiry, using `Cache-Control: no-store`. Reading does not consume a request, so a Mac crash cannot lose it. |
 | `DELETE /v1/refresh-requests/{id}` | Write token | Remove a request after the Mac has successfully published its encrypted result. A duplicate delete is idempotent. Expiry also removes a request. |
-| `PUT /v1/readers/{id}` | Administration token | Register a pending reader's token digest with a relay-assigned five-minute expiry and return that expiry in UTC; reject a fourth registered reader. `{id}` is a random `ReaderID` chosen by the Mac. Expired pending rows are removed before enforcing the cap. |
+| `PUT /v1/readers/{id}` | Administration token | Register a pending reader's token digest with a relay-assigned five-minute expiry and return that expiry in UTC; reject a fourth registered reader. `{id}` is a random `ReaderID` chosen by the Mac. A retry with an existing ID and matching digest returns the original expiry. An existing ID with a changed digest, a digest bound to another reader, or a digest matching the write or administration role returns `400` without mutation. Expired pending rows are removed before enforcing the cap. |
 | `GET /v1/readers` | Administration token | List registered reader IDs and whether each is activated, with no times or other metadata. |
 | `DELETE /v1/readers/{id}` | Administration token | Revoke one reader. |
 | `DELETE /v1/relay` | Administration token | After trusted local confirmation, atomically delete all Durable Object storage. Repeating the request after an interrupted client cleanup succeeds even when storage is already empty. |
@@ -72,6 +72,8 @@ flowchart TB
 ### V1 HTTP body profile
 
 This profile is shared with the [Transport v1 wire profile](transport.md#v1-wire-profile). All JSON request and response bodies are compact UTF-8 objects with sorted keys and no unknown or duplicate fields. Every JSON body has `protocolVersion: 1`. `PublisherID` is 64 lowercase hexadecimal characters; `ReaderID` and `RequestID` are 32 each; token digests are 64 lowercase hexadecimal characters. Relay-assigned times are UTC ISO-8601 strings with exactly millisecond precision. The snapshot body is the [outer envelope](transport.md#v1-wire-profile), not a wrapper. Its `sequence` is an integer JSON number from `1` through `9007199254740991` (`2^53 - 1`); the client refuses to seal or send a higher v1 sequence, and the Worker rejects one before comparing or storing it. This bound keeps Swift and TypeScript integer comparisons exact.
+
+The [shared synthetic fixtures](../../Fixtures/Protocol/README.md) pin the exact outer envelope, operation bodies, error bodies, ETag, and collision outcomes consumed by both language suites.
 
 The wire credential is `Authorization: Bearer <token>`, where `<token>` is the unpadded base64url encoding of exactly 32 raw token bytes. The Worker decodes that form strictly, hashes the raw bytes with SHA-256, and compares the digest for the required role; it never hashes the header text. JSON request bodies use `Content-Type: application/json`; JSON responses use the same media type. Empty-body responses have no JSON content type. Reader lists sort by `readerID`; refresh-request lists sort by `readerID` then `requestID` so fixture bytes are deterministic.
 
@@ -108,6 +110,8 @@ Worker error bodies have exactly `{"code":"<code>","protocolVersion":1}` and are
 
 The Worker can use a `500` or `503` error code `relayUnavailable`; the Swift client maps any bounded `5xx` to `offline`. Network or TLS failure is also `offline`. A `3xx` is `protocolFailure` and is never followed. Other status/code/operation combinations, absent required bodies, and malformed JSON are `protocolFailure`. Cloudflare may generate a Free-limit response before Worker code runs; [deployed relay conformance](../architecture.md#relay-conformance) records its actual bounded form and adds that distinct mapping before real usage can flow. An unrecognized bounded platform `429` is `protocolFailure` and retains the cache until that evidence exists.
 
+The `400 badRequest` row also covers conflicting reader registration, reuse of an expired last-accepted refresh ID, and a refresh ID already live for another reader. These outcomes reveal no reader or request details and leave state unchanged. The last-accepted replay guard is bounded: after a different ID is accepted, an older expired ID is no longer retained unless it is also the last completed ID.
+
 ### Responses
 
 | Response | Cause | Client behavior |
@@ -143,10 +147,10 @@ The Durable Object's SQLite database has three tables:
 | Table | Columns |
 |---|---|
 | `relay_state` (one row) | Latest envelope, its ETag and accepted time, bound publisher ID, last sequence, and protocol-state version. |
-| `readers` (at most three rows) | Reader ID, token digest, activated flag, pending expiry, last accepted manual-refresh time, and last accepted request ID for duplicate and rate-limit checks. |
+| `readers` (at most three rows) | Reader ID, token digest, activated flag, pending expiry, last accepted manual-refresh time and ID for duplicate and rate-limit checks, and a separate last completed request ID for replay rejection. |
 | `refresh_requests` (at most three live rows) | Reader ID, opaque request ID, and relay-assigned accepted and expiry times. Expired rows are removed during request operations; no alarm is needed. Deleting a completed request does not reset the rate limit in `readers`. |
 
-There is no product history. Each operation deletes expired unactivated readers before other reader work; expiry cannot revoke an already activated reader. The write and administration digests live as Worker secrets, not in the database. Cloudflare point-in-time recovery may retain provider-managed historical storage for its documented period, so deletion copy cannot promise immediate physical erasure from backups.
+There is no product history. An expired pending reader is unauthorized immediately. Cleanup runs only after a request has passed its applicable authority check; an invalid read token causes no write. Authenticated registration removes expired pending rows before enforcing the cap, and expiry cannot revoke an already activated reader. The write and administration digests live as Worker secrets, not in the database. Cloudflare point-in-time recovery may retain provider-managed historical storage for its documented period, so deletion copy cannot promise immediate physical erasure from backups.
 
 ## Operations
 

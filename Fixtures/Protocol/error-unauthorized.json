@@ -1,0 +1,5 @@
+{
+  "status": 401,
+  "code": "unauthorized",
+  "body": "{\"code\":\"unauthorized\",\"protocolVersion\":1}"
+}

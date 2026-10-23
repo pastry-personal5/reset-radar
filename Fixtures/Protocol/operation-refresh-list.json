@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/v1/refresh-requests",
+  "authority": "write",
+  "requestBody": "",
+  "status": 200,
+  "responseBody": "{\"protocolVersion\":1,\"requests\":[{\"expiresAt\":\"2023-11-14T22:18:20.000Z\",\"readerID\":\"45454545454545454545454545454545\",\"requestID\":\"56565656565656565656565656565656\"}]}",
+  "etag": null
+}

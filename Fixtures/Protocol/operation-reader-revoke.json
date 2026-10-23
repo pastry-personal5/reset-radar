@@ -1,0 +1,9 @@
+{
+  "method": "DELETE",
+  "path": "/v1/readers/45454545454545454545454545454545",
+  "authority": "admin",
+  "requestBody": "",
+  "status": 204,
+  "responseBody": "",
+  "etag": null
+}

@@ -1,0 +1,5 @@
+{
+  "status": 429,
+  "code": "quotaLimited",
+  "body": "{\"code\":\"quotaLimited\",\"protocolVersion\":1}"
+}

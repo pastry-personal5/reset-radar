@@ -1,6 +1,6 @@
 # P1-M7: Transport crypto and protocol overview
 
-Status: Planned
+Status: Done
 
 Implement `ResetRadarTransport` behind the P1-M5 ports, using the [Transport design](../architecture/transport.md) and the [relay protocol](../architecture/relay.md). This milestone supplies authenticated snapshot envelopes, account scoping, pairing packages, non-interactive secret storage, an HTTPS relay client, and checked-in fixtures for P1-M8. The [sequence](milestone-07-transport-sequence.md) gives the work order and acceptance tests.
 
@@ -10,9 +10,9 @@ The real Transport implementations satisfy `SecretStore`, `SecretGenerator`, `En
 
 ## Entry criteria
 
-- [ ] P1-M4 and P1-M5 are `Done`, and the starting commit and worktree are recorded. Evidence: [phase plan](phase-1.md) and `git status --short`. P1-M6 is also marked `Done`; preserve any separate uncommitted follow-up work.
+- [x] P1-M4 and P1-M5 are `Done`, and the starting commit and worktree are recorded. Evidence: [phase plan](phase-1.md), HEAD `353043ddc791856b17a06a66f26b7391020bef8c`, and the 2026-10-23 `git status --short` result: five modified M6/M8/protocol docs and untracked `tmp/`. P1-M6 is also `Done`; those edits remain untouched.
 - [x] The owner answered the [owner decisions](#owner-decisions), including the test-target dependency edit and v1 sequence bound. Evidence: the 2026-10-23 [changelog](changelog.md) entry.
-- [ ] The full gate passes on an isolated baseline before Transport implementation. Evidence: commands and result recorded here or in the changelog.
+- [x] The full gate passes on an isolated baseline before Transport implementation. An isolated clean clone at HEAD `353043ddc791856b17a06a66f26b7391020bef8c` passed project generation, Swift format lint, strict SwiftLint (0 violations), import check, Mac Xcode scheme test (1 smoke test), relay `npm ci`, tests (2), typecheck, and deployment dry run on 2026-10-23. The initial sandbox denial was resolved by running the gate with approved permissions and writable caches.
 
 ## In scope
 
@@ -44,22 +44,32 @@ The owner accepted all six choices on 2026-10-23. The v1 field schema and byte r
 
 ## Completion checklist
 
-- [ ] Entry criteria hold and every owner decision is recorded.
+- [x] Post-completion review verifies strict protocol decoding and response semantics, adds regression coverage for any findings, and reruns the full contribution gate. Evidence: 2026-10-23 review confirmed canonical envelope, pairing, and response mapping checks; it added all-role redirect-refusal coverage and verifies `LAContext.interactionNotAllowed` across SecItem add/read/update/delete. The 39-test focused Transport suite and complete contribution-guide gate passed.
+- [x] Checkpoint A proves canonical outer-envelope, pairing, request, response, and ETag fixtures are consumed directly by both Swift and TypeScript suites. Evidence: `Fixtures/Protocol/{envelope,pairing,operation-*,error-*,scenario-*}.json`, Swift fixture tests, and `relay/test/fixtures.spec.ts`; the final focused run passed 39 Transport tests and six relay tests.
+- [x] Entry criteria hold and every owner decision is recorded. Evidence: the three entry items above, phase plan, and 2026-10-23 owner-decision changelog entry.
 - [x] Plan review confirms the existing port signatures, relay operation count, fixture consumers, and deferred runtime evidence. Evidence: review below against the checked-in Application ports, `RelayStatusContract`, Transport and relay designs, and owner decisions on 2026-10-23.
-- [ ] `ResetRadarTransport` implements all six ports and its placeholder source and smoke test are removed; `Scripts/check-imports.sh` passes.
-- [ ] Deterministic envelope and pairing fixtures have exact Swift round trips, rejected-version and tamper cases, and matching TypeScript fixture validation without decryption. Both suites load the checked-in files directly, independently of the process working directory.
-- [ ] Generator, account-scope, secret-store, cache, and injected pasteboard-helper tests cover the cases in [Transport tests](../architecture/transport.md#tests) and the sequence.
-- [ ] Every `RelayStatusContract` row maps to the expected `RelayOutcome`, including operation-specific `200`, both `404` cases, all three `409` cases, both `429` cases, redirects, and offline failures.
-- [ ] Relay-client tests prove origin and redirect refusal, token isolation for read/write/admin roles, a 64 KiB limit for successful snapshot bodies and a 4 KiB limit for other responses including errors, even with missing or deceptive `Content-Length`; they also prove request-size preflight, timeouts, and unchanged validated cache on failure.
-- [ ] Real Transport adapters pass relevant P1-M5 use-case flows with synthetic inputs; no gate test accesses a real Keychain, provider tool, or network.
-- [ ] The full contribution-guide gate passes; the test runner reports command results and first-pass failure analysis. The milestone overview records acceptance evidence and the phase plan moves to `Done` only then.
-- [ ] Affected architecture and protocol docs, fixture notes, docs index, phase plan, and changelog are updated with any approved contract details. M8 can consume the frozen fixture set.
+- [x] `ResetRadarTransport` implements all six ports and its placeholder source and smoke test are removed; `Scripts/check-imports.sh` passes. Evidence: the six adapter implementations in `ResetRadarTransport/`, deleted placeholder and smoke test, and the final import-check pass.
+- [x] Deterministic envelope and pairing fixtures have exact Swift round trips, rejected-version and tamper cases, and matching TypeScript fixture validation without decryption. Both suites load the checked-in files directly, independently of the process working directory. Evidence: 39 focused Transport tests and six relay tests in the final run.
+- [x] Generator, account-scope, secret-store, cache, and injected pasteboard-helper tests cover the cases in [Transport tests](../architecture/transport.md#tests) and the sequence. Evidence: crypto, Keychain, clipboard, body-reader, gateway, mapper, and P1-M5 integration test files in `ResetRadarTransportTests`.
+- [x] Every `RelayStatusContract` row maps to the expected `RelayOutcome`, including operation-specific `200`, both `404` cases, all three `409` cases, both `429` cases, redirects, and offline failures. Evidence: `everyRelayStatusContractRowHasItsExpectedMappedOutcome` passed in the final focused run.
+- [x] Relay-client tests prove origin and redirect refusal, token isolation for read/write/admin roles, a 64 KiB limit for successful snapshot bodies and a 4 KiB limit for other responses including errors, even with missing or deceptive `Content-Length`; they also prove request-size preflight, timeouts, and unchanged validated cache on failure. Evidence: `HTTPRelayGatewayTests`, `BoundedBodyReaderTests`, and real-reader integration tests passed.
+- [x] Real Transport adapters pass relevant P1-M5 use-case flows with synthetic inputs; no gate test accesses a real Keychain, provider tool, or network. Evidence: real crypto/codec integration covers publish, pairing, ingest, setup, destroy, reader pairing/revocation, and manual-refresh refusal through fakes and a SecItem stub.
+- [x] The full contribution-guide gate passes; the test runner reports command results and first-pass failure analysis. The milestone overview records acceptance evidence and the phase plan moves to `Done` only then. Evidence: final 2026-10-23 gate below.
+- [x] Affected architecture and protocol docs, fixture notes, docs index, phase plan, and changelog are updated with any approved contract details. M8 can consume the frozen fixture set. Evidence: these documents and the M8 handoff update below.
 
 ## Checkpoints
 
 - **A: Wire contract and crypto.** Create shared fixtures, generator, HMAC, envelope, and pairing codec under the approved v1 profile and all six owner decisions.
 - **B: Secrets and HTTPS.** Use the approved questions 4 and 5; implement Keychain backends, cache, clipboard helper, relay client, mapper, and bounded response reader.
 - **C: Integration and close-out.** Run use cases over real adapters, check fixture parity, complete the gate, and record evidence. M8 may start from the approved A fixture contract; M9 still waits for M7 and M8 completion.
+
+### Checkpoint A fixture handoff
+
+The synthetic [protocol fixture set](../../Fixtures/Protocol/README.md) has revision `5d69907210abdf502a855136c6cd00900c0dde80314e7995886f40ce901d5c81` under the documented filename-and-byte SHA-256 rule. It contains the authenticated envelope, pairing package, all ten operations, twelve error codes, and eight owner-approved collision and retry scenarios. M8 consumes this revision directly; a change requires the documented cross-module review.
+
+## Final validation evidence
+
+On 2026-10-23, the test runner completed the entire contribution-guide gate on the closing worktree: project generation with XcodeGen 2.46.0, Swift format lint, strict SwiftLint with zero violations across 198 files, import checks, the complete Swift package suite (238 tests in 35 suites), the Mac Xcode scheme test (one smoke test), relay `npm ci`, six relay tests in two files, relay typecheck, and a non-deploying Wrangler dry run. The focused Transport audit passed 39 tests and the conditional iOS Keychain source parse passed; its only diagnostic was the expected macOS sysroot/target warning. Npm reported two moderate audit advisories and Wrangler suggested `@types/node`; neither was a command failure. No real Keychain, provider tool, network relay, or Cloudflare deployment was used.
 
 ## Plan review evidence
 

@@ -1,0 +1,9 @@
+{
+  "method": "DELETE",
+  "path": "/v1/relay",
+  "authority": "admin",
+  "requestBody": "",
+  "status": 204,
+  "responseBody": "",
+  "etag": null
+}

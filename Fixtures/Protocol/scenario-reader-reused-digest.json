@@ -1,0 +1,6 @@
+{
+  "operation": "registerReader",
+  "status": 400,
+  "requestBody": "{\"protocolVersion\":1,\"tokenDigest\":\"4c07be22f86c52fd94ac9b44b023583c4fd5180d193ff28491d2885653c2c81e\"}",
+  "responseBody": "{\"code\":\"badRequest\",\"protocolVersion\":1}"
+}

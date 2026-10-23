@@ -1,6 +1,6 @@
 # P1-M7: Transport crypto and protocol sequence
 
-Status: Planned
+Status: Done
 
 Work order and test evidence for the [M7 overview](milestone-07-transport-overview.md). The [Transport design](../architecture/transport.md), [relay protocol](../architecture/relay.md), and existing Domain and Application ports define behavior; this file only makes the implementation order and cross-language handoff explicit.
 
@@ -19,7 +19,7 @@ Record the base commit, worktree state, and full baseline gate in an isolated ch
 
 Implement `CryptoSecretGenerator` and fixture loading. Generate 32-byte independent secrets through system cryptographic randomness, implement `randomUnit()` in `0...1`, and SHA-256 digest bytes. Pin deterministic vectors for a fixed key, nonce, header, snapshot, pairing package, each request body, each distinct response shape or error code, and a strong ETag; production nonce generation remains random. Tests verify lengths, independence over repeated draws, digest vectors, identifiers, and no secret in descriptions or mirrors. The fixture generator must be a documented test utility, not a runtime dependency. An account-scope key is per installation and survives relay destruction, as the existing use case requires.
 
-The first M8 handoff is the frozen outer-envelope, request, response, and ETag fixture set. Its TypeScript tests parse and validate outer metadata, versions, safe-integer bounds, and body shapes without a content key. Swift tests decode the same files and authenticate the encrypted sample. Record the fixture revision in the M7 overview; M8 changes to the contract require a documented cross-module review.
+The first M8 handoff is the frozen outer-envelope, request, response, and ETag fixture set. Include the owner-approved [registration retry and collision, expired-ID retry, and cross-reader ID collision outcomes](milestone-08-relay-implementation-overview.md#owner-decisions-for-registration-and-refresh-ids), using the existing `400 badRequest` mapping where specified. Its TypeScript tests parse and validate outer metadata, versions, safe-integer bounds, and body shapes without a content key. Swift tests decode the same files and authenticate the encrypted sample. Record the fixture revision in the M7 overview; M8 changes to the contract require a documented cross-module review.
 
 ## Task 2: Account scoping and envelope
 

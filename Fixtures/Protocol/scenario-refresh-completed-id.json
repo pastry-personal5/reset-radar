@@ -1,0 +1,6 @@
+{
+  "operation": "postRefreshRequest",
+  "status": 409,
+  "requestBody": "{\"protocolVersion\":1,\"requestID\":\"56565656565656565656565656565656\"}",
+  "responseBody": "{\"code\":\"requestAlreadyCompleted\",\"protocolVersion\":1}"
+}

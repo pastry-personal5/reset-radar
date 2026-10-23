@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/v1/readers",
+  "authority": "admin",
+  "requestBody": "",
+  "status": 200,
+  "responseBody": "{\"protocolVersion\":1,\"readers\":[{\"activated\":true,\"readerID\":\"45454545454545454545454545454545\"}]}",
+  "etag": null
+}

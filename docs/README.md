@@ -39,8 +39,9 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [phase-1/milestone-05-application-use-cases-sequence.md](phase-1/milestone-05-application-use-cases-sequence.md) | P1-M5 task order, port and outcome interfaces, tests, and review focus. |
 | [phase-1/milestone-06-storage-overview.md](phase-1/milestone-06-storage-overview.md) | P1-M6 scope, owner decisions, and completion evidence. Done. |
 | [phase-1/milestone-06-storage-sequence.md](phase-1/milestone-06-storage-sequence.md) | P1-M6 task order, store and core interfaces, tests, and review focus. Done. |
-| [phase-1/milestone-07-transport-overview.md](phase-1/milestone-07-transport-overview.md) | P1-M7 scope, owner decisions, checkpoints, and completion checklist. Planned. |
-| [phase-1/milestone-07-transport-sequence.md](phase-1/milestone-07-transport-sequence.md) | P1-M7 protocol handoff, implementation order, tests, and review focus. Planned. |
+| [phase-1/milestone-07-transport-overview.md](phase-1/milestone-07-transport-overview.md) | P1-M7 scope, owner decisions, checkpoints, and completion checklist. Done. |
+| [phase-1/milestone-07-transport-sequence.md](phase-1/milestone-07-transport-sequence.md) | P1-M7 protocol handoff, implementation order, tests, and review focus. Done. |
+| [protocol fixtures](../Fixtures/Protocol/README.md) | Synthetic golden envelope, pairing, HTTP operation, and error bytes shared by Swift and relay tests. |
 | [phase-1/milestone-08-relay-implementation-overview.md](phase-1/milestone-08-relay-implementation-overview.md) | P1-M8 relay scope, fixture dependency, checkpoints, and completion checklist. Planned. |
 | [phase-1/milestone-08-relay-implementation-sequence.md](phase-1/milestone-08-relay-implementation-sequence.md) | P1-M8 Worker and Durable Object task order, tests, and M9 handoff. Planned. |
 | [phase-1/owner-decisions.md](phase-1/owner-decisions.md) | Owner-approved P1-M1 product, security, scheduling, synchronization, and distribution decisions that constrain P1-M2. |
