@@ -125,6 +125,10 @@ The outer JSON envelope exposes:
 
 The nonce is 96 random bits generated per envelope. With one key and publication at most every 30 seconds, random nonces stay far below the collision bound. The whole `EnvelopeHeader` is authenticated additional data. The plaintext is the complete versioned `UsageSnapshot`, whose `publisherID` must match the header's. Opening fails on a wrong key, an altered header, or an altered ciphertext, and never returns partially authenticated data.
 
+## Port shape
+
+`RelayGateway` returns a `RelayOutcome` from every call and never throws for an HTTP result. List and registration calls return a `RelayResponse` that carries a value on success and a `RelayOutcome` otherwise. `RelayStatusContract` in `ResetRadarTestSupport` records the status table of the [relay protocol](relay.md#responses) as fixtures; `ResponseMapper` must map each row to its outcome. `SecretStore` methods throw only `SecretStoreError`, and `SecretValue` redacts itself from every string form and mirror. `SecretGenerator` adds `randomUnit()`, a non-secret value for backoff jitter. `PairingCodec` and `EnvelopeCipher` throw typed errors (`PairingCodecError`, `EnvelopeCipherError`) that carry no package or key content.
+
 ## Relay client
 
 `HTTPRelayGateway` implements the operations in the [relay protocol](relay.md#protocol):

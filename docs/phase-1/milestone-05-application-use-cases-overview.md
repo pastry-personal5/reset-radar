@@ -1,6 +1,6 @@
 # P1-M5: Application use cases overview
 
-Status: Active
+Status: Done
 
 Implement `ResetRadarApplication` and `ResetRadarTestSupport` as specified in [Application](../architecture/application.md): every port, the typed outcome and error taxonomy, the four policies, snapshot reduction, and every use case and query, tested against in-memory fakes. No adapter, composition root, or UI changes.
 
@@ -67,24 +67,24 @@ Answered by the owner on 2026-10-23 (see [changelog.md](changelog.md)); they are
 
 ## Completion checklist
 
-- [ ] Entry criteria hold, with evidence in the changelog and baseline gate output.
-- [ ] The `Clock` port is renamed `AppClock` in application.md and `git grep -nw Clock docs/architecture` finds no port reference.
-- [x] Checkpoint A (Tasks 1 to 4) has passed the gate and is committed, so P1-M6, P1-M7, P1-M10, and P1-M11 may start from it. The owner declined a review gate; later port changes go through the changelog.
-- [x] The Mac `xcodebuild test` run reports the `ResetRadarApplicationTests` cases by name, with their count recorded. Evidence at checkpoint A: 49 tests in 11 suites (count to be re-recorded at close-out).
-- [ ] `ResetRadarApplication` imports only Domain and Foundation, `ResetRadarTestSupport` only Domain, Application, and Foundation, and `Scripts/check-imports.sh` passes.
-- [ ] Every port in the application.md table exists with the signatures in the sequence and has a fake in `ResetRadarTestSupport`; a test proves each fake satisfies its protocol contract (for example, a rejected compare-and-swap, a lost lease, an `interactionRequired` secret failure).
-- [ ] The taxonomy is complete: every HTTP status in [relay.md](../architecture/relay.md) maps to one `RelayOutcome` case, and every case maps to a `TransportStatus` or a stated no-op, in a table test.
-- [ ] Each policy has table-driven tests at every threshold from application.md, on both sides of the boundary (see the sequence's [review focus](milestone-05-application-use-cases-sequence.md#review-focus)).
-- [ ] `CollectUsage` passes the change classification, retained, dropped, account-scope, and state-only cases, and commits without assigning a relay sequence.
-- [ ] `PublishSnapshot` persists the sequence before sending, rejects an encoded envelope of 65,537 bytes without sending and accepts 65,536, and stops automatic retry on each stop case.
-- [ ] Manual refresh passes on both sides: Mac coalescing, the 30-second throttle, publication before acknowledgement; reader wait with a matching result versus every non-completing signal, and no POST for a Claude Code-only action.
-- [ ] Pairing and ingestion pass the lease, ETag, pairing-floor, staging-recovery, lost-activation, and re-pair cases against fakes shared by two use-case instances. Real cross-process evidence is deferred to P1-M6 and recorded as such.
-- [ ] The Watch ordering, tombstone, erase receipt, local-erase hold, and complication-budget cases pass.
-- [ ] Notification and Live Activity reconciliation pass opt-in, replacement, cancellation, expiry, time-zone, account-replacement, `staleDate`, and each end condition.
-- [ ] Queries pass at threshold crossings and distinguish local cleanup, pending Watch erasure, and confirmed erasure.
-- [ ] The placeholder `ResetRadarApplicationModule`, `ResetRadarTestSupportModule`, and their smoke test are removed, with no remaining reference.
-- [ ] Complete gate passes from a clean checkout (Mac run only for Xcode tests, per the suspension in the [changelog](changelog.md)).
-- [ ] Docs updated: application.md corrections, storage.md and transport.md port-shape notes, README index, phase-1.md status, changelog.
+- [x] Entry criteria hold, with evidence in the changelog and baseline gate output. Evidence: 2026-10-23 changelog entries; baseline gate passed before any change.
+- [x] The `Clock` port is renamed `AppClock` in application.md and `git grep -nw Clock docs/architecture` finds no port reference. Evidence: the grep prints only the sentence explaining the rename.
+- [x] Checkpoint A (Tasks 1 to 4) has passed the gate and is committed (commit `6c311dc`), so P1-M6, P1-M7, P1-M10, and P1-M11 may start from it. The owner declined a review gate; later port changes go through the changelog.
+- [x] The Mac `xcodebuild test` run reports the `ResetRadarApplicationTests` cases by name, with their count recorded. Evidence: 229 tests in 34 suites at close-out (49 at checkpoint A).
+- [x] `ResetRadarApplication` imports only Domain and Foundation, `ResetRadarTestSupport` only Domain, Application, and Foundation, and `Scripts/check-imports.sh` passes. Evidence: `git grep '^import'` over both source folders lists only those modules; the script passed.
+- [x] Every port in the application.md table exists and has a fake in `ResetRadarTestSupport`; a test proves each fake satisfies its protocol contract. Evidence: `FakeContractTests` (clock sleep and cancellation, `interactionRequired`, redacted `SecretValue`, cipher size edges, codec rules, transaction atomicity and serialization, sequence never repeating, gate lease, relay queues and hold). Signatures differ from the sequence where the rulings below say so: the stores expose `load` and `transact` instead of `claimFetch` and `commitResult`.
+- [x] The taxonomy is complete: every HTTP status in [relay.md](../architecture/relay.md) maps to one `RelayOutcome` case, and every case maps to a `TransportStatus` or a stated no-op, in a table test. Evidence: `TaxonomyTests` (`mappingTable`, `everyCaseHasARow`, `statusContractNamesEveryRelayStatus`) and `RelayStatusContract`.
+- [x] Each policy has table-driven tests at every threshold from application.md, on both sides of the boundary (see the sequence's [review focus](milestone-05-application-use-cases-sequence.md#review-focus)). Evidence: `BackoffPolicyTests`, `PublicationPolicyTests`, `ComplicationBudgetPolicyTests`, `ReaderRefreshPolicyTests`.
+- [x] `CollectUsage` passes the change classification, retained, dropped, account-scope, and state-only cases, and commits without assigning a relay sequence. Evidence: `SnapshotReducerTests`, `CollectUsageTests`.
+- [x] `PublishSnapshot` persists the sequence before sending, rejects an encoded envelope of 65,537 bytes without sending and accepts 65,536, and stops automatic retry on each stop case. Evidence: `PublishSnapshotTests`.
+- [x] Manual refresh passes on both sides: Mac coalescing, the 30-second throttle, publication before acknowledgement; reader wait with a matching result versus every non-completing signal, and no POST for a Claude Code-only action. Evidence: `HandleManualRefreshRequestsTests`, `RequestMacRefreshTests`.
+- [x] Pairing and ingestion pass the lease, ETag, pairing-floor, staging-recovery, lost-activation, and re-pair cases against fakes shared by two use-case instances. Real cross-process evidence is deferred to P1-M6 and recorded as such. Evidence: `AcceptPairingTests`, `IngestRelaySnapshotTests`, `SetUpRelayTests`, `PairReaderTests`, `DestroyRelayTests`; `flock` evidence stays with P1-M6.
+- [x] The Watch ordering, tombstone, erase receipt, local-erase hold, and complication-budget cases pass. Evidence: `CommitWatchPayloadTests`, `EraseWatchDataTests`, `ConfirmWatchEraseTests`, `ForwardToWatchTests`, `ForgetMacTests`.
+- [x] Notification and Live Activity reconciliation pass opt-in, replacement, cancellation, expiry, time-zone, account-replacement, `staleDate`, and each end condition. Evidence: `ReconcileResetNotificationsTests`, `SetNotificationOptInTests`, `ReconcileLiveActivitiesTests`.
+- [x] Queries pass at threshold crossings and distinguish local cleanup, pending Watch erasure, and confirmed erasure. Evidence: `QueriesTests`.
+- [x] The placeholder `ResetRadarApplicationModule`, `ResetRadarTestSupportModule`, and their smoke test are removed, with no remaining reference. Evidence: the files were removed in Task 1; `git grep` finds no reference outside the plan docs.
+- [x] Complete gate passes from a clean checkout (Mac run only for Xcode tests, per the suspension in the [changelog](changelog.md)). Evidence: all seven gate commands passed after the final change; the Mac `xcodebuild test` run reports 71 Domain and 229 Application tests (34 suites) by name.
+- [x] Docs updated: application.md corrections, storage.md and transport.md port-shape notes, README index, phase-1.md status, changelog. Evidence: application.md, storage.md, transport.md, phase-1.md, the changelog, and this file; the README index already lists both milestone files.
 
 ## Checkpoints
 

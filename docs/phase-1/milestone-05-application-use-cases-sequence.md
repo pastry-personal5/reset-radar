@@ -1,6 +1,6 @@
 # P1-M5: Application use cases sequencing
 
-Status: Active
+Status: Done
 
 Order of work, interfaces, and tests for [P1-M5](milestone-05-application-use-cases-overview.md). Behavior is defined in [Application](../architecture/application.md); this file adds only the file layout, signatures, outcome types, and test cases that file leaves open. Each task is test-first: write the named tests, watch them fail, implement, run the module's tests. The plan assumes the recommended answer to every overview open question (Q1 to Q10, answered in the changelog).
 

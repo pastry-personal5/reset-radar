@@ -90,7 +90,7 @@ Goal: Allowance windows, used-percent values, reset rules, freshness and availab
 Plan: [overview](milestone-04-domain-model-overview.md), [sequencing](milestone-04-domain-model-sequence.md), [Domain](../architecture/domain.md)
 
 ### P1-M5: Application use cases
-Status: Active
+Status: Done
 Goal: Ports, refresh and reset policies, snapshot reduction, and the error taxonomy against fakes.
 Plan: [overview](milestone-05-application-use-cases-overview.md), [sequencing](milestone-05-application-use-cases-sequence.md), [Application](../architecture/application.md)
 

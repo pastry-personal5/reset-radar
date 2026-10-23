@@ -18,8 +18,8 @@ Rules:
 - Imports only Domain and Foundation, never CryptoKit, Security, UserNotifications, ActivityKit, WatchConnectivity, WidgetKit, or SwiftUI.
 - Every port is a `Sendable` protocol named for the product need, such as `SnapshotStore`, not for a technology, such as `FileStore`.
 - Use cases are actors or `Sendable` structs that receive ports through their initializers; they never construct adapters.
-- Time comes from the `Clock` port and randomness from the `SecretGenerator` port.
-- Use cases own no timers. Drivers in the composition roots call them, and policies return the next due instant.
+- Time comes from the `AppClock` port and randomness from the `SecretGenerator` port. The port is named `AppClock` because `Clock` would shadow Swift's `Clock` protocol.
+- Use cases own no repeating timers. Drivers in the composition roots call them, and policies return the next due instant. The one wait inside a use case is `RequestMacRefresh`'s bounded 45-second poll, which sleeps through `AppClock.sleep(for:)` so it is cancellable and testable. `PairReader` exposes `pollActivation()` and `revokeIfExpired()` for the Mac driver instead of polling itself.
 - `ResetRadarTestSupport`, a library linked only into test targets, provides an in-memory fake for every port.
 
 ## Internal architecture
@@ -65,12 +65,12 @@ flowchart LR
   end
   subgraph Ports["Ports"]
     SourcePorts["UsageSource, SourceConfigurator, AccountScoper"]
-    StorePorts["SnapshotStore, ReaderStore, PublisherStore, PreferenceStore, NotificationReconcileGate"]
+    StorePorts["SnapshotStore, ReaderStore, PublisherStore, WatchCacheStore, PreferenceStore, NotificationReconcileGate"]
     SecurityPorts["SecretStore, SecretGenerator, EnvelopeCipher, PairingCodec"]
     NetworkPorts["RelayGateway"]
     SystemPorts["NotificationScheduler, LiveActivityController, SurfaceReloader"]
     LinkPorts["WatchLink, PhoneLink"]
-    CommonPorts["Clock, DiagnosticsSink"]
+    CommonPorts["AppClock, DiagnosticsSink"]
   end
   ReadModels["Read models"]
   Drivers --> UseCases
@@ -85,26 +85,46 @@ Adapters implement the ports from outside; the arrows show compile-time dependen
 
 | Port | Purpose | Implemented by |
 |---|---|---|
-| `UsageSource` | Start, refresh, stop, and stream `SourceSnapshot`s for one product (macOS). | [ProviderAdapters](provider-adapters.md) |
+| `UsageSource` | Start, refresh (returning a `ReadReceipt` with start and finish times and the normalized report), stop, and stream `SourceSnapshot`s for one product (macOS). | [ProviderAdapters](provider-adapters.md) |
 | `SourceConfigurator` | Inspect, preview, apply, and restore a source's local setup, such as Codex discovery or the Claude Code status line. | [ProviderAdapters](provider-adapters.md) |
 | `AccountScoper` | Turn a provider account identifier into an `AccountScope` without retaining the identifier. | [Transport](transport.md) |
-| `SnapshotStore` | Load and clear the committed snapshot. Mac collection commits locally without a relay sequence; iPhone/iPad ingestion compares relay sequences; Watch commits compare iPhone delivery revisions. | [Storage](storage.md) |
-| `ReaderStore` | iOS pairing metadata, ingest state, Watch delivery revision, and a durable pending Watch-erasure marker. Claims fetches and commits results under a cross-process lock. | [Storage](storage.md) |
-| `PublisherStore` | Mac relay metadata: endpoint, publisher ID, sequence (persisted before each send), paired-device names, and pending registrations. | [Storage](storage.md) |
-| `PreferenceStore` | Per-device notification opt-in and other typed preferences. | [Storage](storage.md) |
+| `SnapshotStore` | Load and clear the committed snapshot. `LocalSnapshotCommitting` adds the Mac's `commitLocal`, which assigns no relay sequence. On iPhone and iPad the snapshot lives inside `ReaderState`, so `SnapshotStore` is a read facade and ingestion commits through `ReaderStore`; on Watch it is a facade over `WatchCacheStore`. | [Storage](storage.md) |
+| `ReaderStore` | iOS `ReaderState`: the committed snapshot, pairing metadata, ingest state, fetch lease, Watch delivery revision, complication-transfer record, and a durable pending Watch-erasure marker. `transact` is the atomic boundary: the adapter takes its lock, reads the bundle, runs a synchronous, I/O-free closure, and replaces the whole bundle in one write. Claims and result commits are built on it in `ReaderClaims` and `IngestRelaySnapshot`. | [Storage](storage.md) |
+| `PublisherStore` | Mac `PublisherState`: lifecycle, endpoint, publisher ID, sequence (persisted by `nextSequence()` before each send), the last accepted sequence (the pairing floor), paired-device names, pending registrations, and handled manual-refresh IDs. Same `transact` contract as `ReaderStore`. | [Storage](storage.md) |
+| `WatchCacheStore` | Watch `WatchCacheState`: snapshot, installation ID, delivery revision, clear tombstone, `localEraseHold`, and a held payload from a changed installation. Same `transact` contract. | [Storage](storage.md) |
+| `PreferenceStore` | Per-device notification opt-in and the complication-enabled flag. | [Storage](storage.md) |
 | `NotificationReconcileGate` | Serialize reset-notification reconciliation across the iOS app and widget extension, with a bounded claim and retry after interruption. | [Storage](storage.md) |
 | `SecretStore` | Non-interactive read, write, and delete of named secrets. Fails with `interactionRequired` instead of prompting. | [Transport](transport.md) |
-| `SecretGenerator` | Random 256-bit keys, tokens, and identifiers, plus token digests. | [Transport](transport.md) |
+| `SecretGenerator` | Random 256-bit keys, tokens, and identifiers, token digests, and `randomUnit()`, the non-secret jitter value that keeps `BackoffPolicy` deterministic. | [Transport](transport.md) |
 | `EnvelopeCipher` | Seal a snapshot under an `EnvelopeHeader`; open and authenticate an envelope. | [Transport](transport.md) |
 | `PairingCodec` | Encode and decode a `PairingPackage` for QR and manual transfer. | [Transport](transport.md) |
-| `RelayGateway` | Snapshot, reader, and manual-refresh relay operations, returning typed outcomes. | [Transport](transport.md) |
+| `RelayGateway` | Snapshot, reader, and manual-refresh relay operations. Every call returns a `RelayOutcome`, or a `RelayResponse` carrying a value on success; none throws for an HTTP result. | [Transport](transport.md) |
 | `NotificationScheduler` | Authorization state, pending reset requests, schedule, and cancel. | [Scheduling](scheduling.md) |
 | `LiveActivityController` | List, start, update, and end Reset Live Activities (iPhone). | [Scheduling](scheduling.md) |
 | `WatchLink` | iPhone side: send the application context and complication transfers, and receive refresh requests and Watch-erasure receipts. | [WatchSync](watch-sync.md) |
 | `PhoneLink` | Watch side: receive payloads, request a refresh from the iPhone, and queue a Watch-erasure receipt. | [WatchSync](watch-sync.md) |
 | `SurfaceReloader` | Ask the system to reload widget or complication timelines. | Composition roots ([iOS](ios-app.md), [Watch](watch-app.md)) |
-| `Clock` | Current time. | Composition roots; fixed clocks in tests |
+| `AppClock` | Current time and a cancellable sleep. | Composition roots; `FakeAppClock` in tests |
 | `DiagnosticsSink` | Record a `DiagnosticEvent`. | [Storage](storage.md) |
+
+## Outcomes and errors
+
+Use cases report typed outcomes, never HTTP codes or strings. `RelayGateway` adapters map the relay status table onto `RelayOutcome`; `RelayStatusContract` in `ResetRadarTestSupport` is that table as fixtures.
+
+| `RelayOutcome` | Relay response | `TransportStatus` it sets |
+|---|---|---|
+| `snapshot` | `200` snapshot read | `current` after validation, else `invalidSnapshot` |
+| `notModified` | `304` | `current` |
+| `awaitingFirstPublish` | authenticated `404` | `awaitingFirstPublish` |
+| `badRequest`, `protocolFailure` | `400`, other `3xx`, unknown route, malformed or oversized response | `invalidSnapshot` |
+| `unauthorized` | `401` | `authorizationRequired` |
+| `payloadTooLarge`, `unsupportedVersion` | `413`, `422` | `incompatible` |
+| `quotaLimited` | platform quota or free-tier `429` | `quotaLimited` |
+| `offline` | `5xx`, network, or TLS failure | `offline` |
+| `accepted`, `refreshAccepted`, `deleted` | `200` write, `202`, `204` | none |
+| `publisherConflict`, `readerCapReached`, `requestAlreadyCompleted`, `requestRateLimited` | the three `409` causes and the manual-request `429` | none; the use case reports them |
+
+`SecretStoreError` is `notFound`, `interactionRequired`, or `unexpected(statusClass:)`. Per-use-case outcomes are `PublishOutcome` (with `StopReason`), `IngestOutcome`, `MacRefreshOutcome`, `HandleOutcome`, `PairingOutcome` (with `PairingError`), `ForgetOutcome`, `ReceiptOutcome`, `WatchCommitOutcome`, `ReconcileOutcome`, and `OptInOutcome`. No outcome, error, or diagnostic carries a token, key, digest, or ciphertext; `SecretValue` redacts itself from every string form.
 
 ## Use cases
 
@@ -118,7 +138,7 @@ Adapters implement the ports from outside; the arrows show compile-time dependen
 - A retained Home window with no reset instant, or whose last known reset has passed, remains only for diagnostics; Domain resolves its slot as unavailable until a new provider report arrives. This keeps the four Home cells stable without showing a reset-awaiting-refresh ring forever.
 - When Codex reports a new account scope, windows of the prior scope are dropped and never merged.
 
-It commits locally through `SnapshotStore`, without assigning a relay sequence, and classifies the change:
+It commits locally through `LocalSnapshotCommitting`, without assigning a relay sequence, and classifies the change. A heartbeat restamps `generatedAt` without new content, so liveness stays accurate:
 
 | Change | Meaning |
 |---|---|
@@ -140,14 +160,14 @@ It never runs before relay setup. An oversized envelope is a typed incompatibili
 
 **`ConfigureSources`** drives `SourceConfigurator` for Codex discovery and the Claude Code guided setup. It always shows a preview first and applies changes only after confirmation.
 
-**`HandleManualRefreshRequests`** runs when the Mac's relay-request driver sees one or more pending IDs. It coalesces IDs into one Codex read and never creates a Claude Code response. A read started after the request was observed, or already in flight when it was observed, may satisfy it. After that read completes, it adds a `ManualRefreshResult` for each handled ID to the local snapshot and publishes immediately, even when the percentage is unchanged. A failed read publishes `sourceUnavailable` if the relay remains reachable. It keeps results in subsequent snapshots for two minutes, then acknowledges each request to the relay only after the result-bearing publication succeeds. If publication fails, the requests remain pending until relay expiry and the phone's wait times out. The Mac accepts no more than one remote-forced Codex read per 30 seconds; requests arriving during that interval wait for the next permitted read. Repeated relay polls never repeat an in-flight or completed request.
+**`HandleManualRefreshRequests`** (the remote-forced read time lives in memory, so a restart permits one read, bounded by the relay's own 60-second limit; handled request IDs are persisted in `PublisherStore`) runs when the Mac's relay-request driver sees one or more pending IDs. It coalesces IDs into one Codex read and never creates a Claude Code response. A read started after the request was observed, or already in flight when it was observed, may satisfy it. After that read completes, it adds a `ManualRefreshResult` for each handled ID to the local snapshot and publishes immediately, even when the percentage is unchanged. A failed read publishes `sourceUnavailable` if the relay remains reachable. It keeps results in subsequent snapshots for two minutes, then acknowledges each request to the relay only after the result-bearing publication succeeds. If publication fails, the requests remain pending until relay expiry and the phone's wait times out. The Mac accepts no more than one remote-forced Codex read per 30 seconds; requests arriving during that interval wait for the next permitted read. Repeated relay polls never repeat an in-flight or completed request.
 
 **Relay administration** follows the setup and pairing lifecycle in [Pairing, revocation, and loss](../architecture.md#pairing-revocation-and-loss):
 
 | Use case | Responsibility |
 |---|---|
-| `SetUpRelay` | Pause publication, persist a recoverable pending setup with new secrets and publisher ID, produce the digests for provisioning, then wipe and bind. Publication resumes only after binding succeeds. |
-| `PairReader` | Register a pending reader, retain its relay-assigned deadline, produce the `PairingPackage`, poll confirmed activation, and revoke at expiry. |
+| `SetUpRelay` | `prepare` pauses publication, persists a recoverable pending setup with new secrets and publisher ID, and returns the digests for provisioning; `activate` wipes the relay and binds the new publisher with `PublishSnapshot.bind`. Publication resumes only after binding succeeds. |
+| `PairReader` | Register a pending reader, retain its relay-assigned deadline, produce the `PairingPackage` with the last accepted sequence as its floor, confirm activation through `pollActivation()`, and revoke through `revokeIfExpired()` at the deadline. |
 | `ReconcileReaders` | Merge local names with the relay list, and revoke expired pending readers at launch. |
 | `RevokeReader` | Revoke one reader. |
 | `DestroyRelay` | Persist a `destroyPending` state and pause publication, delete remote storage, then delete Keychain and in-memory secrets and local relay state. On remote failure, retain the local state for retry; a relaunch remains paused. |
@@ -173,9 +193,9 @@ When the run is in the app process, a `committed` outcome triggers the after-com
 
 A commit made in the widget process attempts reset-notification reconciliation using the already granted, per-slot opt-in state. The extension never requests notification authorization. The atomic `needsAppReconcile` flag makes the app retry notification reconciliation and update Live Activities and the Watch on its next run even if the extension expires mid-reconciliation.
 
-**`RequestMacRefresh`** is called only by a user-started Refresh that includes Codex. It first performs an ordinary conditional relay read, then posts a random request ID using the reader's read token. It polls conditional snapshot reads every five seconds for at most 45 seconds and reports Mac completion only after a newer, authenticated snapshot contains a matching `ManualRefreshResult` for its `ReaderID` and request ID. An unchanged `304`, an unrelated publication, or a locally fresh cache does not complete the request. A `sourceUnavailable` result is reported separately from a successful Codex read. If the Mac is asleep, the request is rate-limited, the relay fails, or the wait expires, it returns the latest valid cache and a specific pending/unavailable outcome. It does not retry the POST automatically or ask the Mac to read Claude Code. A manual Refresh scoped only to Claude Code performs the ordinary relay read without posting a request.
+**`RequestMacRefresh`** is called only by a user-started Refresh that includes Codex. It first performs an ordinary conditional relay read, then posts a random request ID using the reader's read token. It writes a pending-request marker before the POST, so a relaunch resumes the wait without posting again. It polls conditional snapshot reads through the shared fetch claim every five seconds for at most 45 seconds and reports Mac completion only after a newer, authenticated snapshot contains a matching `ManualRefreshResult` for its `ReaderID` and request ID. An unchanged `304`, an unrelated publication, or a locally fresh cache does not complete the request. A `sourceUnavailable` result is reported separately from a successful Codex read. If the Mac is asleep, the request is rate-limited, the relay fails, or the wait expires, it returns the latest valid cache and a specific pending/unavailable outcome. It does not retry the POST automatically or ask the Mac to read Claude Code. A manual Refresh scoped only to Claude Code performs the ordinary relay read without posting a request.
 
-**`AcceptPairing`** decodes and previews a `PairingPackage`, requires confirmation, then performs one authenticated preflight read. It validates a returned envelope or accepts an authenticated first-publish `404`; the read itself does not activate the token. It writes a recoverable local staging marker, saves the Keychain secrets, then atomically commits the pairing metadata, validated preflight snapshot if present, and `awaitingActivation` state. It sends `POST /v1/readers/activate` only after that local commit. An activation response lost to the network leaves the saved state pending and is retried idempotently on app launch or foreground activation, even after the displayed deadline: the relay may have activated before its response was lost. While awaiting activation, the preflight snapshot is not presented as a completed pairing, and ordinary refresh and widget fetches are paused. A Keychain or local commit failure removes staged secrets without sending activation; only an authenticated `401` after expiry or revocation clears the pending pairing and asks for re-pairing. A crash during staging is reconciled before the next pairing or fetch. A reader with an existing pairing must use `ForgetMac` before accepting another package, so a new publisher cannot inherit the old cache, ETag, or sequence floor.
+**`AcceptPairing`** decodes and previews a `PairingPackage`, requires confirmation, then performs one authenticated preflight read. It validates a returned envelope or accepts an authenticated first-publish `404`; the read itself does not activate the token. It writes a recoverable local staging marker, saves the Keychain secrets, then atomically commits the pairing metadata, validated preflight snapshot if present, and `awaitingActivation` state. It sends `POST /v1/readers/activate` only after that local commit. An activation response lost to the network leaves the saved state pending and is retried idempotently on app launch or foreground activation, even after the displayed deadline: the relay may have activated before its response was lost. While awaiting activation, the preflight snapshot is not presented as a completed pairing, and every fetch trigger, a manual refresh included, is suppressed until activation succeeds; a manual tap reports `pairingPending`. A Keychain or local commit failure removes staged secrets without sending activation; only an authenticated `401` after expiry or revocation clears the pending pairing and asks for re-pairing. A crash during staging is reconciled before the next pairing or fetch. A reader with an existing pairing must use `ForgetMac` before accepting another package, so a new publisher cannot inherit the old cache, ETag, or sequence floor.
 
 **`ForgetMac`** atomically removes the committed iPhone snapshot and pairing-specific reader state, invalidates any in-flight fetch claim, and preserves its installation ID while advancing its Watch delivery revision. That transaction sets `forgetCleanupPending` and, if this installation has sent data to a Watch, persists a cleared `WatchPayload` and `watchErasePending` before Keychain deletion or Watch delivery. It then deletes Keychain items and cancels local notifications and Live Activities; only after those steps succeed does it clear `forgetCleanupPending` and report local forgetting complete. A failure retains the marker, hides old usage, blocks a new pairing and relay fetch, and offers retry on launch. A late response from the old claim cannot restore the forgotten snapshot or its ETag. The iPad has no Watch stage. The iPhone UI reports Watch erasure as pending until a matching receipt arrives. The user may pair a new Mac after local cleanup while Watch erasure is pending, but no new usage payload may replace the queued clear or reach the Watch before its receipt. An unreachable or lost Watch cannot be remotely erased by this app; the owner can erase Reset Radar data directly in the Watch app when it is available.
 
@@ -229,7 +249,7 @@ After a commit it asks `SurfaceReloader` to reload the complication.
 
 ### Queries
 
-- **`LoadHome`** produces the `HomeReadModel`: four slot cells, each with percentage, presentation state, reason, reset instant, and observation time, plus the next instant at which any cell changes.
+- **`LoadHome`** produces the `HomeReadModel`: four `HomeCell`s in slot order, each with its `HomeSlotResolution`, `PresentationState`, used percentage, reset instant, observation time, and `nextChange`, plus the earliest `nextChange` of any cell. Read models hold Domain types and dates only, no strings. On iPhone and iPad, usage is hidden while no pairing exists, while activation is pending, and while Forget Mac cleanup is unfinished.
 - **`LoadUsageDetails`** produces the per-product read model with every window, provenance, Mac liveness, and transport status.
 - **`LoadPairingStatus`** produces local pairing state, pending local Forget Mac cleanup, and, on iPhone, `watchErasePending` or the last confirmed responding-Watch cache erasure without claiming immediate complication-frame removal or erasure of another paired Watch. An iPad has no Watch-erasure field.
 - **`ExportDiagnostics`** produces a confirmed, redacted export from `DiagnosticsSink` history.
@@ -258,9 +278,9 @@ Policies are pure value types with their thresholds as named constants.
 | `foregroundTick` | Every 60 seconds while a scene is in the foreground, subject to the 15-second minimum. |
 | `widgetReload` | Fetch only if the last successful fetch is more than five minutes old. |
 | `backgroundTask` | Fetch if the last attempt is more than 15 seconds old. |
-| Next background request | Earliest begin date is `max(now + 1 min, min(lastSuccess + 15 min, nextReset + 1 min))`. |
+| Next background request | Earliest begin date is `max(now + 1 min, min(lastSuccess + 15 min, nextReset + 1 min))`. An absent `lastSuccess` gives `now + 1 min`; an absent `nextReset` gives `lastSuccess + 15 min`, still floored at `now + 1 min`. |
 
-All automatic triggers share the 15-second minimum through `ReaderStore`, across processes. During `authorizationRequired`, `incompatible`, or an active backoff, only `manual` fetches.
+All automatic triggers share the 15-second minimum through `ReaderStore`, across processes; `foregroundTick` also needs 60 seconds since the last attempt. During `authorizationRequired`, `incompatible`, or an active backoff, only `manual` fetches. While `awaitingActivation`, no trigger fetches, and while `forgetCleanupPending` or unpaired, none can. A lease whose `expiresAt` is at or before `now` is free.
 
 **`ComplicationBudgetPolicy`** (iOS) allows a complication transfer only when all of these hold:
 
@@ -268,13 +288,13 @@ All automatic triggers share the 15-second minimum through `ReaderStore`, across
 - a Home-slot percentage, reset instant, or source state changed since the last transfer; and
 - at least 30 minutes have passed since the last transfer.
 
-At most 48 transfers a day fit inside the system's daily allowance of 50.
+At most 48 transfers a day fit inside the system's daily allowance of 50. A day is a rolling 24 hours over the transfer timestamps persisted in `ReaderState`, so the count never depends on the time zone; the enabled flag lives in `PreferenceStore`.
 
-**`BackoffPolicy`** is exponential with full jitter: a 30-second base, doubling to a 15-minute cap. A success resets it.
+**`BackoffPolicy`** is exponential with full jitter: the delay is `randomUnit × min(30 s × 2^(failures−1), 15 min)`, where `randomUnit` (clamped to `0...1`) comes from `SecretGenerator.randomUnit()`, so the policy stays deterministic. The cap is reached at the sixth failure. A success resets it.
 
 ## Tests
 
-`ResetRadarApplicationTests` exercises every use case against `ResetRadarTestSupport` fakes:
+`ResetRadarApplicationTests` exercises every use case against `ResetRadarTestSupport` fakes. Real cross-process locking is out of scope here: "two processes" means two use-case instances sharing one fake store, and the `flock` evidence belongs to Storage.
 
 - **Collection and publication:** change classification; a state-only source failure that does not advance observation time; retained and dropped windows; account-scope replacement; local commits without a relay sequence; publication timing for each policy row, including sequence persistence before send, an over-limit encoded envelope rejected without truncation, and stop codes; and no publication during pending setup or destruction.
 - **Manual Mac refresh:** per-reader request coalescing, one remote-forced Codex read per 30 seconds, encrypted results after a successful or failed read, two-minute result retention, publication before relay acknowledgement, retry after publication failure, and no Claude Code read.
