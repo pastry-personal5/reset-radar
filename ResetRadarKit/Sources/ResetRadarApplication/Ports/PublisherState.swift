@@ -39,6 +39,8 @@ public struct PublisherState: Codable, Sendable, Equatable {
     public var endpoint: URL?
     public var publisherID: PublisherID?
     public var sequence: UInt64 = 0
+    /// The highest sequence the relay accepted: the pairing floor for new readers.
+    public var lastPublishedSequence: UInt64 = 0
     public var devices: [PairedDevice] = []
     public var pendingRegistrations: [PendingRegistration] = []
     /// Handled manual-refresh IDs and when to forget them.

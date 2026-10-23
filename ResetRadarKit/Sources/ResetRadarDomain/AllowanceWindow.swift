@@ -158,6 +158,24 @@ public struct AllowanceWindow: Codable, Hashable, Sendable {
         self.providerLimitState = raw.providerLimitState
     }
 
+    private init(copying other: AllowanceWindow, reportState: ReportState) {
+        self.product = other.product
+        self.scope = other.scope
+        self.limitID = other.limitID
+        self.label = other.label
+        self.durationMinutes = other.durationMinutes
+        self.isDefaultLimit = other.isDefaultLimit
+        self.reportState = reportState
+        self.resetsAt = other.resetsAt
+        self.observation = other.observation
+        self.providerLimitState = other.providerLimitState
+    }
+
+    /// A copy marked `retained`: the last observation and reset instant are unchanged.
+    public func markingRetained() -> AllowanceWindow {
+        AllowanceWindow(copying: self, reportState: .retained)
+    }
+
     var raw: RawWindow {
         RawWindow(
             product: product.rawValue, accountScope: scope?.hex, limitID: limitID, label: label,

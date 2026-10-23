@@ -90,3 +90,15 @@ import Testing
         #expect(try WireCoding.decoder().decode(AllowanceWindow.self, from: data) == value)
     }
 }
+
+@Suite struct RetainedCopyTests {
+    @Test func markingRetainedKeepsEverythingButTheReportState() {
+        let original = window(percent: 33, observedAt: at(5))
+        let retained = original.markingRetained()
+        #expect(retained.reportState == .retained)
+        #expect(retained.id == original.id)
+        #expect(retained.observation == original.observation)
+        #expect(retained.resetsAt == original.resetsAt)
+        #expect(original.reportState == .reported)
+    }
+}

@@ -9,19 +9,25 @@ public enum FakeStoreError: Error, Equatable, Sendable {
 /// Atomic read-modify-write over one value, shared by the three transactional fakes.
 final class TransactionalBox<State: Sendable>: @unchecked Sendable {
     private let state: Locked<State>
-    private let failures = Locked(0)
+    private let failures = Locked((skip: 0, count: 0))
 
     init(_ initial: State) {
         state = Locked(initial)
     }
 
     var value: State { state.snapshot }
-    func failNextTransactions(_ count: Int) { failures.withLock { $0 = count } }
+    func failNextTransactions(_ count: Int, afterSuccesses skip: Int) {
+        failures.withLock { $0 = (skip, count) }
+    }
 
     func transact<T>(_ body: (inout State) throws -> T) throws -> T {
-        let shouldFail = failures.withLock { count -> Bool in
-            guard count > 0 else { return false }
-            count -= 1
+        let shouldFail = failures.withLock { armed -> Bool in
+            guard armed.count > 0 else { return false }
+            if armed.skip > 0 {
+                armed.skip -= 1
+                return false
+            }
+            armed.count -= 1
             return true
         }
         if shouldFail { throw FakeStoreError.injected }
@@ -71,7 +77,9 @@ public final class FakeReaderStore: ReaderStore, @unchecked Sendable {
     }
 
     public var state: ReaderState { box.value }
-    public func failNextTransactions(_ count: Int = 1) { box.failNextTransactions(count) }
+    public func failNextTransactions(_ count: Int = 1, afterSuccesses skip: Int = 0) {
+        box.failNextTransactions(count, afterSuccesses: skip)
+    }
     public var snapshotStore: any SnapshotStore { FakeReaderSnapshotStore(box: box) }
 
     public func seed(_ body: (inout ReaderState) -> Void) {
@@ -100,7 +108,9 @@ public final class FakeWatchCacheStore: WatchCacheStore, @unchecked Sendable {
     public init() {}
 
     public var state: WatchCacheState { box.value }
-    public func failNextTransactions(_ count: Int = 1) { box.failNextTransactions(count) }
+    public func failNextTransactions(_ count: Int = 1, afterSuccesses skip: Int = 0) {
+        box.failNextTransactions(count, afterSuccesses: skip)
+    }
     public var snapshotStore: any SnapshotStore { FakeWatchSnapshotStore(box: box) }
 
     public func load() async throws -> WatchCacheState { box.value }
@@ -131,7 +141,9 @@ public final class FakePublisherStore: PublisherStore, @unchecked Sendable {
 
     public var state: PublisherState { box.value }
     public var nextSequenceCalls: Int { sequenceCalls.snapshot }
-    public func failNextTransactions(_ count: Int = 1) { box.failNextTransactions(count) }
+    public func failNextTransactions(_ count: Int = 1, afterSuccesses skip: Int = 0) {
+        box.failNextTransactions(count, afterSuccesses: skip)
+    }
 
     /// The next `nextSequence()` persists its increment and then throws, as a crash after the
     /// write would: the number is consumed but never returned.

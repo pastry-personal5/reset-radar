@@ -24,4 +24,6 @@ public enum PairingError: Error, Equatable, Sendable {
     case storageFailed
     /// The preflight read failed; nothing was committed.
     case preflightFailed(TransportStatus)
+    /// `resumeActivation` found no pending pairing.
+    case nothingToResume
 }

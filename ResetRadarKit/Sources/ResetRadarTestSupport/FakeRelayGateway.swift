@@ -54,6 +54,8 @@ public final class FakeRelayGateway: RelayGateway, @unchecked Sendable {
         var revoke: [RelayOutcome] = []
         var destroy: [RelayOutcome] = []
         var held: Set<RelayOperation> = []
+        var holdOnce: Set<RelayOperation> = []
+        var releases: [RelayOperation: Int] = [:]
         var waiting: [(RelayOperation, CheckedContinuation<Void, Never>)] = []
     }
 
@@ -104,9 +106,15 @@ public final class FakeRelayGateway: RelayGateway, @unchecked Sendable {
     /// Holds every future call of `operation` until `release(_:)`.
     public func hold(_ operation: RelayOperation) { state.withLock { $0.held.insert(operation) } }
 
+    /// Holds only the next call of `operation`; later calls pass through.
+    public func holdNext(_ operation: RelayOperation) {
+        state.withLock { $0.holdOnce.insert(operation) }
+    }
+
     public func release(_ operation: RelayOperation) {
         let resumed = state.withLock { state -> [CheckedContinuation<Void, Never>] in
             state.held.remove(operation)
+            state.releases[operation, default: 0] += 1
             let matching = state.waiting.filter { $0.0 == operation }
             state.waiting.removeAll { $0.0 == operation }
             return matching.map(\.1)
@@ -188,21 +196,24 @@ public final class FakeRelayGateway: RelayGateway, @unchecked Sendable {
     }
 
     private func enter(_ call: RelayCall, _ token: SecretValue, _ event: String? = nil) async {
-        let isHeld = state.withLock { state -> Bool in
+        let (isHeld, epoch) = state.withLock { state -> (Bool, Int) in
             state.calls.append(call)
             state.tokens.append(token)
-            return state.held.contains(call.operation)
+            let once = state.holdOnce.remove(call.operation) != nil
+            return (
+                once || state.held.contains(call.operation), state.releases[call.operation] ?? 0
+            )
         }
         if let event { log?.append(event) }
-        if isHeld {
-            await withCheckedContinuation { continuation in
-                let stillHeld = state.withLock { state -> Bool in
-                    guard state.held.contains(call.operation) else { return false }
-                    state.waiting.append((call.operation, continuation))
-                    return true
-                }
-                if !stillHeld { continuation.resume() }
+        guard isHeld else { return }
+        await withCheckedContinuation { continuation in
+            let released = state.withLock { state -> Bool in
+                // A release between the decision and here already happened: do not wait.
+                guard (state.releases[call.operation] ?? 0) == epoch else { return true }
+                state.waiting.append((call.operation, continuation))
+                return false
             }
+            if released { continuation.resume() }
         }
     }
 
