@@ -30,15 +30,17 @@ public actor ForgetMac {
         do {
             erasure = try await reader.transact { state in Self.clear(&state) }
         } catch {
-            return .cleanupPending
+            return .failed  // nothing was persisted: the Mac is still paired
         }
         if let erasure { try? await watch?.sendContext(erasure.clear) }
         return await cleanup()
     }
 
     public func retryCleanup() async -> ForgetOutcome {
-        guard let state = try? await reader.load(), state.forgetCleanupPending else {
-            return .complete
+        guard let state = try? await reader.load() else { return .failed }
+        guard state.forgetCleanupPending else {
+            // Without the marker, a leftover pairing or snapshot means the transaction never ran.
+            return state.pairing != nil || state.snapshot != nil ? await forget() : .complete
         }
         if let erasure = state.watchErasePending { try? await watch?.sendContext(erasure.clear) }
         return await cleanup()

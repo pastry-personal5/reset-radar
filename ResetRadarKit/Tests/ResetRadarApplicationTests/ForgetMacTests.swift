@@ -153,4 +153,25 @@ final class ProbeWatchLink: WatchLink, @unchecked Sendable {
         #expect(rig.store.state.watchErasePending == queued)
         #expect(link.contexts.count == 1)
     }
+
+    @Test func aFailedTransactionIsNeverReportedAsForgotten() async {
+        rig.store.seed { state in
+            state.pairing = ReaderPairing(
+                endpoint: endpoint, publisherID: publisher, readerID: readerA, minimumSequence: 0,
+                keyVersion: 1, registrationExpiresAt: epoch)
+        }
+        let use = make(watch: nil)
+        rig.store.failNextTransactions(1)
+        #expect(await use.forget() == .failed)
+        #expect(rig.store.state.pairing != nil && rig.store.state.snapshot != nil)
+        #expect(!rig.store.state.forgetCleanupPending)
+        #expect(await use.retryCleanup() == .complete)
+        #expect(rig.store.state.pairing == nil && rig.store.state.snapshot == nil)
+    }
+
+    @Test func retryingWithNothingLeftToForgetIsComplete() async {
+        let use = make(watch: nil)
+        #expect(await use.forget() == .complete)
+        #expect(await use.retryCleanup() == .complete)
+    }
 }

@@ -253,3 +253,15 @@ private func emptySnapshot() throws -> UsageSnapshot {
         #expect(await sink.history().map(\.category) == [.secretsUnavailable, .envelopeTooLarge])
     }
 }
+
+@Suite struct AccountScoperContractTests {
+    @Test func scopesAreDeterministicDistinctAndSixteenBytes() async throws {
+        let scoper = FakeAccountScoper()
+        let first = try await scoper.scope(forAccountIdentifier: "account-a")
+        let again = try await scoper.scope(forAccountIdentifier: "account-a")
+        let other = try await scoper.scope(forAccountIdentifier: "account-b")
+        #expect(first == again)
+        #expect(first != other)
+        #expect(first.data.count == AccountScope.byteCount)
+    }
+}

@@ -75,6 +75,8 @@ public enum ForgetOutcome: Sendable, Equatable {
     case complete
     /// Keychain or surface cleanup failed; `retryCleanup` completes it.
     case cleanupPending
+    /// The local transaction did not commit, so nothing was forgotten; `retryCleanup` repeats it.
+    case failed
 }
 
 public enum ReceiptOutcome: Sendable, Equatable {
