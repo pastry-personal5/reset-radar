@@ -14,9 +14,9 @@ Implement `ResetRadarApplication` and `ResetRadarTestSupport` as specified in [A
 
 ## Entry criteria
 
-- [ ] P1-M4 is `Done` and merged to `main`; P1-M5 starts on a fresh branch from `main` (`feat/p1-m5-application-use-cases`).
+- [x] P1-M4 is `Done` and merged to `main`; P1-M5 starts on a fresh branch from `main` (`feat/p1-m5-application-use-cases`). Evidence: branch cut from `74c7f32`.
 - [x] The owner has answered the [open questions](#open-questions) or accepted each recommendation, and the answers are in the [changelog](changelog.md). Evidence: 2026-10-23 changelog entry.
-- [ ] A clean-checkout gate passes before any change (baseline).
+- [x] A clean-checkout gate passes before any change (baseline). Evidence: generate, format lint, swiftlint, import check, and Mac `xcodebuild test` passed on the branch before any change.
 
 ## In scope
 
@@ -69,8 +69,8 @@ Answered by the owner on 2026-10-23 (see [changelog.md](changelog.md)); they are
 
 - [ ] Entry criteria hold, with evidence in the changelog and baseline gate output.
 - [ ] The `Clock` port is renamed `AppClock` in application.md and `git grep -nw Clock docs/architecture` finds no port reference.
-- [ ] Checkpoint A (Tasks 1 to 4) has passed the gate and is committed, so P1-M6, P1-M7, P1-M10, and P1-M11 may start from it. The owner declined a review gate; later port changes go through the changelog.
-- [ ] The Mac `xcodebuild test` run reports the `ResetRadarApplicationTests` cases by name, with their count recorded.
+- [x] Checkpoint A (Tasks 1 to 4) has passed the gate and is committed, so P1-M6, P1-M7, P1-M10, and P1-M11 may start from it. The owner declined a review gate; later port changes go through the changelog.
+- [x] The Mac `xcodebuild test` run reports the `ResetRadarApplicationTests` cases by name, with their count recorded. Evidence at checkpoint A: 49 tests in 11 suites (count to be re-recorded at close-out).
 - [ ] `ResetRadarApplication` imports only Domain and Foundation, `ResetRadarTestSupport` only Domain, Application, and Foundation, and `Scripts/check-imports.sh` passes.
 - [ ] Every port in the application.md table exists with the signatures in the sequence and has a fake in `ResetRadarTestSupport`; a test proves each fake satisfies its protocol contract (for example, a rejected compare-and-swap, a lost lease, an `interactionRequired` secret failure).
 - [ ] The taxonomy is complete: every HTTP status in [relay.md](../architecture/relay.md) maps to one `RelayOutcome` case, and every case maps to a `TransportStatus` or a stated no-op, in a table test.

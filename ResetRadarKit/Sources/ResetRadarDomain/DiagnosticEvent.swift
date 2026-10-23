@@ -17,6 +17,10 @@ public struct DiagnosticEvent: Codable, Hashable, Sendable {
         case ambiguousHomeSlot
         case invalidHeartbeat
         case unsupportedSchema
+        case publicationStopped
+        case envelopeTooLarge
+        case secretsUnavailable
+        case relayFailure
         case unknown
     }
 
@@ -35,20 +39,21 @@ public struct DiagnosticEvent: Codable, Hashable, Sendable {
 
     private init(
         _ category: Category, at timestamp: Date, product: ProductID? = nil, slot: HomeSlot? = nil,
-        schemaVersion: Int? = nil, supportedSchemaVersion: Int? = nil
+        transportStatus: TransportStatus? = nil, lastSequence: UInt64? = nil,
+        schemaVersion: Int? = nil, supportedSchemaVersion: Int? = nil, httpStatusClass: Int? = nil
     ) {
         self.category = category
         self.timestamp = timestamp
         self.product = product
         self.slot = slot
         self.sourceState = nil
-        self.transportStatus = nil
+        self.transportStatus = transportStatus
         self.durationSeconds = nil
         self.firstSequence = nil
-        self.lastSequence = nil
+        self.lastSequence = lastSequence
         self.schemaVersion = schemaVersion
         self.supportedSchemaVersion = supportedSchemaVersion
-        self.httpStatusClass = nil
+        self.httpStatusClass = httpStatusClass
     }
 
     /// A window failed per-window validation for the reason carried by `category`.
@@ -80,5 +85,31 @@ public struct DiagnosticEvent: Codable, Hashable, Sendable {
         DiagnosticEvent(
             .unsupportedSchema, at: timestamp, schemaVersion: found,
             supportedSchemaVersion: supported.upperBound)
+    }
+
+    /// Automatic publication stopped; `status` is the relay's HTTP status class (4 or 5), if any.
+    public static func publicationStopped(
+        httpStatusClass: Int?, lastSequence: UInt64?, at timestamp: Date
+    ) -> DiagnosticEvent {
+        DiagnosticEvent(
+            .publicationStopped, at: timestamp, lastSequence: lastSequence,
+            httpStatusClass: httpStatusClass)
+    }
+
+    /// The sealed envelope exceeded the relay request limit and was not sent.
+    public static func envelopeTooLarge(sequence: UInt64, at timestamp: Date) -> DiagnosticEvent {
+        DiagnosticEvent(.envelopeTooLarge, at: timestamp, lastSequence: sequence)
+    }
+
+    public static func secretsUnavailable(at timestamp: Date) -> DiagnosticEvent {
+        DiagnosticEvent(.secretsUnavailable, at: timestamp, transportStatus: .secretsUnavailable)
+    }
+
+    /// A relay call failed in a way that changes the transport status.
+    public static func relayFailure(
+        status: TransportStatus, httpStatusClass: Int?, at timestamp: Date
+    ) -> DiagnosticEvent {
+        DiagnosticEvent(
+            .relayFailure, at: timestamp, transportStatus: status, httpStatusClass: httpStatusClass)
     }
 }
