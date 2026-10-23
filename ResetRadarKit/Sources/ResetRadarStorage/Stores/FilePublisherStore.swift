@@ -1,3 +1,4 @@
+import Foundation
 import ResetRadarApplication
 
 /// The Mac's relay metadata. `nextSequence` is on disk before it returns, so a crash or retry can
@@ -29,6 +30,9 @@ public final class FilePublisherStore: PublisherStore {
 
     public func nextSequence() async throws -> UInt64 {
         try await file.transact { state in
+            guard state.sequence < UInt64.max else {
+                throw StorageError.io(code: Int(EOVERFLOW))
+            }
             state.sequence += 1
             return state.sequence
         }

@@ -38,7 +38,7 @@ public struct VersionedCodableFile<Value: Codable & Sendable>: Sendable {
     /// `nil` when the file does not exist. Undecodable or invalid content is moved aside as
     /// `<name>.corrupt` and throws `corrupt` once; an unknown newer version throws
     /// `incompatible` and leaves the file untouched; an oversized file throws `tooLarge` without
-    /// being read. An older version is migrated in memory and rewritten by the next `write`.
+    /// being read. An older version is migrated and replaced before the read returns.
     public func read() throws -> Value? {
         guard let data = try loadBytes() else { return nil }
         let version: Int
@@ -48,7 +48,11 @@ public struct VersionedCodableFile<Value: Codable & Sendable>: Sendable {
             throw quarantine()
         }
         if version > currentVersion { throw StorageError.incompatible(foundVersion: version) }
-        if version < currentVersion { return try migrated(data, from: version) }
+        if version < currentVersion {
+            let value = try migrated(data, from: version)
+            try write(value)
+            return value
+        }
         do {
             let value = try WireCoding.decoder().decode(Envelope<Value>.self, from: data).payload
             try validate(value)
@@ -61,6 +65,11 @@ public struct VersionedCodableFile<Value: Codable & Sendable>: Sendable {
     /// Replaces the file. On macOS the first write in a newer schema first copies the previous
     /// file to `<name>.v<oldVersion>.bak`. A file written by a newer build is never overwritten.
     public func write(_ value: Value) throws {
+        do {
+            try validate(value)
+        } catch {
+            throw StorageError.corrupt
+        }
         let encoded: Data
         do {
             encoded = try WireCoding.encoder().encode(

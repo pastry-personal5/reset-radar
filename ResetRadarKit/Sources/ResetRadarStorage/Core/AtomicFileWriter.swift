@@ -24,6 +24,8 @@ public struct AtomicFileWriter: Sendable {
             try FileManager.default.createDirectory(
                 at: directory, withIntermediateDirectories: true,
                 attributes: protection.directoryAttributes)
+            try FileManager.default.setAttributes(
+                protection.directoryAttributes, ofItemAtPath: directory.path(percentEncoded: false))
         } catch {
             throw StorageError.io(code: Self.code(of: error))
         }
@@ -34,6 +36,7 @@ public struct AtomicFileWriter: Sendable {
         do {
             try FileManager.default.setAttributes(
                 protection.fileAttributes, ofItemAtPath: temporary.path(percentEncoded: false))
+            try syncFile(temporary)
             try beforeRename?()
         } catch {
             _ = unlink(temporary.path(percentEncoded: false))
@@ -45,7 +48,7 @@ public struct AtomicFileWriter: Sendable {
             _ = unlink(temporary.path(percentEncoded: false))
             throw StorageError.io(code: Int(code))
         }
-        syncDirectory(directory)
+        try syncDirectory(directory)
     }
 
     private func writeDurably(_ data: Data, to url: URL) throws {
@@ -74,12 +77,19 @@ public struct AtomicFileWriter: Sendable {
         }
     }
 
-    /// Persists the rename itself. Failure here cannot undo it, so it is not an error.
-    private func syncDirectory(_ directory: URL) {
+    private func syncFile(_ url: URL) throws {
+        let descriptor = open(url.path(percentEncoded: false), O_RDONLY | O_CLOEXEC)
+        guard descriptor >= 0 else { throw StorageError.io(code: Int(errno)) }
+        defer { close(descriptor) }
+        guard fsync(descriptor) == 0 else { throw StorageError.io(code: Int(errno)) }
+    }
+
+    /// A failed sync cannot undo the rename, but the caller must not report a durable commit.
+    private func syncDirectory(_ directory: URL) throws {
         let descriptor = open(directory.path(percentEncoded: false), O_RDONLY | O_CLOEXEC)
-        guard descriptor >= 0 else { return }
-        _ = fsync(descriptor)
-        close(descriptor)
+        guard descriptor >= 0 else { throw StorageError.io(code: Int(errno)) }
+        defer { close(descriptor) }
+        guard fsync(descriptor) == 0 else { throw StorageError.io(code: Int(errno)) }
     }
 
     static func storageError(_ error: any Error) -> StorageError {

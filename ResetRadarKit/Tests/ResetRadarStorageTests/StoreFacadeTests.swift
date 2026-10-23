@@ -100,6 +100,23 @@ struct DefaultsPreferenceStoreTests {
 }
 
 struct FileNotificationReconcileGateTests {
+    private final class LockMarker: @unchecked Sendable {
+        private let lock = NSLock()
+        private var held = false
+
+        func markHeld() {
+            lock.lock()
+            defer { lock.unlock() }
+            held = true
+        }
+
+        var isHeld: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return held
+        }
+    }
+
     @Test func secondClaimIsRefusedWhileTheFirstIsLive() async {
         let directory = TemporaryDirectory()
         let clock = FakeAppClock(start: epoch)
@@ -145,6 +162,28 @@ struct FileNotificationReconcileGateTests {
         #expect(await widget.claim() == nil)
         await app.release(held!)
         #expect(await widget.claim() != nil)
+    }
+
+    @Test func claimExpiryStartsWhenTheLockIsAcquired() async throws {
+        let directory = TemporaryDirectory()
+        let clock = FakeAppClock(start: epoch)
+        let gate = FileNotificationReconcileGate(locations: locations(directory), clock: clock)
+        let marker = LockMarker()
+        let lock = ProcessFileLock(
+            lockFile: directory.url.appending(path: "reconcile-gate.lock"))
+        let holder = Task {
+            try await lock.withLock {
+                marker.markHeld()
+                Thread.sleep(forTimeInterval: 0.2)
+            }
+        }
+        while !marker.isHeld { try await Task.sleep(for: .milliseconds(5)) }
+        let waiting = Task { await gate.claim() }
+        try await Task.sleep(for: .milliseconds(50))
+        clock.advance(by: 20)
+        try await holder.value
+        let claim = try #require(await waiting.value)
+        #expect(claim.expiresAt == clock.now.addingTimeInterval(30))
     }
 }
 

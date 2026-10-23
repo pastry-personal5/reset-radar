@@ -32,16 +32,15 @@ public final class FileNotificationReconcileGate: NotificationReconcileGate {
     /// A storage failure reads as "another holder": the caller leaves `needsAppReconcile` set
     /// and tries again, which is the safe outcome.
     public func claim() async -> GateClaim? {
-        let now = clock.now
         let seconds = Double(lease.components.seconds) + Double(lease.components.attoseconds) / 1e18
-        let candidate = GateClaim(id: UUID(), expiresAt: now.addingTimeInterval(seconds))
         do {
-            let granted = try await file.transact { stored -> Bool in
-                if let held = stored.claim, now < held.expiresAt { return false }
+            return try await file.transact { stored -> GateClaim? in
+                let now = clock.now
+                if let held = stored.claim, now < held.expiresAt { return nil }
+                let candidate = GateClaim(id: UUID(), expiresAt: now.addingTimeInterval(seconds))
                 stored.claim = StoredClaim(id: candidate.id, expiresAt: candidate.expiresAt)
-                return true
+                return candidate
             }
-            return granted ? candidate : nil
         } catch {
             return nil
         }

@@ -58,6 +58,17 @@ struct FilePublisherStoreTests {
         #expect(last == 4)
     }
 
+    @Test func exhaustedSequenceThrowsWithoutReplacingTheFile() async throws {
+        let directory = TemporaryDirectory()
+        let store = FilePublisherStore(locations: locations(directory))
+        try await store.transact { $0.sequence = UInt64.max }
+        let before = try bytesOf(directory, "publisher.json")
+        await #expect(throws: StorageFailure.io(code: Int(EOVERFLOW))) {
+            try await store.nextSequence()
+        }
+        #expect(try bytesOf(directory, "publisher.json") == before)
+    }
+
     @Test func fiftyConcurrentIncrementsOverTwoInstancesLoseNothing() async throws {
         let directory = TemporaryDirectory()
         let stores = [
@@ -91,14 +102,18 @@ struct FilePublisherStoreTests {
                 == .destroyPending)
     }
 
-    @Test func acceptedSequenceAboveTheAllocatedSequenceIsCorrupt() async throws {
+    @Test func acceptedSequenceAboveTheAllocatedSequenceIsRefused() async throws {
         let directory = TemporaryDirectory()
         let store = FilePublisherStore(locations: locations(directory))
-        try await store.transact {
-            $0.sequence = 2
-            $0.lastPublishedSequence = 9
+        _ = try await store.nextSequence()
+        let before = try bytesOf(directory, "publisher.json")
+        await #expect(throws: StorageFailure.corrupt) {
+            try await store.transact {
+                $0.sequence = 2
+                $0.lastPublishedSequence = 9
+            }
         }
-        await #expect(throws: StorageFailure.corrupt) { try await store.load() }
+        #expect(try bytesOf(directory, "publisher.json") == before)
     }
 }
 

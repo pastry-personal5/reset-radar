@@ -24,6 +24,7 @@ public final class ProcessFileLock: Sendable {
     /// cooperative pool. Throws `lockTimeout` after `timeout`, or `CancellationError` if the
     /// waiting task is cancelled. The lock is released on every exit path of `body`.
     public func withLock<T: Sendable>(_ body: @Sendable () throws -> T) async throws -> T {
+        try Task.checkCancellation()
         let descriptor = try acquire()
         defer {
             _ = flock(descriptor, LOCK_UN)
@@ -37,12 +38,22 @@ public final class ProcessFileLock: Sendable {
             try FileManager.default.createDirectory(
                 at: lockFile.deletingLastPathComponent(), withIntermediateDirectories: true,
                 attributes: protection.directoryAttributes)
+            try FileManager.default.setAttributes(
+                protection.directoryAttributes,
+                ofItemAtPath: lockFile.deletingLastPathComponent().path(percentEncoded: false))
         } catch {
             throw StorageError.io(code: AtomicFileWriter.code(of: error))
         }
         let descriptor = open(
             lockFile.path(percentEncoded: false), O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
         guard descriptor >= 0 else { throw StorageError.io(code: Int(errno)) }
+        do {
+            try FileManager.default.setAttributes(
+                protection.fileAttributes, ofItemAtPath: lockFile.path(percentEncoded: false))
+        } catch {
+            close(descriptor)
+            throw StorageError.io(code: AtomicFileWriter.code(of: error))
+        }
         return descriptor
     }
 
@@ -58,6 +69,7 @@ public final class ProcessFileLock: Sendable {
             guard ContinuousClock.now < deadline else { throw StorageError.lockTimeout }
             try await Task.sleep(for: pollInterval)
         }
+        try Task.checkCancellation()
         return try body()
     }
 }

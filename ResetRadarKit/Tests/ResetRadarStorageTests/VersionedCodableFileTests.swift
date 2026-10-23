@@ -87,14 +87,16 @@ struct VersionedCodableFileTests {
         #expect(try file.read() == nil)
     }
 
-    @Test func invalidValueIsCorrupt() throws {
+    @Test func invalidValueIsRefusedBeforeReplacingTheFile() throws {
         let directory = TemporaryDirectory()
         let file = sampleFile(directory)
+        try file.write(sampleValue)
+        let before = try contents(directory)
         var bad = sampleValue
         bad.sequence = 0
-        try file.write(bad)
-        #expect(throws: StorageFailure.corrupt) { try file.read() }
-        #expect(exists(directory, "sample.json.corrupt"))
+        #expect(throws: StorageFailure.corrupt) { try file.write(bad) }
+        #expect(try contents(directory) == before)
+        #expect(try file.read() == sampleValue)
     }
 
     @Test func oversizedByOneByteIsTooLargeAndExactSizeDecodes() throws {
@@ -140,9 +142,8 @@ struct VersionedCodableFileTests {
             let registry = MigrationRegistry(steps: [1: { $0 }])
             let upgraded = sampleFile(directory, version: 2, registry: registry)
             #expect(try upgraded.read() == sampleValue)
-            #expect(!exists(directory, "sample.json.v1.bak"))
-            try upgraded.write(sampleValue)
             #expect(try contents(directory, "sample.json.v1.bak") == old)
+            try upgraded.write(sampleValue)
             #expect(try upgraded.read() == sampleValue)
         }
 

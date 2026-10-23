@@ -20,6 +20,10 @@ private final class Order: @unchecked Sendable {
     }
 }
 
+private struct SchemaHeader: Decodable {
+    let schemaVersion: Int
+}
+
 private func replacing(_ target: String, with replacement: String) -> MigrationRegistry.Step {
     { data in
         let text = String(bytes: data, encoding: .utf8) ?? ""
@@ -87,6 +91,10 @@ struct MigrationRegistryTests {
             Sample.self, payload: payload,
             step: replacing("\"name\":\"a\"", with: "\"name\":\"b\""),
             in: directory)
+        #expect(try file.read()?.name == "b")
+        let migrated = try contents(directory, "value.json")
+        let header = try WireCoding.decoder().decode(SchemaHeader.self, from: migrated)
+        #expect(header.schemaVersion == 2)
         #expect(try file.read()?.name == "b")
     }
 

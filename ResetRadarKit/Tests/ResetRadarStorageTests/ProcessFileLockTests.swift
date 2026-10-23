@@ -86,6 +86,18 @@ struct ProcessFileLockTests {
         #expect(!log.events.contains("ran"))
     }
 
+    @Test func cancelledTaskDoesNotRunTheBodyWhenTheLockIsFree() async throws {
+        let directory = TemporaryDirectory()
+        let log = EventLog()
+        let lock = ProcessFileLock(lockFile: directory.url.appending(path: "gate.lock"))
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            try await lock.withLock { log.append("ran") }
+        }
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(log.events.isEmpty)
+    }
+
     @Test func missingDirectoryIsCreated() async throws {
         let directory = TemporaryDirectory()
         let lock = ProcessFileLock(lockFile: directory.url.appending(path: "new/gate.lock"))
@@ -104,10 +116,11 @@ struct ProcessFileLockTests {
             process.executableURL = URL(filePath: "/usr/bin/lockf")
             process.arguments = ["-k", file.path, "/bin/sleep", "1"]
             try process.run()
-            defer { process.terminate() }
+            defer { if process.isRunning { process.terminate() } }
             try await Task.sleep(for: .milliseconds(300))
             let impatient = ProcessFileLock(lockFile: file, timeout: .milliseconds(100))
             await #expect(throws: StorageError.lockTimeout) { try await impatient.withLock { 1 } }
+            process.terminate()
             process.waitUntilExit()
             let afterExit = ProcessFileLock(lockFile: file, timeout: .seconds(2))
             #expect(try await afterExit.withLock { 2 } == 2)

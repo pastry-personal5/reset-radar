@@ -132,6 +132,27 @@ struct ReaderIntegrationTests {
         #expect(rig.relay.calls(.getSnapshot) == [.getSnapshot(etag: nil)])
     }
 
+    @Test func anInterruptedManualWaitResumesFromDiskWithoutReposting() async throws {
+        let rig = try await ReaderRig()
+        let marker = PendingManualRequest(
+            requestID: requestID(1), deadline: rig.clock.now.addingTimeInterval(10))
+        try await rig.openStore().transact { $0.pendingManualRequest = marker }
+        rig.relay.queueGet(rig.envelope(sequence: 5))
+        let store = rig.openStore()
+        let refresh = RequestMacRefresh(
+            reader: store, secrets: rig.secrets, relay: rig.relay, random: rig.random,
+            clock: rig.clock, ingest: rig.makeIngest(store))
+        let resumed = Task { await refresh.run(scope: [.codex]) }
+        await rig.clock.waitForSleepers()
+        rig.clock.advance(by: 5)
+        await rig.clock.waitForSleepers()
+        rig.clock.advance(by: 5)
+        let outcome = await resumed.value
+        #expect(outcome == .timedOut || outcome == .macAsleepOrPending)
+        #expect(rig.relay.calls(.postRefreshRequest).isEmpty)
+        #expect(try await rig.openStore().load().pendingManualRequest == nil)
+    }
+
     @Test func widgetCommitSetsTheFlagWithTheSnapshotAndRelaunchKeepsIt() async throws {
         let rig = try await ReaderRig()
         rig.relay.queueGet(rig.envelope(sequence: 5))
@@ -146,6 +167,23 @@ struct ReaderIntegrationTests {
         await rig.pipeline(relaunched).reconcilePending()
         #expect(try await rig.openStore().load().needsAppReconcile == false)
         #expect(rig.log.all == ["notifications", "notifications", "liveActivities", "watch"])
+    }
+
+    @Test func anInterruptedNotificationPassKeepsTheReconcileFlagOnDisk() async throws {
+        let rig = try await ReaderRig()
+        rig.relay.queueGet(rig.envelope(sequence: 5))
+        #expect(
+            await rig.makeIngest(rig.openStore()).run(
+                trigger: .widgetReload, inAppProcess: false) == .committed)
+        let parking = ParkingStep()
+        let pass = Task {
+            await rig.pipeline(rig.openStore(), liveActivities: parking).reconcilePending()
+        }
+        await parking.waitUntilEntered()
+        #expect(try await rig.openStore().load().needsAppReconcile)
+        parking.resume()
+        await pass.value
+        #expect(try await rig.openStore().load().needsAppReconcile == false)
     }
 
     @Test func aWidgetCommitDuringAnAppRunKeepsTheFlagForTheNewerSnapshot() async throws {
@@ -208,6 +246,45 @@ struct ReaderIntegrationTests {
         let state = try await rig.openStore().load()
         #expect(state.snapshot == nil && state.etag == nil && state.committedSequence == nil)
         #expect(state.transportStatus == .notPaired)
+    }
+
+    @Test func aNewPairingWaitsForTheSavedWatchEraseReceipt() async throws {
+        let rig = try await ReaderRig()
+        let watch = FakeWatchLink()
+        try await rig.openStore().transact { state in
+            state.snapshot = snapshot()
+            state.hasSentToWatch = true
+            state.watchDeliveryRevision = 4
+        }
+        #expect(await rig.makeForget(rig.openStore(), watch: watch).forget() == .complete)
+        let pending = try #require(await rig.openStore().load().watchErasePending)
+        let codec = FakePairingCodec()
+        let package = PairingPackage(
+            relayEndpoint: endpoint, readerID: readerA, readToken: readToken.reveal(),
+            contentKey: contentKey.reveal(), publisherID: publisher, keyVersion: 1,
+            minimumSequence: 3, registrationExpiresAt: rig.clock.now.addingTimeInterval(300))
+        let encoded = try codec.encode(package)
+        rig.relay.queueGet(.awaitingFirstPublish)
+        let store = rig.openStore()
+        let accept = AcceptPairing(
+            reader: store, secrets: rig.secrets, relay: rig.relay, cipher: rig.cipher,
+            codec: codec, clock: rig.clock, afterCommit: rig.pipeline(store))
+        #expect(await accept.accept(try accept.preview(encoded), confirmed: true) == .paired)
+        try await rig.openStore().transact { state in state.snapshot = snapshot() }
+        let forward = ForwardToWatch(
+            reader: rig.openStore(), preferences: DefaultsPreferenceStore(defaults: UserDefaults()),
+            watch: watch, clock: rig.clock)
+        let event = CommitEvent(snapshot: snapshot(), process: .app)
+        await forward.send(after: event)
+        #expect(watch.contexts.last == pending.clear)
+        #expect(try await rig.openStore().load().watchErasePending == pending)
+        let receipt = WatchEraseReceipt(
+            installationID: pending.clear.installationID,
+            deliveryRevision: pending.revision)
+        let confirm = ConfirmWatchErase(reader: rig.openStore(), clock: rig.clock, forward: forward)
+        #expect(await confirm.confirm(receipt) == .confirmed)
+        #expect(watch.contexts.last?.cleared == false)
+        #expect(try await rig.openStore().load().watchErasePending == nil)
     }
 }
 
