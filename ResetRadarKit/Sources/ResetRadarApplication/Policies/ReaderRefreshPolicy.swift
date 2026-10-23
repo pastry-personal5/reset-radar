@@ -60,11 +60,11 @@ public enum ReaderRefreshPolicy {
             date.map { now.timeIntervalSince($0) } ?? .infinity
         }
         let sinceAttempt = elapsed(since: state.lastAttemptAt)
-        if sinceAttempt < minimumInterval { return .skip(.tooSoon) }
+        if sinceAttempt <= minimumInterval { return .skip(.tooSoon) }
         switch trigger {
         case .foregroundTick where sinceAttempt < tickInterval:
             return .skip(.tooSoon)
-        case .widgetReload where elapsed(since: state.lastSuccessAt) < widgetInterval:
+        case .widgetReload where elapsed(since: state.lastSuccessAt) <= widgetInterval:
             return .skip(.widgetFresh)
         default:
             return .fetch

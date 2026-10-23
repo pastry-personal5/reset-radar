@@ -51,11 +51,11 @@ public actor IngestRelaySnapshot {
             case .claimed(let fetch): claimed = fetch
             }
         } catch {
-            return .failed(.invalidSnapshot)
+            return .storageFailed
         }
         let verdict = await fetch(claimed)
         guard let applied = await apply(verdict, to: claimed, inAppProcess: inAppProcess) else {
-            return .failed(.invalidSnapshot)
+            return .storageFailed
         }
         await notify(applied, verdict: verdict, inAppProcess: inAppProcess)
         return applied.outcome
@@ -181,6 +181,9 @@ public actor IngestRelaySnapshot {
         case .fresh(let snapshot, let sequence, let etag):
             markSuccess(&state, now: now, status: .current)
             if let committed = state.committedSequence, sequence <= committed {
+                // The relay still serves the committed snapshot: keep its ETag so the next
+                // fetch is conditional instead of a full read.
+                if sequence == committed { state.etag = etag }
                 return .unchanged
             }
             state.snapshot = snapshot

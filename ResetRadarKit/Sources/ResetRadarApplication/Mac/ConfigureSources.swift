@@ -43,7 +43,9 @@ public actor ConfigureSources {
         previewed[preview.product] = nil
     }
 
-    public func restore(_ product: ProductID) async throws {
+    /// Restores the stored prior setting, after the owner confirms.
+    public func restore(_ product: ProductID, confirmed: Bool) async throws {
+        guard confirmed else { throw ConfigureSourcesError.confirmationRequired }
         guard let configurator = configurators[product] else {
             throw ConfigureSourcesError.unknownProduct
         }

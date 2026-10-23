@@ -2,7 +2,7 @@ import Foundation
 import ResetRadarDomain
 
 /// Why automatic publication stopped. A stop persists for the publisher's life; only a new
-/// process, `resume()` after relay setup, or a changed source shape clears it.
+/// process or `resume()` after relay setup clears it.
 public enum StopReason: Sendable, Equatable {
     case snapshotConflict
     case authorizationRequired
@@ -28,6 +28,8 @@ public enum IngestOutcome: Sendable, Equatable {
     case inProgress
     case skipped
     case failed(TransportStatus)
+    /// The reader store could not be read or written; the transport status is unchanged.
+    case storageFailed
 }
 
 public enum MacRefreshOutcome: Sendable, Equatable {

@@ -28,8 +28,9 @@ public actor RequestMacRefresh {
 
     public func run(scope: Set<ProductID>) async -> MacRefreshOutcome {
         let first = await ingest.run(trigger: .manual, inAppProcess: true)
-        guard scope.contains(.codex) else { return .notRequested }
+        // A failed read shows even for a Claude Code-only action, which never posts a request.
         if let early = await earlyOutcome(after: first) { return early }
+        guard scope.contains(.codex) else { return .notRequested }
         guard let state = try? await reader.load(), let pairing = state.pairing else {
             return .failed(.notPaired)
         }

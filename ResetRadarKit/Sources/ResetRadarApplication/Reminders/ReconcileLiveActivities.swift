@@ -13,6 +13,7 @@ public enum ActivityStartOutcome: Sendable, Equatable {
 /// activity starts solely from the foreground `start` action.
 public actor ReconcileLiveActivities: AfterCommitStep {
     private let visible: VisibleSnapshot
+    private var starting: Set<HomeSlot> = []
     private let controller: any LiveActivityController
     private let clock: any AppClock
 
@@ -48,6 +49,9 @@ public actor ReconcileLiveActivities: AfterCommitStep {
 
     /// Starts the activity for a slot, from a foreground Usage Details action only.
     public func start(slot: HomeSlot) async -> ActivityStartOutcome {
+        // Two overlapping taps must not both pass the running check below.
+        guard starting.insert(slot).inserted else { return .alreadyRunning }
+        defer { starting.remove(slot) }
         guard slot.durationMinutes == 300, await controller.areActivitiesEnabled(),
             let live = Self.live(slot, await visible.current(), clock.now)
         else { return .unavailable }

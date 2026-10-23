@@ -38,6 +38,8 @@ public actor PairReader {
     }
 
     private var current: Offer?
+    /// How the last offer ended, so a poll after `confirmed` or a revoke does not misreport.
+    private var finished: ActivationState?
 
     public init(
         publisher: any PublisherStore, secrets: any SecretStore, random: any SecretGenerator,
@@ -56,6 +58,7 @@ public actor PairReader {
             let endpoint = state.endpoint, let publisherID = state.publisherID
         else { throw PairReaderError.notActive }
         let keys = try await readKeys()
+        await revokeSuperseded()
         let readerID: ReaderID
         let token: SecretValue
         do {
@@ -78,6 +81,7 @@ public actor PairReader {
         }
         try await persist(readerID, name: deviceName, token: token, expiresAt: expiresAt)
         current = Offer(readerID: readerID, name: deviceName, expiresAt: expiresAt)
+        finished = nil
         return PairingOffer(
             readerID: readerID, package: package, encoded: encoded,
             confirmationCode: codec.confirmationCode(for: encoded), expiresAt: expiresAt)
@@ -85,13 +89,20 @@ public actor PairReader {
 
     /// `confirmed` only when the relay lists the reader as activated.
     public func pollActivation() async -> ActivationState {
-        guard let offer = current else { return .expired }
-        if await isActivated(offer.readerID) {
+        guard let offer = current else { return finished ?? .expired }
+        switch await activation(of: offer.readerID) {
+        case true?:
             await promote(offer.readerID, name: offer.name)
             current = nil
+            finished = .confirmed
             return .confirmed
+        case false?:
+            return clock.now >= offer.expiresAt ? .expired : .pending
+        case nil:
+            // The relay could not be asked: never call the offer expired, so an activated
+            // reader is not revoked on a failed list.
+            return .pending
         }
-        return clock.now >= offer.expiresAt ? .expired : .pending
     }
 
     /// Revokes the pending reader at its deadline (not before), unless it activated meanwhile.
@@ -99,7 +110,23 @@ public actor PairReader {
         guard let offer = current, await pollActivation() == .expired else { return }
         let revoked = await RelayRevocation.revoke(
             offer.readerID, publisher: publisher, secrets: secrets, relay: relay)
-        if revoked == .revoked { current = nil }
+        if revoked == .revoked {
+            current = nil
+            finished = .expired
+        }
+    }
+
+    /// A second `begin` replaces the offer; the earlier pending reader would otherwise keep a
+    /// reader-cap slot and a valid token until relay expiry.
+    private func revokeSuperseded() async {
+        guard let old = current else { return }
+        if await activation(of: old.readerID) == true {
+            await promote(old.readerID, name: old.name)
+        } else {
+            _ = await RelayRevocation.revoke(
+                old.readerID, publisher: publisher, secrets: secrets, relay: relay)
+        }
+        current = nil
     }
 
     private func readKeys() async throws -> (content: SecretValue, admin: SecretValue) {
@@ -136,14 +163,15 @@ public actor PairReader {
         }
     }
 
-    private func isActivated(_ id: ReaderID) async -> Bool {
+    /// `nil` when the relay could not be asked.
+    private func activation(of id: ReaderID) async -> Bool? {
         guard let state = try? await publisher.load(), let endpoint = state.endpoint,
             let admin = try? await secrets.read(.adminToken)
-        else { return false }
+        else { return nil }
         guard
             case .value(let readers) = await relay.listReaders(
                 endpoint: endpoint, adminToken: admin)
-        else { return false }
+        else { return nil }
         return readers.contains { $0.id == id && $0.activated }
     }
 

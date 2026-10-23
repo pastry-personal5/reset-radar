@@ -2,6 +2,7 @@
 public protocol SecretStore: Sendable {
     func read(_ name: SecretName) async throws(SecretStoreError) -> SecretValue
     func write(_ name: SecretName, value: SecretValue) async throws(SecretStoreError)
+    /// Idempotent: deleting a missing secret succeeds, so an interrupted cleanup can be repeated.
     func delete(_ name: SecretName) async throws(SecretStoreError)
     /// Drops every per-process cached secret.
     func invalidateCache() async

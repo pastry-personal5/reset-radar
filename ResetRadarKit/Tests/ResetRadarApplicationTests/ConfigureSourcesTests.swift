@@ -40,6 +40,15 @@ import Testing
         #expect(configurator.applied.isEmpty)
     }
 
+    @Test func restoreNeedsConfirmation() async throws {
+        let configurator = FakeSourceConfigurator(product: .claudeCode)
+        let use = ConfigureSources(configurators: [configurator])
+        await #expect(throws: ConfigureSourcesError.confirmationRequired) {
+            try await use.restore(.claudeCode, confirmed: false)
+        }
+        try await use.restore(.claudeCode, confirmed: true)
+    }
+
     @Test func anUnknownProductThrows() async {
         let use = ConfigureSources(configurators: [])
         await #expect(throws: ConfigureSourcesError.unknownProduct) {

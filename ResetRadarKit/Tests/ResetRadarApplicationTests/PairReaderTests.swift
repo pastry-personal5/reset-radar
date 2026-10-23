@@ -72,7 +72,7 @@ import Testing
         #expect(state.pendingRegistrations.isEmpty)
     }
 
-    @Test func aRelayErrorWhilePollingStaysPendingUntilTheDeadline() async throws {
+    @Test func aRelayErrorWhilePollingNeverCallsTheOfferExpired() async throws {
         let use = make()
         rig.relay.queueRegister(.value(rig.clock.now.addingTimeInterval(300)))
         _ = try await use.begin(deviceName: "Phone")
@@ -80,7 +80,30 @@ import Testing
         #expect(await use.pollActivation() == .pending)
         rig.clock.advance(by: 300)
         rig.relay.queueListReaders(.outcome(.offline))
+        // Past the deadline, but the relay could not say whether the reader activated.
+        #expect(await use.pollActivation() == .pending)
+        rig.relay.queueListReaders(.value([]))
         #expect(await use.pollActivation() == .expired)
+    }
+
+    @Test func aPollAfterConfirmationStaysConfirmed() async throws {
+        let use = make()
+        rig.relay.queueRegister(.value(rig.clock.now.addingTimeInterval(300)))
+        let offer = try await use.begin(deviceName: "Phone")
+        rig.relay.queueListReaders(.value([RelayReader(id: offer.readerID, activated: true)]))
+        #expect(await use.pollActivation() == .confirmed)
+        #expect(await use.pollActivation() == .confirmed)
+    }
+
+    @Test func aSecondOfferRevokesTheFirst() async throws {
+        let use = make()
+        rig.relay.queueRegister(.value(rig.clock.now.addingTimeInterval(300)))
+        let first = try await use.begin(deviceName: "Phone")
+        rig.relay.queueListReaders(.value([RelayReader(id: first.readerID, activated: false)]))
+        rig.relay.queueRegister(.value(rig.clock.now.addingTimeInterval(300)))
+        let second = try await use.begin(deviceName: "Tablet")
+        #expect(second.readerID != first.readerID)
+        #expect(rig.relay.calls(.revokeReader).count == 1)
     }
 
     @Test func expiryRevokesAtTheDeadlineAndNotBefore() async throws {

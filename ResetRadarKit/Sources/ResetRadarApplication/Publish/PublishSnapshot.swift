@@ -137,8 +137,12 @@ public actor PublishSnapshot {
         let header = EnvelopeHeader(
             protocolVersion: 1, envelopeVersion: 1, publisherID: target.publisherID,
             sequence: sequence, keyVersion: 1)
-        guard let sealed = try? cipher.seal(snapshot, header: header, key: keys.contentKey) else {
-            return await halt(.incompatible, status: nil, sequence: sequence)
+        let sealed: SealedEnvelope
+        do {
+            sealed = try cipher.seal(snapshot, header: header, key: keys.contentKey)
+        } catch {
+            let reason: StopReason = error == .unsupportedVersion ? .incompatible : .payloadRejected
+            return await halt(reason, status: nil, sequence: sequence)
         }
         guard sealed.encoded.count <= Self.maximumEnvelopeBytes else {
             oversizedShape = Shape(snapshot)

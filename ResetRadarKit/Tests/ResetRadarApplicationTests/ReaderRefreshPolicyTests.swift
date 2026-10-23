@@ -41,7 +41,8 @@ import Testing
     @Test(arguments: [FetchTrigger.foregroundActivation, .watchRequest, .backgroundTask])
     func fifteenSecondMinimumIntervalHasAnEdge(trigger: FetchTrigger) {
         #expect(decide(trigger, state(attempt: 14.999)) == .skip(.tooSoon))
-        #expect(decide(trigger, state(attempt: 15)) == .fetch)
+        #expect(decide(trigger, state(attempt: 15)) == .skip(.tooSoon))
+        #expect(decide(trigger, state(attempt: 15.001)) == .fetch)
         #expect(decide(trigger, state()) == .fetch)
     }
 
@@ -53,7 +54,8 @@ import Testing
 
     @Test func widgetReloadNeedsFiveMinutesSinceTheLastSuccess() {
         #expect(decide(.widgetReload, state(attempt: 100, success: 299)) == .skip(.widgetFresh))
-        #expect(decide(.widgetReload, state(attempt: 100, success: 300)) == .fetch)
+        #expect(decide(.widgetReload, state(attempt: 100, success: 300)) == .skip(.widgetFresh))
+        #expect(decide(.widgetReload, state(attempt: 100, success: 300.001)) == .fetch)
         #expect(decide(.widgetReload, state(attempt: 100)) == .fetch)
         #expect(decide(.widgetReload, state(attempt: 14.999, success: 900)) == .skip(.tooSoon))
     }

@@ -42,6 +42,7 @@ public actor ReconcileResetNotifications: AfterCommitStep {
         let pending = Dictionary(
             await scheduler.pending().map { ($0.slot, $0) }, uniquingKeysWith: { first, _ in first }
         )
+        var outcome = ReconcileOutcome.reconciled
         for slot in HomeSlot.allCases {
             let desired = await desiredRequest(slot, snapshot: snapshot, now: now)
             if let desired, authorized {
@@ -49,13 +50,13 @@ public actor ReconcileResetNotifications: AfterCommitStep {
                 do {
                     try await scheduler.schedule(desired)
                 } catch {
-                    return .retryable
+                    outcome = .retryable  // the remaining slots still reconcile
                 }
             } else if pending[slot] != nil {
                 await scheduler.cancel(slot: slot)
             }
         }
-        return .reconciled
+        return outcome
     }
 
     private func desiredRequest(

@@ -84,6 +84,9 @@ public actor ForwardToWatch: AfterCommitStep {
                 ComplicationBudgetPolicy.allows(
                     state: budget, changedSince: values != state.lastComplicationValues, now: now)
             else { return false }
+            // Deliberately counted before the transfer: a failed transfer still spends budget,
+            // which keeps the system's daily allowance safe, and the unchanged values are not
+            // retried until they change.
             state.complicationTransfers =
                 state.complicationTransfers.filter {
                     now.timeIntervalSince($0) < ComplicationBudgetPolicy.window

@@ -207,13 +207,21 @@ public actor AcceptPairing {
 
     /// An authenticated 401 means the registration expired or was revoked: re-pairing is needed.
     private func clearPendingPairing() async {
-        try? await reader.transact { state in
-            state.pairing = nil
-            state.snapshot = nil
-            state.committedSequence = nil
-            state.etag = nil
-            state.awaitingActivation = false
-            state.transportStatus = .notPaired
+        // The secrets go only after the state no longer needs them: a failed write would
+        // otherwise leave a pairing with no secrets and no way back but Forget Mac.
+        do {
+            try await reader.transact { state in
+                state.pairing = nil
+                state.lease = nil
+                state.pendingManualRequest = nil
+                state.snapshot = nil
+                state.committedSequence = nil
+                state.etag = nil
+                state.awaitingActivation = false
+                state.transportStatus = .notPaired
+            }
+        } catch {
+            return
         }
         try? await secrets.delete(.readToken)
         try? await secrets.delete(.contentKey)

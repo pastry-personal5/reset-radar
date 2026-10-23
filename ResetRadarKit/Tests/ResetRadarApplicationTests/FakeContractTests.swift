@@ -58,6 +58,12 @@ private func emptySnapshot() throws -> UsageSnapshot {
         #expect(store.readCount == 3)
     }
 
+    @Test func deletingAMissingSecretSucceeds() async throws {
+        let store = FakeSecretStore()
+        try await store.delete(.writeToken)
+        try await store.delete(.writeToken)
+    }
+
     @Test func secretValueRedactsEveryStringForm() {
         let secret = SecretValue(Data([0xDE, 0xAD, 0xBE, 0xEF]))
         var dumped = ""
