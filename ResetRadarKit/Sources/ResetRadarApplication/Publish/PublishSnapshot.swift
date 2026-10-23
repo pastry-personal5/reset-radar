@@ -30,8 +30,7 @@ public actor PublishSnapshot {
     private var failureCount = 0
     private var stop: StopReason?
     private var oversizedShape: Shape?
-    private var sending = false
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var gate = SerialGate()
 
     /// What drives the encoded size. A refused envelope is not retried until this changes.
     private struct Shape: Equatable {
@@ -105,19 +104,11 @@ public actor PublishSnapshot {
     /// Sends run one at a time: a second caller waits, then re-evaluates the policy against the
     /// first send's result, so two overlapping publications never race for the relay sequence.
     private func acquire() async {
-        if sending {
-            await withCheckedContinuation { waiters.append($0) }
-        } else {
-            sending = true
-        }
+        await withCheckedContinuation { gate.enterOrQueue($0) }
     }
 
     private func release() {
-        if waiters.isEmpty {
-            sending = false
-        } else {
-            waiters.removeFirst().resume()
-        }
+        gate.leave()
     }
 
     private func activeTarget(requiring lifecycle: RelayLifecycle) async -> Target? {

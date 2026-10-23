@@ -36,7 +36,12 @@ public final class FileNotificationReconcileGate: NotificationReconcileGate {
         do {
             return try await file.transact { stored -> GateClaim? in
                 let now = clock.now
-                if let held = stored.claim, now < held.expiresAt { return nil }
+                // A claim dated further ahead than one lease means the clock moved backwards since
+                // it was taken; honoring it would block reconciliation until the old time returns.
+                let horizon = now.addingTimeInterval(seconds)
+                if let held = stored.claim, now < held.expiresAt, held.expiresAt <= horizon {
+                    return nil
+                }
                 let candidate = GateClaim(id: UUID(), expiresAt: now.addingTimeInterval(seconds))
                 stored.claim = StoredClaim(id: candidate.id, expiresAt: candidate.expiresAt)
                 return candidate

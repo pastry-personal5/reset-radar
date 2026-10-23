@@ -14,8 +14,7 @@ public actor CollectUsage {
     private let clock: any AppClock
     private let publisherID: PublisherID
     private let heartbeatSeconds: Int
-    private var busy = false
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var gate = SerialGate()
 
     public init(
         snapshots: any LocalSnapshotCommitting, diagnostics: any DiagnosticsSink,
@@ -60,19 +59,11 @@ public actor CollectUsage {
     /// Load, reduce, and commit run one at a time: overlapping reports would otherwise reduce
     /// from the same base and the last commit would drop the other's merge.
     private func acquire() async {
-        if busy {
-            await withCheckedContinuation { waiters.append($0) }
-        } else {
-            busy = true
-        }
+        await withCheckedContinuation { gate.enterOrQueue($0) }
     }
 
     private func release() {
-        if waiters.isEmpty {
-            busy = false
-        } else {
-            waiters.removeFirst().resume()
-        }
+        gate.leave()
     }
 
     private func collect(_ reports: [SourceSnapshot]) async throws -> CollectResult {

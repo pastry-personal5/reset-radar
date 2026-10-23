@@ -139,6 +139,15 @@ struct FileNotificationReconcileGateTests {
         #expect(await gate.claim() != nil)
     }
 
+    @Test func claimTakenBeforeTheClockMovedBackIsReclaimable() async {
+        let directory = TemporaryDirectory()
+        let clock = FakeAppClock(start: epoch)
+        let gate = FileNotificationReconcileGate(locations: locations(directory), clock: clock)
+        _ = await gate.claim()
+        clock.advance(by: -3_600)
+        #expect(await gate.claim() != nil)
+    }
+
     @Test func lateReleaseOfAReclaimedClaimDoesNotFreeTheNewHolder() async {
         let directory = TemporaryDirectory()
         let clock = FakeAppClock(start: epoch)
