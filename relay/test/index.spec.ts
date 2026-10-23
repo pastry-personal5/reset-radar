@@ -153,6 +153,52 @@ describe("Relay Worker v1", () => {
     expect(tables).toEqual([]);
   });
 
+  it("revalidates a reader after the body read so a concurrent revocation cannot activate or enqueue", async () => {
+    expect((await register()).status).toBe(200);
+    expect((await activateReader()).status).toBe(200);
+    expect((await register(readerTwoID, digests.readerTwo)).status).toBe(200);
+
+    const stalled = (token: string, path: string, body: string) => {
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      const stream = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          await gate;
+          if (body.length > 0) controller.enqueue(new TextEncoder().encode(body));
+          controller.close();
+        },
+      });
+      const pending = SELF.fetch(`https://relay.invalid${path}`, {
+        body: stream,
+        duplex: "half",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        method: "POST",
+      } as RequestInit);
+      return { pending, release };
+    };
+
+    const activation = stalled(tokens.readerTwo, "/v1/readers/activate", "");
+    const refresh = stalled(
+      tokens.reader,
+      postRefresh.path,
+      JSON.stringify({ protocolVersion: 1, requestID: "59595959595959595959595959595959" }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    for (const id of [readerOneID, readerTwoID]) {
+      expect((await request(`/v1/readers/${id}`, "DELETE", tokens.admin)).status).toBe(204);
+    }
+    activation.release();
+    refresh.release();
+
+    expect((await activation.pending).status).toBe(401);
+    expect((await refresh.pending).status).toBe(401);
+    const rows = await objectStorage((state) => ({
+      readers: state.storage.sql.exec("SELECT COUNT(*) AS n FROM readers").one().n,
+      requests: state.storage.sql.exec("SELECT COUNT(*) AS n FROM refresh_requests").one().n,
+    }));
+    expect(rows).toEqual({ readers: 0, requests: 0 });
+  });
+
   it("fails closed when Worker-secret digests are absent, malformed, or equal", async () => {
     const requestValue = new Request("https://relay.invalid/v1/snapshot", {
       body: putSnapshot.requestBody,

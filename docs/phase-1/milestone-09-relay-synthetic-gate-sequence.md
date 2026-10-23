@@ -12,7 +12,7 @@ Work order for the [M9 overview](milestone-09-relay-synthetic-gate-overview.md).
 
 ## Task 1: Entry and baseline
 
-Resolve the M8 review-hardening item (commit the pending change with its concurrency test, or record the owner's deferral). Record the starting commit and worktree state, then run the complete gate with `test_runner`. Collect owner answers to the four overview questions into the changelog. Done when the entry criteria are checked with evidence.
+Resolve the M8 review-hardening item (commit the pending change with its concurrency test, or record the owner's deferral). Record the starting commit and worktree state, then run the complete gate with `test_runner`. The owner's four decisions are already recorded. Done when the entry criteria are checked with evidence.
 
 ## Task 2: Port and test the harness
 
@@ -30,11 +30,11 @@ Run `smoke:remote` against the deployed origin, then recheck billing. It must pa
 
 ## Task 5: 24-hour soak and quota boundary (owner-run)
 
-Run `soak:remote` once, uninterrupted, under `caffeinate`, and record dashboard totals by UTC day. Only after it completes, exercise the quota boundary as the owner decided, capturing the exact platform response and its `quotaLimited` mapping. A restart voids the interval.
+Run `soak:remote` once, uninterrupted, under `caffeinate`, and record dashboard totals by UTC day. Only after it completes, record Cloudflare's published limit response and run the approved safe lower-bound simulation, showing the `quotaLimited` mapping; do not exhaust the daily limit. A restart voids the interval.
 
 ## Task 6: Faults, cellular, and release (owner-run)
 
-Run runbook section 6: wall-clock pending-reader and request expiry, Mac awake, asleep, and offline refresh, revocation mid-request, source and publication failure, token replacement, destroy and re-pair, wrong key, malformed ciphertext, replay, clock skew, and unsupported version with last-valid-cache retention. Then the cellular read per the owner's chosen client, and a version-URL smoke, promotion, and rollback with a storage coherence check.
+Run runbook section 6: wall-clock pending-reader and request expiry, Mac awake, asleep, and offline refresh, revocation mid-request, source and publication failure, token replacement, destroy and re-pair, wrong key, malformed ciphertext, replay, clock skew, and unsupported version with last-valid-cache retention. Then the cellular read with the approved synthetic Shortcut or script, and a version-URL smoke, promotion, and rollback with a storage coherence check.
 
 ## Task 7: Teardown, evidence, and verdict
 

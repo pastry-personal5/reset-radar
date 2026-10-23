@@ -17,7 +17,7 @@ The relay runs on Workers Free at US$0 with no paid subscription or add-on, and 
 
 - [ ] P1-M8 is `Done` and its open review-hardening item (atomic reader revalidation after an asynchronous body read) is checked with evidence, or the owner explicitly defers it. Today it is unchecked in the [M8 overview](milestone-08-relay-implementation-overview.md#m8-implementation-checklist) with the fix uncommitted in the worktree.
 - [ ] Record the starting commit and worktree state; the M9 baseline gate passes.
-- [ ] Owner confirms the Free account is otherwise unused or inventories its workloads (account-wide quotas), and approves the open questions below.
+- [ ] Owner inventories the existing Free account's other workloads (account-wide quotas); the [owner decisions](#owner-decisions) below are recorded.
 
 ## In scope
 
@@ -32,25 +32,25 @@ The relay runs on Workers Free at US$0 with no paid subscription or add-on, and 
 - The Sideloadly re-sign check in the spike list; it belongs to P1-M14, which owns the first installable iOS build.
 - Merging `spike/cloudflare-relay`.
 
-## Open questions for the owner
+## Owner decisions
 
-Ask before building on these (per [AGENTS.md](../../AGENTS.md)):
+Approved by the owner on 2026-10-23:
 
-1. **Cellular read client.** The spike needs a synthetic read on an iPhone over cellular, but no iOS app exists until P1-M14. Options: a synthetic-only script or Shortcut run on the phone, or a throwaway page. Which is acceptable? Recommended: the least tooling that decrypts a synthetic envelope on the phone and prints only pass or fail.
-2. **Dependencies.** The harness needs none beyond the pinned set. Confirm Node's built-in test runner (used by the spike branch) satisfies "no new build tool."
-3. **Account.** Existing Free account, with other Workers inventoried, or a fresh one.
-4. **Quota boundary.** Driving the 100,000-request daily limit is destructive to the day's availability. Confirm the owner wants it run, or accepts documenting the Cloudflare-published response plus a safe lower-bound simulation. The result must map to `quotaLimited`.
+1. **M8 hardening.** Finish the reader-revalidation item (test, verify, commit) before M9 Task 1; it is not deferred.
+2. **Cellular read client.** A synthetic-only Shortcut or script on the iPhone that fetches and decrypts a synthetic envelope and shows only pass or fail. No iOS app or web page.
+3. **Script tests.** Node's built-in `node --test` is acceptable; it adds no dependency or build tool.
+4. **Account and quota.** Use the existing Free account after inventorying its other workloads. Do not exhaust the daily limit; record Cloudflare's published limit response plus a safe lower-bound simulation, which must map to `quotaLimited`.
 
 ## Completion checklist
 
 - [ ] Entry criteria hold with recorded commit and a passing baseline gate.
-- [ ] Owner answers to the open questions are recorded in the [changelog](changelog.md).
+- [x] Owner decisions recorded in the [changelog](changelog.md). Evidence: 2026-10-23 entry.
 - [ ] Ported harness scripts pass `node --test` and the complete [contribution-guide gate](../contribution-guide.md#required-validation); no script accepts a secret as an argument or environment value, and `check:deploy-config` rejects Preview URLs, observability, routes, extra bindings, and non-SQLite objects.
 - [ ] Runbook matches the shipped scripts and the approved owner answers.
 - [ ] Preflight and post-deploy billing show Workers Free, no paid add-on, logs, traces, and Logpush off, and only the single Worker and SQLite Durable Object.
 - [ ] Remote smoke passes all ten operations, authority separation, three-reader lifecycle, refresh mailbox, and destruction with redacted output.
 - [ ] 24-hour soak completes in one continuous run; requests, CPU, Durable Object duration, rows read and written, storage, and p50/p95 latency are within Free quotas at the [worst-case cadence](../architecture.md#relay-capacity).
-- [ ] Quota exhaustion fails closed, its response is recorded, and it maps to `quotaLimited` without an upgrade or charge.
+- [ ] The simulated quota boundary fails closed, the published limit response is recorded, and it maps to `quotaLimited` without an upgrade or charge.
 - [ ] Wall-clock pending-reader and refresh-request expiry, sleeping or offline Mac, revocation mid-request, source and publication failure, token replacement, and destroy-and-re-pair recover as specified.
 - [ ] Malformed ciphertext, wrong key, replay, clock skew, and incompatible version preserve the last valid cache.
 - [ ] Ciphertext published over Wi-Fi is read and decrypted on iPhone cellular with the Mac disconnected.

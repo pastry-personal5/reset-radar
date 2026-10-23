@@ -265,11 +265,11 @@ export class RelayObject extends DurableObject {
       ) {
         return { code: "unauthorized" as const };
       }
-      const snapshot = this.one<StoredSnapshot>("SELECT publisher_id, last_sequence, envelope, etag FROM relay_state WHERE id = 1");
-      return snapshot === undefined ? { code: "awaitingFirstPublish" as const } : { snapshot };
+      const stored = this.one<StoredSnapshot>("SELECT publisher_id, last_sequence, envelope, etag FROM relay_state WHERE id = 1");
+      return stored === undefined ? { code: "awaitingFirstPublish" as const } : { code: "ok" as const, stored };
     });
-    if (!("snapshot" in result)) return failure(result.code, { noStore: true });
-    const { snapshot } = result;
+    if (result.code !== "ok") return failure(result.code, { noStore: true });
+    const snapshot = result.stored;
     if (request.headers.get("If-None-Match") === snapshot.etag) return success(304, undefined, { etag: snapshot.etag, noStore: true });
     return success(200, snapshot.envelope, {
       bodyLimit: SNAPSHOT_LIMIT,
