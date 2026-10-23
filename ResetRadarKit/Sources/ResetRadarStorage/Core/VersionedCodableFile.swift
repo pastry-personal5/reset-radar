@@ -36,9 +36,10 @@ public struct VersionedCodableFile<Value: Codable & Sendable>: Sendable {
     }
 
     /// `nil` when the file does not exist. Undecodable or invalid content is moved aside as
-    /// `<name>.corrupt` and throws `corrupt` once; an unknown newer version throws
-    /// `incompatible` and leaves the file untouched; an oversized file throws `tooLarge` without
-    /// being read. An older version is migrated and replaced before the read returns.
+    /// `<name>.corrupt` (or a numbered sibling when it exists) and throws `corrupt` once.
+    /// An unknown newer version throws `incompatible` and leaves the file untouched; an
+    /// oversized file throws `tooLarge` without being read. An older version is migrated and
+    /// replaced before the read returns.
     public func read() throws -> Value? {
         guard let data = try loadBytes() else { return nil }
         let version: Int
@@ -103,7 +104,14 @@ public struct VersionedCodableFile<Value: Codable & Sendable>: Sendable {
 
     private func quarantine() -> StorageError {
         let path = url.path(percentEncoded: false)
-        if rename(path, path + ".corrupt") != 0 { return .io(code: Int(errno)) }
+        let base = path + ".corrupt"
+        var destination = base
+        var suffix = 1
+        while FileManager.default.fileExists(atPath: destination) {
+            destination = base + ".\(suffix)"
+            suffix += 1
+        }
+        if rename(path, destination) != 0 { return .io(code: Int(errno)) }
         return .corrupt
     }
 

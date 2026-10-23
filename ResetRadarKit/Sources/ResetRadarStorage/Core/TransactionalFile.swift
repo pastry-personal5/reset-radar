@@ -7,6 +7,7 @@ final class TransactionalFile<State: Codable & Sendable>: Sendable {
     private let lock: ProcessFileLock
     private let makeDefault: @Sendable () -> State
     private let persistDefault: Bool
+    private let validateTransition: @Sendable (State, State) throws -> Void
 
     /// `persistDefault` writes the default value the first time the file is missing, for state
     /// whose default is random and so must not differ between two reads.
@@ -14,6 +15,7 @@ final class TransactionalFile<State: Codable & Sendable>: Sendable {
         locations: StorageLocations, name: String, writer: AtomicFileWriter,
         persistDefault: Bool = false,
         validate: @escaping @Sendable (State) throws -> Void = { _ in },
+        validateTransition: @escaping @Sendable (State, State) throws -> Void = { _, _ in },
         makeDefault: @escaping @Sendable () -> State
     ) {
         file = VersionedCodableFile(
@@ -22,6 +24,7 @@ final class TransactionalFile<State: Codable & Sendable>: Sendable {
         lock = ProcessFileLock(lockFile: locations.ownFile("\(name).lock"))
         self.makeDefault = makeDefault
         self.persistDefault = persistDefault
+        self.validateTransition = validateTransition
     }
 
     func load() async throws -> State {
@@ -39,7 +42,9 @@ final class TransactionalFile<State: Codable & Sendable>: Sendable {
     func transact<T: Sendable>(_ body: @Sendable (inout State) throws -> T) async throws -> T {
         try await lock.withLock {
             var state = try file.read() ?? makeDefault()
+            let previous = state
             let result = try body(&state)
+            try validateTransition(previous, state)
             try file.write(state)
             return result
         }

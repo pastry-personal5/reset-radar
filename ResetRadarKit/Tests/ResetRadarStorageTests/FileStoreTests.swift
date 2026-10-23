@@ -115,6 +115,25 @@ struct FilePublisherStoreTests {
         }
         #expect(try bytesOf(directory, "publisher.json") == before)
     }
+
+    @Test func onePublisherCannotReuseAllocatedOrAcceptedSequences() async throws {
+        let directory = TemporaryDirectory()
+        let store = FilePublisherStore(locations: locations(directory))
+        try await store.transact { $0.publisherID = publisher }
+        #expect(try await store.nextSequence() == 1)
+        #expect(try await store.nextSequence() == 2)
+        try await store.transact { $0.lastPublishedSequence = 1 }
+        let before = try bytesOf(directory, "publisher.json")
+        let relaunched = FilePublisherStore(locations: locations(directory))
+        await #expect(throws: StorageFailure.corrupt) {
+            try await relaunched.transact { $0.sequence = 1 }
+        }
+        await #expect(throws: StorageFailure.corrupt) {
+            try await relaunched.transact { $0.lastPublishedSequence = 0 }
+        }
+        #expect(try bytesOf(directory, "publisher.json") == before)
+        #expect(try await relaunched.nextSequence() == 3)
+    }
 }
 
 struct FileReaderStoreTests {

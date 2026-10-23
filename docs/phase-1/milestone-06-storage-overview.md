@@ -48,6 +48,7 @@ Answered by the owner on 2026-10-23: every recommended default is accepted (see 
 
 ## Completion checklist
 
+- [x] Post-close review: prevent publisher sequence and accepted-floor rollback for the same publisher, preserve earlier corrupt-file evidence, and pass the complete gate. Evidence: 83 Storage tests in 15 suites passed; the full contribution-guide gate passed on 2026-10-23.
 - [x] Review follow-up: validate values before replacing a file, persist successful migrations atomically, use grant-time clock values for notification claims, and verify sequence exhaustion and lock cancellation. Evidence: `f2f9fc3`; 81 Storage tests and the complete gate passed on 2026-10-23.
 - [x] Entry criteria hold, with evidence in the changelog and baseline gate output.
 - [x] Checkpoint A (Tasks 1 and 2) passed the complete gate and is committed. Evidence: isolated checkout of `db9f7cf` passed all gate commands, with 36 Storage core tests in six suites.

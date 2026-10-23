@@ -15,6 +15,15 @@ public final class FilePublisherStore: PublisherStore {
                     throw StorageError.corrupt
                 }
             },
+            validateTransition: { previous, next in
+                // A fresh publisher may start at zero after relay destruction or setup.
+                // Within one publisher, neither allocated nor accepted numbers can retreat.
+                if let publisherID = previous.publisherID, next.publisherID == publisherID {
+                    guard next.sequence >= previous.sequence,
+                        next.lastPublishedSequence >= previous.lastPublishedSequence
+                    else { throw StorageError.corrupt }
+                }
+            },
             makeDefault: { PublisherState() })
     }
 

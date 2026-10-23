@@ -87,6 +87,21 @@ struct VersionedCodableFileTests {
         #expect(try file.read() == nil)
     }
 
+    @Test func laterCorruptionPreservesTheEarlierQuarantine() throws {
+        let directory = TemporaryDirectory()
+        try FileManager.default.createDirectory(
+            at: directory.url, withIntermediateDirectories: true)
+        let file = sampleFile(directory)
+        let first = Data("first corrupt file".utf8)
+        let second = Data("second corrupt file".utf8)
+        try first.write(to: directory.url.appending(path: "sample.json"))
+        #expect(throws: StorageFailure.corrupt) { try file.read() }
+        try second.write(to: directory.url.appending(path: "sample.json"))
+        #expect(throws: StorageFailure.corrupt) { try file.read() }
+        #expect(try contents(directory, "sample.json.corrupt") == first)
+        #expect(try contents(directory, "sample.json.corrupt.1") == second)
+    }
+
     @Test func invalidValueIsRefusedBeforeReplacingTheFile() throws {
         let directory = TemporaryDirectory()
         let file = sampleFile(directory)
