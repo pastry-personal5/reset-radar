@@ -26,7 +26,7 @@ This file is the overall plan. Each milestone gets its own overview file when it
 | Milestone | Depends on | Module(s) | Owner-run work |
 |---|---|---|---|
 | P1-M4 Domain model | scaffold | Domain | none |
-| P1-M5 Application use cases | M4 | Application | none |
+| P1-M5 Application use cases | M4 | Application, TestSupport | none |
 | P1-M6 Storage | M4, M5 | Storage | none |
 | P1-M7 Transport crypto and protocol | M4, M5 | Transport | none |
 | P1-M8 Relay implementation | M7 fixtures | `relay/` | none |
@@ -90,8 +90,9 @@ Goal: Allowance windows, used-percent values, reset rules, freshness and availab
 Plan: [overview](milestone-04-domain-model-overview.md), [sequencing](milestone-04-domain-model-sequence.md), [Domain](../architecture/domain.md)
 
 ### P1-M5: Application use cases
-Status: Planned
+Status: Active
 Goal: Ports, refresh and reset policies, snapshot reduction, and the error taxonomy against fakes.
+Plan: [overview](milestone-05-application-use-cases-overview.md), [sequencing](milestone-05-application-use-cases-sequence.md), [Application](../architecture/application.md)
 
 ### P1-M6: Storage
 Status: Planned
