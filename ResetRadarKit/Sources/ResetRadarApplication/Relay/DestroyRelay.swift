@@ -9,8 +9,8 @@ public enum DestroyOutcome: Sendable, Equatable {
     case storageFailed
 }
 
-/// Destroys the relay, then local secrets and state, in that order, so an interrupted run can
-/// be repeated.
+/// Destroys the relay, then its local secrets and state, in that order, so an interrupted run
+/// can be repeated. The account-scope key is not a relay secret and is kept.
 public actor DestroyRelay {
     private let publisher: any PublisherStore
     private let secrets: any SecretStore
@@ -38,7 +38,7 @@ public actor DestroyRelay {
         await publishing.invalidateSecrets()
         let readerIDs = state.devices.map(\.readerID) + state.pendingRegistrations.map(\.readerID)
         let names: [SecretName] =
-            [.contentKey, .writeToken, .adminToken, .accountScopeKey]
+            [.contentKey, .writeToken, .adminToken]
             + readerIDs.map { SecretName.readerToken($0) }
         for name in names {
             do {

@@ -73,4 +73,10 @@ import Testing
         #expect(rig.relay.calls.isEmpty)
         #expect(rig.store.state.lifecycle == .destroyPending)
     }
+
+    @Test func theAccountScopeKeyIsNotARelaySecretAndSurvives() async {
+        rig.secrets.seed(.accountScopeKey, SecretValue(bytes(32, 8)))
+        #expect(await make().run() == .destroyed)
+        #expect(rig.secrets.names == [.accountScopeKey])
+    }
 }
