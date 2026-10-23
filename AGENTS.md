@@ -26,6 +26,7 @@ The following sources are binding:
 - **Interaction and language:** [UX GUI](docs/ux-gui.md), [information architecture](docs/ux-information-architecture.md), and [UX terms](docs/ux-terms.md). Show provider-reported percentage used, never percentage remaining.
 - **System design:** [software architecture](docs/architecture.md) and its module documents. `ResetRadarKit` is a dependency-free local package following Domain ← Application ← adapters/UI ← composition roots; adapters never import each other.
 - **Relay:** [relay architecture](docs/architecture/relay.md) and [Cloudflare research](docs/research/phase-1/cloudflare-synchronization.md). Use strict TypeScript, npm, Wrangler, Workers Vitest, a SQLite-backed Durable Object, the included `workers.dev` hostname, ciphertext only, one authoritative Mac, and no APNs architecture or paid relay service.
+- **Transport v1:** [wire profile](docs/architecture/transport.md#v1-wire-profile), [HTTP body profile](docs/architecture/relay.md#v1-http-body-profile), and [P1-M7 owner decisions](docs/phase-1/milestone-07-transport-overview.md#owner-decisions). Preserve the strict canonical envelope and pairing encodings, operation-specific relay bodies and error codes, strong ETag, 30-second pairing clock allowance, and v1 sequence cap of `2^53 - 1`. The owner approved the two local Transport test-target dependencies and a macOS clipboard helper with an injected pasteboard interface.
 - **Mac integration:** [Mac architecture](docs/architecture/mac-app.md), [Keychain research](docs/research/phase-1/mac-keychain-access.md), and [ProviderAdapters](docs/architecture/provider-adapters.md). Use one stable Personal Team signature for Release builds and non-interactive Keychain access; reject ad-hoc Release builds. Never replace an unsafe or unprovable Claude Code status-line command, and store only the prior setting for restoration.
 - **Process and license:** [development process](docs/development-process.md) and Apache-2.0 for all project code. Architecture documents contain no phase or milestone planning.
 - **Scaffolding:** [repository layout](docs/architecture/repository-layout.md) and the [P1-M3 plan](docs/phase-1/milestone-03-scaffolding-overview.md). Generate the untracked `ResetRadar.xcodeproj` from the checked-in XcodeGen specification; never hand-maintain it. Use bundle prefix `com.unidentifiedstealthstartup`, main-app identifier `com.unidentifiedstealthstartup.ResetRadar`, and App Group `group.com.unidentifiedstealthstartup.ResetRadar`. Preserve the approved simulator models and install a compatible iOS 26.x runtime rather than substituting models without a new owner decision.
@@ -34,7 +35,7 @@ Use **Codex** and **Claude Code** for the tracked products. Use **Codex app-serv
 
 ## Undecided — ask before inventing
 
-No P1-M1 or P1-M2 owner question remains open. The conditional evidence gates in [owner-decisions.md](docs/phase-1/owner-decisions.md) are validation work, not permission to invent behavior when a test fails or exposes a new product choice.
+No P1-M1, P1-M2, or P1-M7 owner question remains open. The conditional evidence gates in [owner-decisions.md](docs/phase-1/owner-decisions.md) are validation work, not permission to invent behavior when a test fails or exposes a new product choice.
 
 ## Code conventions
 

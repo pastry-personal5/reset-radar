@@ -101,7 +101,8 @@ Plan: [overview](milestone-06-storage-overview.md), [sequencing](milestone-06-st
 
 ### P1-M7: Transport crypto and protocol
 Status: Planned
-Goal: Envelope encryption, HMAC account scope, pairing payloads, the secret-store port, and shared Swift/relay fixtures.
+Goal: Envelope encryption, HMAC account scope, pairing payloads, non-interactive secret storage, the HTTPS relay client, and shared Swift/relay fixtures.
+Plan: [overview](milestone-07-transport-overview.md), [sequencing](milestone-07-transport-sequence.md), [Transport](../architecture/transport.md)
 
 ### P1-M8: Relay implementation
 Status: Planned

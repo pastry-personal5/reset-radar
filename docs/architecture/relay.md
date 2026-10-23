@@ -69,22 +69,62 @@ flowchart TB
 | `DELETE /v1/readers/{id}` | Administration token | Revoke one reader. |
 | `DELETE /v1/relay` | Administration token | After trusted local confirmation, atomically delete all Durable Object storage. Repeating the request after an interrupted client cleanup succeeds even when storage is already empty. |
 
+### V1 HTTP body profile
+
+This profile is shared with the [Transport v1 wire profile](transport.md#v1-wire-profile). All JSON request and response bodies are compact UTF-8 objects with sorted keys and no unknown or duplicate fields. Every JSON body has `protocolVersion: 1`. `PublisherID` is 64 lowercase hexadecimal characters; `ReaderID` and `RequestID` are 32 each; token digests are 64 lowercase hexadecimal characters. Relay-assigned times are UTC ISO-8601 strings with exactly millisecond precision. The snapshot body is the [outer envelope](transport.md#v1-wire-profile), not a wrapper. Its `sequence` is an integer JSON number from `1` through `9007199254740991` (`2^53 - 1`); the client refuses to seal or send a higher v1 sequence, and the Worker rejects one before comparing or storing it. This bound keeps Swift and TypeScript integer comparisons exact.
+
+The wire credential is `Authorization: Bearer <token>`, where `<token>` is the unpadded base64url encoding of exactly 32 raw token bytes. The Worker decodes that form strictly, hashes the raw bytes with SHA-256, and compares the digest for the required role; it never hashes the header text. JSON request bodies use `Content-Type: application/json`; JSON responses use the same media type. Empty-body responses have no JSON content type. Reader lists sort by `readerID`; refresh-request lists sort by `readerID` then `requestID` so fixture bytes are deterministic.
+
+| Operation | Request body | Success status and body |
+|---|---|---|
+| `PUT /v1/snapshot` | Outer envelope, at most 64 KiB | `200` `{"protocolVersion":1,"sequence":N}` and `ETag` |
+| `GET /v1/snapshot` | Empty | `200` outer envelope and `ETag`; `304` empty body and matching `ETag` |
+| `POST /v1/readers/activate` | Empty | `200` `{"activated":true,"protocolVersion":1}` |
+| `POST /v1/refresh-requests` | `{"protocolVersion":1,"requestID":"<32 hex>"}`, at most 128 bytes | `202` `{"expiresAt":"<UTC millis>","protocolVersion":1}` |
+| `GET /v1/refresh-requests` | Empty | `200` `{"protocolVersion":1,"requests":[{"expiresAt":"<UTC millis>","readerID":"<32 hex>","requestID":"<32 hex>"}]}`; zero to three entries |
+| `DELETE /v1/refresh-requests/{id}` | Empty | `204` empty |
+| `PUT /v1/readers/{id}` | `{"protocolVersion":1,"tokenDigest":"<64 hex>"}` | `200` `{"expiresAt":"<UTC millis>","protocolVersion":1}` |
+| `GET /v1/readers` | Empty | `200` `{"protocolVersion":1,"readers":[{"activated":true,"readerID":"<32 hex>"}]}`; zero to three entries, with `activated` a Boolean |
+| `DELETE /v1/readers/{id}` | Empty | `204` empty |
+| `DELETE /v1/relay` | Empty | `204` empty, including a repeated delete |
+
+`ETag` is a strong validator: a double quote, the 64-character lowercase SHA-256 hex digest of the exact outer-envelope response bytes, then a double quote. `PUT` returns the digest of the accepted request body. A `GET 200` returns those same stored bytes and ETag; a `GET 304` includes the matching ETag and no body. The client checks an accepted write's sequence against its submitted header and a read ETag against the received bytes. For a conditional `304`, the ETag must match the request; an unexpected `304` to an unconditional read is passed to the existing one-time unconditional retry path and never marks success by itself. All snapshot-read responses include `Cache-Control: no-store`. The relay compares `If-None-Match` only after authenticating a reader and only when a snapshot exists.
+
+Worker error bodies have exactly `{"code":"<code>","protocolVersion":1}` and are at most 4 KiB. The code is a stable machine value, never prose. The success mapper requires the operation-specific shape above; a missing or mismatched field is `protocolFailure` and cannot update the validated cache.
+
+| Status | Code | Swift outcome |
+|---|---|---|
+| `400` | `badRequest` | `badRequest` |
+| `401` | `unauthorized` | `unauthorized` |
+| `404` | `awaitingFirstPublish` on authenticated snapshot GET | `awaitingFirstPublish` |
+| `404` | `unknownRoute` | `protocolFailure` |
+| `409` | `publisherMismatch` or `sequenceConflict` on snapshot PUT | `publisherConflict` |
+| `409` | `readerCapReached` on reader PUT | `readerCapReached` |
+| `409` | `requestAlreadyCompleted` on refresh POST | `requestAlreadyCompleted` |
+| `413` | `payloadTooLarge` | `payloadTooLarge` |
+| `422` | `unsupportedVersion` | `unsupportedVersion` |
+| `429` | `requestRateLimited` on refresh POST | `requestRateLimited` |
+| `429` | `quotaLimited` | `quotaLimited` |
+
+The Worker can use a `500` or `503` error code `relayUnavailable`; the Swift client maps any bounded `5xx` to `offline`. Network or TLS failure is also `offline`. A `3xx` is `protocolFailure` and is never followed. Other status/code/operation combinations, absent required bodies, and malformed JSON are `protocolFailure`. Cloudflare may generate a Free-limit response before Worker code runs; [deployed relay conformance](../architecture.md#relay-conformance) records its actual bounded form and adds that distinct mapping before real usage can flow. An unrecognized bounded platform `429` is `protocolFailure` and retains the cache until that evidence exists.
+
 ### Responses
 
 | Response | Cause | Client behavior |
 |---|---|---|
 | `200` | Snapshot accepted or returned; reader registered or list complete; refresh-request list complete; activation confirmed | The Mac records publication or the registration deadline; a reader validates and commits, or clears its local `awaitingActivation` marker. |
 | `202` | Manual refresh request accepted | The reader waits for a matching encrypted result for at most 45 seconds. |
-| `204` | Refresh request deleted or already absent | The Mac may forget the completed pending ID. |
+| `204` | Refresh request, reader, or relay deleted or already absent | The caller may complete its local cleanup. |
 | `304` | `If-None-Match` matched on an authenticated snapshot read | Update relay-contact time only when the reader still has the validated snapshot associated with that ETag; otherwise retry once without the condition. |
 | Other `3xx` | Unexpected redirect | The client treats it as a protocol failure and never sends its token to the redirected location. The relay does not intentionally issue redirects. |
 | `400` | Malformed request or outer metadata | Stop automatic retry and record a diagnostic. |
 | `401` | Missing, unknown, revoked, or wrong-authority token | `authorizationRequired`; stop automatic retry and require re-pairing. |
 | `404` | Authenticated `GET /v1/snapshot` before the first publish | `awaitingFirstPublish`. An unknown route is a protocol error, never an empty first snapshot. |
+| `404` | Unknown route | `protocolFailure`; never treat it as an empty first snapshot. |
 | `409` | Publisher mismatch, sequence not greater, reader cap reached, or a completed manual request ID replayed | The Mac stops automatic publication and offers setup and re-pairing for a snapshot conflict, or reports the reader cap. A reader reports a completed-ID replay as a rejected manual action without changing its cache. |
-| `413` | Body over 64 KiB | The Mac stops publication and records a diagnostic. |
+| `413` | Body over the route's limit | The caller stops that operation and records a diagnostic. |
 | `422` | Unsupported mandatory protocol or envelope version | `incompatible`; requires an update. |
-| `429` or platform quota error | Free daily limit or manual-request rate limit | The reader keeps its valid cache. A manual-request `429` reports that another request is pending or recently accepted; a platform quota error sets `quotaLimited` and backs off. |
+| `429` or platform quota error | Worker quota code or manual-request rate limit; Cloudflare-generated quota form requires deployed conformance | The reader keeps its valid cache. A manual-request `429` reports that another request is pending or recently accepted; a recognized quota response sets `quotaLimited` and backs off. |
 | `5xx`, network, or TLS failure | Worker, Durable Object, or connectivity failure | `offline`; back off with jitter. |
 
 Error bodies are generic, at most 4 KiB, and never reveal whether a token, publisher, or reader exists. Snapshot responses stay within the 64 KiB upload limit. Other successful response bodies are at most 4 KiB. The relay never intentionally redirects. Relay conformance records the exact response Cloudflare returns at the Free daily limit; platform-generated quota responses may need a separately bounded client mapping.
