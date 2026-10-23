@@ -3,10 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Ciphertext-only Cloudflare relay for reset-radar. Scaffold only; no protocol is implemented yet.",
+  "description": "Ciphertext-only Cloudflare relay for reset-radar.",
   "license": "Apache-2.0",
   "scripts": {
     "deploy:dry-run": "WRANGLER_SEND_METRICS=false wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "secrets:provision": "node scripts/provision-secrets.mjs",
     "test": "vitest run",
     "typecheck": "wrangler types && tsc --noEmit && tsc --noEmit --project test/tsconfig.json"
   },

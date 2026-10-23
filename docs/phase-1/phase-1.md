@@ -100,12 +100,12 @@ Goal: App Group persistence, the cross-process lock, and the persisted sequence 
 Plan: [overview](milestone-06-storage-overview.md), [sequencing](milestone-06-storage-sequence.md), [Storage](../architecture/storage.md)
 
 ### P1-M7: Transport crypto and protocol
-Status: Planned
+Status: Done
 Goal: Envelope encryption, HMAC account scope, pairing payloads, non-interactive secret storage, the HTTPS relay client, and shared Swift/relay fixtures.
 Plan: [overview](milestone-07-transport-overview.md), [sequencing](milestone-07-transport-sequence.md), [Transport](../architecture/transport.md)
 
 ### P1-M8: Relay implementation
-Status: Planned
+Status: Active
 Goal: Worker and SQLite Durable Object with ciphertext-only storage, reader tokens with the three-reader cap, and the refresh-request mailbox.
 Plan: [overview](milestone-08-relay-implementation-overview.md), [sequencing](milestone-08-relay-implementation-sequence.md), [relay](../architecture/relay.md)
 
