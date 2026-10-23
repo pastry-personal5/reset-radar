@@ -142,6 +142,17 @@ describe("Relay Worker v1", () => {
     expect(await unknown.text()).toBe(errorUnknownRoute.body);
   });
 
+  it("does not materialize storage for an invalid reader token", async () => {
+    const invalidRead = await request(getSnapshot.path, getSnapshot.method, tokens.wrong);
+    expect(invalidRead.status).toBe(errorUnauthorized.status);
+    expect(invalidRead.headers.get("Cache-Control")).toBe("no-store");
+
+    const tables = await objectStorage((state) => state.storage.sql.exec(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('relay_schema', 'relay_state', 'readers', 'refresh_requests')",
+    ).toArray());
+    expect(tables).toEqual([]);
+  });
+
   it("fails closed when Worker-secret digests are absent, malformed, or equal", async () => {
     const requestValue = new Request("https://relay.invalid/v1/snapshot", {
       body: putSnapshot.requestBody,
@@ -205,6 +216,8 @@ describe("Relay Worker v1", () => {
     expect(await maximum.text()).toBe("{\"protocolVersion\":1,\"sequence\":9007199254740991}");
 
     await reset();
+    expect((await register()).status).toBe(200);
+    expect((await activateReader()).status).toBe(200);
     const outer = JSON.parse(putSnapshot.requestBody) as Record<string, unknown>;
     const emptyCiphertext = JSON.stringify({ ...outer, ciphertext: "" });
     let ciphertextLength = 64 * 1024 - new TextEncoder().encode(emptyCiphertext).byteLength;
@@ -213,6 +226,9 @@ describe("Relay Worker v1", () => {
     expect(new TextEncoder().encode(largestValid).byteLength).toBeGreaterThanOrEqual(64 * 1024 - 1);
     expect(new TextEncoder().encode(largestValid).byteLength).toBeLessThanOrEqual(64 * 1024);
     expect((await request(putSnapshot.path, putSnapshot.method, tokens.writer, largestValid)).status).toBe(200);
+    const readLargest = await request(getSnapshot.path, getSnapshot.method, tokens.reader);
+    expect(readLargest.status).toBe(200);
+    expect(await readLargest.text()).toBe(largestValid);
   });
 
   it("enforces streamed limits before media-type validation and rejects noncanonical JSON", async () => {
@@ -505,7 +521,7 @@ describe("Relay Worker v1", () => {
     expect((await request(putSnapshot.path, putSnapshot.method, tokens.writer, newPublisher)).status).toBe(200);
     expect((await request(destroyRelay.path, destroyRelay.method, tokens.admin)).status).toBe(204);
 
-    await request("/v1/nope", "GET");
+    expect((await register()).status).toBe(200);
     const stub = env.RELAY.get(env.RELAY.idFromName("relay"));
     await runInDurableObject(stub, (_instance, state) => {
       state.storage.sql.exec("UPDATE relay_schema SET version = 2 WHERE id = 1");

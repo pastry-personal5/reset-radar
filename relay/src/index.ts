@@ -38,10 +38,10 @@ type StoredReader = {
 type StoredSnapshot = { envelope: string; etag: string; last_sequence: number; publisher_id: string };
 type StoredRefreshRequest = { accepted_at: number; expires_at: number; reader_id: string; request_id: string };
 type BodyResult = { text: string } | { error: "badRequest" | "payloadTooLarge" };
-type ResponseOptions = { etag?: string; noStore?: boolean };
+type ResponseOptions = { bodyLimit?: number; etag?: string; noStore?: boolean };
 
 function success(status: number, body?: string, options: ResponseOptions = {}): Response {
-  if (body !== undefined && new TextEncoder().encode(body).byteLength > RESPONSE_LIMIT) {
+  if (body !== undefined && new TextEncoder().encode(body).byteLength > (options.bodyLimit ?? RESPONSE_LIMIT)) {
     return failure("relayUnavailable");
   }
   const headers = new Headers();
@@ -142,8 +142,21 @@ export class RelayObject extends DurableObject {
 
   override async fetch(request: Request): Promise<Response> {
     try {
-      if (!this.ensureSchema()) return failure("relayUnavailable");
       const url = new URL(request.url);
+      const schemaState = this.schemaState();
+      if (schemaState === "unavailable") return failure("relayUnavailable");
+      if (schemaState === "missing") {
+        if (this.isInternal(request, "admin") || this.isInternal(request, "write")) {
+          if (!this.ensureSchema()) return failure("relayUnavailable");
+        } else if (url.search === "" && (
+          (request.method === "GET" && url.pathname === "/v1/snapshot") ||
+          (request.method === "POST" && (
+            url.pathname === "/v1/readers/activate" || url.pathname === "/v1/refresh-requests"
+          ))
+        )) {
+          return failure("unauthorized", { noStore: url.pathname === "/v1/snapshot" });
+        }
+      }
       if (url.search !== "") return failure("unknownRoute");
       if (request.method === "PUT" && url.pathname === "/v1/snapshot") return this.putSnapshot(request);
       if (request.method === "GET" && url.pathname === "/v1/snapshot") return this.getSnapshot(request);
@@ -172,6 +185,26 @@ export class RelayObject extends DurableObject {
       this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS refresh_requests (request_id TEXT PRIMARY KEY, reader_id TEXT NOT NULL UNIQUE, accepted_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)");
       return true;
     } catch { return false; }
+  }
+
+  /**
+   * Reader routes must be able to reject an unknown token without materializing
+   * a database. A missing schema means an empty/destroyed relay; partial or
+   * version-mismatched schema state is unavailable rather than silently reset.
+   */
+  private schemaState(): "missing" | "ready" | "unavailable" {
+    try {
+      const tables = this.all<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('relay_schema', 'relay_state', 'readers', 'refresh_requests')",
+      );
+      if (!tables.some((table) => table.name === "relay_schema")) {
+        return tables.length === 0 ? "missing" : "unavailable";
+      }
+      const version = this.one<{ version: number }>("SELECT version FROM relay_schema WHERE id = 1");
+      return version?.version === SCHEMA_VERSION ? "ready" : "unavailable";
+    } catch {
+      return "unavailable";
+    }
   }
 
   private one<T extends Record<string, unknown>>(query: string, ...parameters: unknown[]): T | undefined {
@@ -224,7 +257,11 @@ export class RelayObject extends DurableObject {
     const snapshot = this.one<StoredSnapshot>("SELECT publisher_id, last_sequence, envelope, etag FROM relay_state WHERE id = 1");
     if (snapshot === undefined) return failure("awaitingFirstPublish", { noStore: true });
     if (request.headers.get("If-None-Match") === snapshot.etag) return success(304, undefined, { etag: snapshot.etag, noStore: true });
-    return success(200, snapshot.envelope, { etag: snapshot.etag, noStore: true });
+    return success(200, snapshot.envelope, {
+      bodyLimit: SNAPSHOT_LIMIT,
+      etag: snapshot.etag,
+      noStore: true,
+    });
   }
 
   private async activateReader(request: Request): Promise<Response> {
