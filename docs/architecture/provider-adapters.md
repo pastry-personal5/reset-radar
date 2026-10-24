@@ -10,7 +10,7 @@ Status: Active
 |---|---|
 | Layer | Adapter |
 | Platforms | macOS only |
-| Depends on | [Domain](domain.md), [Application](application.md), and Foundation |
+| Depends on | [Domain](domain.md), [Application](application.md), Foundation, and Darwin for file, lock, and process primitives |
 | Implements | One account-scoped `UsageSource` per configured account, `SourceConfigurator`, and the account catalog |
 | Consumes | `AccountScoper`, injected by the Mac app and implemented by [Transport](transport.md#account-scope) |
 | Used by | The [Mac app](mac-app.md) and the `ResetRadarStatusLine` helper, both composition roots |
@@ -18,7 +18,7 @@ Status: Active
 Rules:
 
 - Never opens provider authentication files or intentionally collects credentials, prompts, responses, or project paths. Codex JSON-RPC responses and Claude Code status-line input are necessarily decoded in memory; only the allowlisted usage fields below may cross into a stored record or diagnostic. Raw input is never logged or persisted.
-- Never imports another adapter. The account scope arrives through the injected `AccountScoper` port, and session files are written with Foundation's atomic write.
+- Never imports another adapter. The account scope arrives through the injected `AccountScoper` port. Codex and Claude Code code may share neutral primitives inside this module (structural JSON preflight, owner-only locked files), but not provider-specific types.
 - Owns source-specific timing, such as Codex polling. Product-level publication timing belongs to [Application](application.md#policies).
 
 ## Internal architecture
@@ -220,11 +220,13 @@ Claude Code drops a window from its input once the window's reset passes, and `r
 - **Merging.** `SessionMerger` uses, for each window kind, the entry with the newest `observedAt`. It deletes session files whose newest observation is more than eight days old.
 - **No forced refresh.** The source never creates a Claude turn to obtain newer state.
 
+**Account row.** Claude Code has one account row in the account catalog, created when the owner confirms guided setup. `ClaudeCodeSource` stamps that row's `AccountID` on every window it reports. Claude Code exposes no provider account identifier, so its windows and `AccountSource` carry no `AccountScope`, and the helper never reads the catalog or learns an `AccountID`. The row keeps its global number and alias across a restore and reinstall; removal is a separate confirmed action.
+
 The candidate current-data window is sixty minutes from `observedAt`; source calibration must confirm it independently from Codex.
 
 ## Errors and logging
 
-Errors are typed as not-installed, signed-out, incompatible, timeout, process-exited, malformed,
+Errors are typed as not-installed, signed-out (Codex only; status-line data cannot prove it), incompatible, timeout, process-exited, malformed,
 permission-denied, account-scope failure, duplicate provider scope, or temporarily-unavailable and
 map to the affected account's source state. Diagnostics record only enum-backed event category, product and
 source kind, timing, and error class. The bounded public source version remains on `AccountSource`;

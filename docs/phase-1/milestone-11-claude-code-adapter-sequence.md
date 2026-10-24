@@ -43,11 +43,12 @@ evidence or commits.
 
 After M10 Checkpoint A, record the implementation branch, starting commit, and
 `git status --short`. Resolve every remaining M11-specific overview decision and update the
-changelog plus affected binding architecture before code uses the result. Consume M10's shared
-account, configuration-preview, test-dependency, source-state, and diagnostic contracts rather
-than deciding them twice. Set M11 to `Active` only when implementation begins.
+changelog plus affected binding architecture before code uses the result. Consume M10's implemented
+account catalog, `ConfigurationState`/option/revision, `ReadReceipt`, source-state, and diagnostic
+contracts rather than deciding them twice. Set M11 to `Active` only when implementation begins.
 
-Add approved direct local test dependencies and the approved CryptoKit architecture dependency.
+M10 already added the direct local Domain/Application test dependencies; add only the approved
+CryptoKit dependency to the production target and its architecture note.
 Record public Swift, Xcode, and Claude Code version strings without executable paths, settings,
 session IDs, or account data. Have the `test_runner` execute the complete clean baseline gate.
 
@@ -56,17 +57,17 @@ as an implementation assumption.
 
 ## Task 1: Make Claude Code calibration independent and runnable
 
-Before any signed-in observation, reconcile the maintained runbook and tracked programs. If M10
-has already introduced independent modes, extend and test that interface instead of creating a
+M10 already made the programs track the repository (the runbook requires an owner-approved clean
+revision, not a disposable branch) and added `--mode codex`. The remaining `--mode combined` still
+inspects Codex profiles and needs `codex-profile`. Extend that interface instead of creating a
 second workflow.
 
-1. Replace the stale exact-branch claim with the repository's actual tracked-program arrangement.
-   Require the approved clean M11 revision and prove the worktree stays unchanged throughout the
-   live run; do not claim the programs exist only on an absent disposable branch.
-2. Add an explicit Claude Code-only path through preparation, verifier, cleanup, and evidence. It
-   must not inspect Codex profiles, require `codex-profile`, generate Codex launchers/reports,
-   start app-server, or wait for Codex polling. Preserve a combined mode only if its behavior
-   remains tested and documented.
+1. Add `--mode claude` to `prepare.zsh`, `verify-reports.mjs`, and `cleanup.zsh`, keeping the
+   approved-revision and clean-worktree checks and proving the worktree unchanged at cleanup.
+2. The Claude Code-only path must not inspect Codex profiles, require `codex-profile`, generate
+   Codex launchers/reports, start app-server, or wait for Codex polling. Keep `combined` only if its
+   behavior stays tested and documented; update the runbook's M11 text (sections 1 and 9) to name
+   `--mode claude`.
 3. Preserve two generated Claude Code session IDs, isolated empty work directories, temporary
    `--settings` files, exact history/session cleanup, real-settings and repository checksums,
    owner-only randomized `/private/tmp` storage, four owner-entered turns, and the 65-minute wait.
@@ -88,7 +89,18 @@ live output.
 ## Task 2: Status-line input and versioned session records
 
 Write failing boundary and privacy tests, then implement these pure or injected seams with exact
-public names finalized during review:
+public names finalized during review.
+
+First extract the neutral primitives M10 left inside Codex-named types into a shared,
+non-Codex-named location in ProviderAdapters, keeping Codex behavior and tests unchanged:
+`JSONStructuralPreflight` (generalized with configurable string, nesting, and member bounds) and the
+owner-only lock, bounded read, and atomic write behind `OwnerOnlyConfigurationFiles`, which
+currently throws `ProviderAccountCatalogStoreError`. Then add the Claude Code account row
+operations to `ProviderAccountCatalogStore` per decision 11 (add under the catalog lock, load,
+state, remove, and a typed error for removal while installed), with the one-row cap and label
+conflict covered by catalog regression tests.
+
+Seams:
 
 - `BoundedStatusCapture` accepts chunks from the Task 3 input pump, retains a complete input only
   while its total remains at or below the approved ceiling, and irreversibly abandons the capture
@@ -124,6 +136,9 @@ public names finalized during review:
   kind without an observation signal is not added until a later valid signal can timestamp it.
   Any malformed non-spend candidate rejects the whole invocation rather than partially mutating a
   session record.
+
+`StatusLineDecoder` output is account-free: the source, not the helper, stamps the catalog's
+`AccountID`, and Claude Code windows never carry an `AccountScope`.
 
 Map exact `five_hour` and `seven_day` kinds to 300 and 10,080 minutes. Preserve unknown valid
 bounded normal kinds with no duration. Mark all accepted Claude Code account-level windows
@@ -226,7 +241,11 @@ Implement these setup seams after the approved generic Application preview contr
   the settings mutation, supports idempotent crash recovery, and never overwrites the original
   prior command with Reset Radar's own command.
 - `ClaudeCodeConfigurator: SourceConfigurator` inspects, previews, validates, applies, and restores
-  through those seams. It reports rather than editing a custom/higher-precedence configuration the
+  through those seams. `discover()` offers at most one option; `inspect` returns the M10
+  `ConfigurationState` values (`unsafe` for an unprovable existing command, `incompatible` for a
+  corrupt restore or compose record); the catalog row is created inside the confirmed apply
+  (decision 11); `remove(accountID:)` follows decision 11; and a restore conflict throws the typed
+  error approved in decision 1. It reports rather than editing a custom/higher-precedence configuration the
   owner identifies or it can prove, discloses that it cannot establish the absence of project,
   command-line, or managed overrides without forbidden discovery, and probes the public Claude Code
   version under fixed time/output bounds, but never starts an interactive session or reads provider
@@ -313,6 +332,11 @@ Implement `SessionDirectoryWatcher` against an injectable watcher session and
 latest successful projection, watch generation, revalidation backoff, and update stream. Implement
 the approved source-state/retry/diagnostic table exhaustively before wiring branches ad hoc.
 
+- `ClaudeCodeSource(accountID:)` follows the M10 source pattern: `refresh()` returns
+  `ReadReceipt.performed` for an actual rescan, `.unavailable(sourceState:)` when not configured or
+  stopped, and `.deferred(retryAt:sourceState:)` while a watcher-revalidation backoff is active
+  (one, two, five, then fifteen minutes, mirroring `CodexSchedule`). One failed physical attempt
+  yields one diagnostic and at most one state-only snapshot.
 - `start()` is idempotent while running. It validates/creates the owner-only directory, arms a
   directory watch, records its generation, and only then performs the initial complete scan so no
   replacement can land between scan and subscription. An event during that scan leaves one
@@ -346,10 +370,10 @@ generation fencing, an event newer than an in-flight enumeration, backoff bounda
 start/foreground/manual events, identical coalesced receipts, cancellation, terminal restart
 refusal, no scan or publication after stop,
 unchanged receipt versus stream suppression, every failure-table row, recovery after failure, and
-stream termination. Run `CollectUsage` with an in-memory store to prove valid reports replace
+stream termination. Run `CollectUsage` with an in-memory account store to prove valid reports replace
 Claude Code windows, missing kinds are retained, state-only failures preserve windows and
 observation times, duplicate receipt/stream ingestion is idempotent, expired retained Home windows
-become unavailable, and no account scope or relay operation appears.
+become unavailable, and no provider scope or relay operation appears.
 
 **Checkpoint B:** Tasks 5 and 6, focused ProviderAdapters tests, Application regressions, helper
 tests, and the complete gate pass and are committed.

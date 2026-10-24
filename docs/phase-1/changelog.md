@@ -6,6 +6,16 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Claude — Reviewed the P1-M11 plan and the ProviderAdapters architecture against
+  the code M10 landed. M11 now builds on the implemented account contracts: it plans the single
+  Claude Code catalog row (`AccountID`, no provider scope) and catalog-store operations (new
+  owner decision 11), replaces `ProductSource` with `AccountSource`, narrows decisions 1 and 6 to
+  what M10 left open, reuses M10's structural JSON preflight, owner-only file primitives, backoff
+  ladder, and receipt semantics, and adds a Claude Code-only calibration mode in place of the
+  Codex-dependent `combined` mode. Architecture changes: ProviderAdapters documents its Darwin use
+  and shared neutral primitives, the Claude Code account row, and that sign-out is Codex-only;
+  repository layout no longer says "Planned". No owner decision was answered; M11 stays `Planned`.
+
 - 2026-10-24 — Codex — Began P1-M10 implementation by making source calibration explicitly
   Codex-only or combined. The Codex-only preparation now requires an owner-approved exact clean
   revision, accepts no more than two privately selected profiles, creates no Claude Code state,

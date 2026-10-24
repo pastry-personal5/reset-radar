@@ -2,7 +2,7 @@
 
 Status: Active
 
-Planned directory structure of the `reset-radar` repository: the Xcode project, the `ResetRadarKit` package, one directory per Xcode target, shared configuration and fixtures, and the `relay/` package. It names only structure-defining files; source files belong in the module and composition-root designs linked from the [software architecture](../architecture.md).
+Directory structure of the `reset-radar` repository: the Xcode project, the `ResetRadarKit` package, one directory per Xcode target, shared configuration and fixtures, and the `relay/` package. It names only structure-defining files; source files belong in the module and composition-root designs linked from the [software architecture](../architecture.md).
 
 ## Tree
 

@@ -24,7 +24,8 @@ The first command must equal the owner-approved revision and the second must pri
 scripts reject a different revision or dirty worktree and cleanup proves both remain unchanged.
 M10 uses `--mode codex`; this mode does not inspect Claude settings or history, require the
 `claude` executable, create Claude session identifiers or files, wait for Claude observations, or
-delete Claude data. `--mode combined` is retained for M11 and must be prepared as a separate run.
+delete Claude data. `--mode combined` still requires Codex profiles. P1-M11 Task 1 adds a
+Claude Code-only mode and updates this runbook before any Claude Code run.
 
 The spike files are:
 
@@ -256,7 +257,8 @@ The final verifier checks every ordinal report and fails the combined Codex resu
 ## 9. Run the Claude Code observation
 
 M10 Codex-only calibration skips this section. M11 must repeat sections 5 through 8 from a new
-clean, separately approved revision, substituting `--mode combined` during preparation, before
+clean, separately approved revision, substituting the Claude Code-only mode that M11 Task 1
+adds (not `--mode combined`, which needs Codex) during preparation, before
 following the preserved combined-provider steps below. Never reuse a Codex-only disposable
 session.
 

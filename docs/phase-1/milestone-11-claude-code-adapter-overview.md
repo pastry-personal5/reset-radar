@@ -14,7 +14,8 @@ Claude Code can send its first-party `rate_limits` status-line data to a local R
 without Reset Radar reading or copying provider credentials, prompts, responses, project paths,
 or authentication files. The helper writes one privacy-minimized record per Claude Code session;
 the source merges the freshest observation for each window kind into complete `SourceSnapshot`s
-while preserving last-response freshness and dropped-window semantics.
+for the one Claude Code account row (a stable `AccountID`, no provider scope) while preserving
+last-response freshness and dropped-window semantics.
 
 Guided setup installs only after the owner confirms the exact change. It never replaces an
 existing status-line command that cannot be parsed and proved safe, and a later restore never
@@ -26,12 +27,15 @@ or identity data.
 
 ## Why this milestone can proceed
 
-[Phase 1](phase-1.md#order-and-dependencies) allows M11 preparation after M5 but makes production
-work depend on M10 Checkpoint A. M5 supplies the existing source and ingestion seams; M10 replaces
-the product-only contracts with the owner-approved account catalog, account-scoped `UsageSource`,
-configuration preview, source-state, and diagnostic contracts that Claude Code must also use. The
-ProviderAdapters package target, its test target, and the embedded `ResetRadarStatusLine`
-executable target exist but contain only scaffold symbols.
+[Phase 1](phase-1.md#order-and-dependencies) makes production work depend on M10 Checkpoint A.
+That checkpoint has landed on `main` (commits `18f5723`, `1c791bc`, `8eb5c3d`, and `b8d64bd`): the
+account catalog and account-aware `AccountSource`/`UsageSource` contracts, `ConfigurationState`
+(`notConfigured`, `configured`, `incompatible`, `unsafe`), opaque `ConfigurationOptionID` and
+`ConfigurationPreviewRevision`, `ConfigureSources` with its `unsafeExistingConfiguration` guard, the
+`ReadReceipt` cases (`performed`, `deferred`, `unavailable`), the `ProviderAccountCatalogStore`, and
+the Domain/Application test imports. M10's owner-run Codex calibration is still open and is not an
+M11 dependency. The ProviderAdapters Claude Code directory and the `ResetRadarStatusLine`
+executable (`main.swift` holds only a scaffold comment) do not exist yet.
 
 M9 is not an M11 dependency. M11 remains local and never publishes a snapshot, contacts the relay,
 starts a Claude Code turn, or reads Codex. Its source-specific calibration preparation may proceed
@@ -61,8 +65,13 @@ configurator built here.
   [Application](../architecture/application.md) owns ingestion and setup confirmation;
   ProviderAdapters does not reproduce those policies.
 - M10 Checkpoint A owns the shared `UsageSource`, `SourceConfigurator`, account-catalog,
-  `ConfigurationPreview`, and `ConfigureSources` revisions. M11 must rebase its source-specific
-  seams and tests on those reviewed contracts rather than reopening them.
+  `ConfigurationPreview`, and `ConfigureSources` revisions, now implemented. M11 builds on those
+  contracts and reopens only the narrow preview-shape extension in decision 1.
+- The M10 Codex code supplies patterns M11 reuses rather than copies: `JSONStructuralPreflight`
+  (duplicate-key, 4 KiB string, 32-level nesting checks), the owner-only lock/atomic-write file
+  primitives behind `ProviderAccountCatalogStore`, `CodexSchedule`'s backoff ladder, and the
+  coalesced-receipt source pattern. Task 2 first moves the neutral primitives into a shared,
+  non-Codex-named location inside ProviderAdapters; adapters still never import each other.
 
 ## Entry criteria
 
@@ -73,14 +82,18 @@ configurator built here.
   watcher, lifecycle, and privacy gaps recorded under [Plan review](#plan-review), and delegated
   validation covers both untracked M11 plan files plus every affected tracked document. Evidence:
   the follow-up result under [Plan validation](#plan-validation) and the 2026-10-24 changelog entry.
-- [ ] The owner answers all [implementation decisions](#implementation-decisions), and the
+- [x] M10 Checkpoint A's shared contracts are implemented on `main` and the M11 plan is rebased
+  on them. Evidence: commits `18f5723` to `b8d64bd`, the 2026-10-25 refresh under
+  [Plan review](#plan-review), and the narrowed decisions 1 and 6 below.
+- [ ] The owner answers all open [implementation decisions](#implementation-decisions), and the
   answers are recorded in [changelog.md](changelog.md) and the binding docs they affect.
 - [ ] Record the implementation branch, starting commit, and complete worktree state. Preserve
   the pre-existing M9 and M10 planning edits as separate work.
 - [ ] The `test_runner` passes the complete gate on the recorded baseline before production
   implementation begins.
-- [ ] Task 1 makes Claude Code calibration independently runnable, passes its offline tests, and
-  retains the runbook's owner-presence, temporary-settings, privacy, and exact-cleanup rules.
+- [ ] Task 1 adds a Claude Code-only `--mode claude` to the calibration programs (M10 delivered
+  `codex` and the Codex-requiring `combined`), passes its offline tests, and retains the runbook's
+  owner-presence, clean-approved-revision, temporary-settings, privacy, and exact-cleanup rules.
 
 ## In scope
 
@@ -97,6 +110,10 @@ configurator built here.
 - A bounded Claude Code settings editor, status-line-only restore record, exact preview/apply
   revision, safe single-executable command parser, synthetic composition check, and conflict-safe
   restore.
+- The single Claude Code account row: creating it in the owner-only account catalog when setup
+  is confirmed, the smallest-unused global number, alias preservation across reinstall, and the
+  `AccountID` stamped on every window and source the adapter emits. Claude Code windows carry no
+  provider scope.
 - Directory watching, bounded record reads, per-kind multi-session merging, dropped-window
   retention, source-owned pruning, foreground/manual rescans, and no forced Claude Code refresh.
 - Typed source outcomes for not configured, helper mismatch, malformed or incompatible records,
@@ -161,7 +178,8 @@ configurator built here.
   record unchanged rather than regressing or fabricating observation time.
 - Missing `rate_limits` never erases a session's windows. A missing window remains retained; its
   old observation is unavailable after the last known reset. Unknown normal kinds survive with
-  no invented duration; `spend_limit` never enters a record.
+  no invented duration; `spend_limit` never enters a record. The source emits the account row's
+  `AccountID` and no `AccountScope`; the helper process never learns an `AccountID`.
 - All tests and fixtures are synthetic. Only the owner starts signed-in Claude Code, supplies the
   four ordinary calibration turns, makes the 60-minute decision, and completes cleanup before
   sanitized evidence is written.
@@ -172,20 +190,21 @@ These are newly exposed M11 choices, not permission to invent behavior. Implemen
 blocked until the owner answers them. A compatible M10 decision may satisfy the shared items if
 it lands first and is explicitly referenced from the M11 implementation record.
 
-1. **Revision-bound setup and restore conflict.** The current generic configuration preview
-   cannot show the exact status-line change or prove the settings file stayed unchanged before
-   apply. It also does not define what restore does after the user changes `statusLine` again.
-   Recommend extending the generic Application contract with an `incompatible` setup state,
-   opaque option/revision identity, and explicitly display-only owner-visible preview fields.
-   Those fields may show the selected settings scope plus the exact helper and existing-executable
-   paths; they are exceptions to diagnostic/evidence redaction and are never relayed. Apply must
-   serialize Reset Radar transactions, compare the revision immediately before replacement, and
-   verify the result. When an accepted object existed, restore only its command and only while the
-   current type and command still equal Reset Radar's installed values, preserving later sibling-
-   field edits. When the setting was absent, remove only the exact minimal object Reset Radar
-   installed. Every other current value leaves both settings and restore record untouched and
-   requests owner resolution. This is optimistic conflict detection, not an unimplementable promise
-   of filesystem compare-and-swap against an arbitrary concurrent editor.
+1. **Revision-bound setup and restore conflict.** M10 already supplied the `incompatible` and
+   `unsafe` setup states, opaque option and preview-revision identities, and `ConfigureSources`'
+   stale-preview rejection. What remains is that `ConfigurationLaunchPreview` is Codex-shaped
+   (executable, interpreter, and Codex-only environment keys) and cannot show the exact
+   status-line change, and `restore()` has no conflict outcome. Recommend adding to
+   `ConfigurationPreview` a second, explicitly display-only status-line detail (selected settings
+   scope, helper path, optional existing-executable path, and an add-or-replace change kind) and a
+   typed restore-conflict error. These fields are exceptions to diagnostic/evidence redaction and
+   are never relayed. Apply must serialize Reset Radar transactions, compare the revision
+   immediately before replacement, and verify the result. When an accepted object existed, restore
+   only its command and only while the current type and command still equal Reset Radar's installed
+   values, preserving later sibling-field edits. When the setting was absent, remove only the exact
+   minimal object Reset Radar installed. Every other current value leaves both settings and restore
+   record untouched and requests owner resolution. This is optimistic conflict detection, not an
+   unimplementable promise of filesystem compare-and-swap against an arbitrary concurrent editor.
 2. **Resource bounds and composition validation.** Recommend the calibration harness's 1 MiB
    Reset Radar capture ceiling; 4 KiB decoded-key and allowlisted-string ceilings; 128-byte ASCII
    grammars for the public version and unknown window kinds; 32-level nesting; duplicate-member
@@ -210,17 +229,16 @@ it lands first and is explicitly referenced from the M11 implementation record.
    observation exists, prune only from its newest `observedAt` as the architecture already says.
 5. **Mixed installed versions.** Two open Claude Code sessions can outlive a CLI upgrade and
    produce records with different public versions. Recommend continuing the per-kind freshest
-   merge, retaining each window's actual `sourceVersion`, and setting `ProductSource.version` to
+   merge, retaining each window's actual `sourceVersion`, and setting `AccountSource.version` to
    the version on the newest selected observation. Idle invocation under a newer CLI version must
    not restamp an older observation. Exact-time entries that are field-for-field equivalent after
    normalization may collapse; if only report state differs, prefer `reported`; every other value,
    reset, kind, precision, or version conflict is incompatible rather than broken by filename or
    directory order.
-6. **Provider test imports.** Recommend adding the existing local `ResetRadarDomain` and
-   `ResetRadarApplication` targets directly to `ResetRadarProviderAdaptersTests`. This is not an
-   external dependency, but it changes `Package.swift` and needs approval. It permits direct
-   normalized-record, `CollectUsage`, and configuration-contract tests under the explicit-import
-   gate.
+6. **Provider test imports.** Resolved by M10: `ResetRadarProviderAdaptersTests` already imports
+   `ResetRadarDomain`, `ResetRadarApplication`, and `ResetRadarTestSupport`. No `Package.swift`
+   test-target change remains; only the CryptoKit decision above touches the production target's
+   imports.
 7. **Trusted existing executable.** The architecture permits a user-owned executable or one in a
    “trusted system location” but does not define that trust test. Recommend resolving the path
    to a regular executable whose owner is the current user or root and whose resolved ancestor
@@ -248,13 +266,23 @@ it lands first and is explicitly referenced from the M11 implementation record.
    configuration change, while watcher-root recovery uses the approved one/two/five/fifteen-
    minute ceiling and foreground/manual refresh may trigger one immediate revalidation. `stop()`
    is terminal, finishes the stream once, and fences every late callback. The table must also name
-   safe `ProductSource.version` provenance before the first valid record and add only enum-backed,
+   safe `AccountSource.version` provenance before the first valid record and add only enum-backed,
    string-free provider diagnostic factories.
 10. **Helper failure and exit behavior.** Recommend a quiet success when no composed command exists,
     even if recording fails, so Reset Radar cannot break Claude Code's otherwise-empty status line.
     Once a composed child launches, preserve its stdout, stderr, and exit status regardless of
     recorder success. A compose-record, trust, launch, or pipe failure before the child can run is
     quiet but nonzero; cancellation terminates and reaps only that child and leaves no orphan.
+11. **Claude Code account row lifecycle.** The catalog allows one Claude Code row, but
+    `ProviderAccountCatalogStore` can add, replace, load, and remove only Codex rows, and
+    `ConfigureSources.remove`/`restore` are separate confirmed actions. Recommend: a verified
+    install creates the row (random `AccountID`, smallest unused number) in the same catalog lock as
+    the restore record; reinstalling after a restore reuses the existing row and keeps its number
+    and alias; `restore()` reverts the status line, leaves the row, and reports `unavailable`
+    until reinstalled; `remove(accountID:)` deletes the row and its windows after confirmation and
+    throws a typed error, changing no setting, while a Reset Radar installation is still active, so
+    the owner restores first. Replace is not offered for Claude Code (there is one status line).
+    The Mac app (M12) reads the `AccountID` from the catalog; the helper never does.
 
 ## Completion checklist
 
@@ -273,6 +301,10 @@ it lands first and is explicitly referenced from the M11 implementation record.
   over-bound fixtures prove percentage/reset validation, exact known durations, no invented
   unknown duration, `fractionDigits == 1`, strict identifier grammar, duplicate/nesting/count
   rejection, optional-activity handling, and the approved observation-time rule.
+- [ ] The catalog store gains Claude Code add/load/remove/state operations that follow decision 11,
+  share the Task 2 owner-only primitives, keep the one-row cap, and pass catalog regression tests;
+  `ClaudeCodeSource` and `ClaudeCodeConfigurator` use that single `AccountID`, and no window or
+  source carries an `AccountScope`.
 - [ ] The helper copy is version checked and atomically refreshed at the stable Application
   Support path. The executable target records locally, optionally runs one approved composed
   executable directly with identical input, preserves its visible output and exit behavior, and
@@ -358,8 +390,7 @@ and addressed these plan gaps:
   or synthetic-command bounds. The plan proposes explicit reviewable limits and requires a live
   contradiction to return to the owner.
 - Eight-day pruning has no anchor for a session record that never receives its first rate-limit
-  observation. Mixed-version records also have no rule for the single summary version carried by
-  `ProductSource`. Both are explicit decisions instead of timestamp or directory-order guesses.
+  observation. Mixed-version records also have no rule for the single summary version carried by `AccountSource`. Both are explicit decisions instead of timestamp or directory-order guesses.
 - Atomic replacement prevents torn records but not two helper processes from losing a newer
   update. The initial review required cross-process serialization, strict monotonic activity
   handling, and interrupted-write tests; the follow-up below replaces an unbounded per-session
@@ -415,6 +446,25 @@ A follow-up review on 2026-10-24 found and corrected additional execution gaps:
 - Per-window source versions could be restamped by an idle invocation after a CLI upgrade, and
   exact-time ties did not cover report state or all normalized fields. The mixed-version decision
   and merge tests now preserve observation provenance and define every tie outcome.
+
+A refresh review on 2026-10-25, after M10 Checkpoints A and B landed on `main`, compared the plan
+with the implemented code and found and corrected these gaps:
+
+- The plan named `ProductSource`, which M10 replaced with account-scoped `AccountSource`; it also
+  said no account appears in M11 output. The single Claude Code row, its `AccountID`, and the
+  catalog-store operations to create, load, and remove it were never planned. Decision 11 and the
+  new scope, checklist, and Task 2 and 4 items close this.
+- Decisions 1 and 6 described contracts M10 had since delivered (option and revision identities,
+  `incompatible`, `unsafe`, `ConfigureSources` stale-preview rejection, and the provider test
+  imports). They are narrowed to the remaining Claude-specific preview shape and restore conflict.
+- Task 1 assumed the calibration programs lacked independent modes. M10 added `--mode codex` and a
+  `combined` mode that still needs `codex-profile` and Codex; the exact-branch claim is already
+  gone. The task now adds a Claude Code-only mode in prepare, verify, cleanup, and the runbook.
+- Reusable M10 code (`JSONStructuralPreflight`, owner-only lock and atomic-write primitives, the
+  backoff ladder, receipt coalescing) was not referenced, which invited a second incompatible
+  implementation. Tasks 2, 5, and 6 now start from those seams.
+- Source outcomes ignored the `ReadReceipt.deferred` and `.unavailable` cases and Codex's
+  one-state-only-report-per-failed-attempt rule; Task 6 now maps them.
 
 ## Plan validation
 
