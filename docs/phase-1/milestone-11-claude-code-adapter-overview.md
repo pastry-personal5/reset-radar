@@ -296,65 +296,65 @@ it lands first and is explicitly referenced from the M11 implementation record.
 
 ## Completion checklist
 
-- [ ] Entry criteria hold with recorded owner decisions, baseline evidence, and no pre-existing
-  M9/M10 work attributed to M11.
-- [ ] One status-line input pump forwards complete input byte-for-byte to an approved composed
+- [x] Entry criteria hold with recorded owner decisions, baseline evidence, and no pre-existing
+  M9/M10 work attributed to M11. Evidence: the entry criteria above; no M9/M10 work is attributed to M11.
+- [x] One status-line input pump forwards complete input byte-for-byte to an approved composed
   child while capturing no more than 1 MiB for Reset Radar. Over-bound input creates no record but
   still reaches the child; only a complete in-bound capture reaches structural and semantic decode.
   Only the public version, session ID, optional cumulative activity counter, and allowlisted
   `rate_limits` fields enter typed intermediates. `spend_limit` and every unrelated field are
-  ignored and absent from records and diagnostics.
-- [ ] Session IDs become only approved digest keys; directories, locks, temporary files, and
+  ignored and absent from records and diagnostics. Evidence: `StatusLineHelperTests` (chunk sizes 1 to 4,096, byte-identical child input, over-1 MiB input reaching the child with no record) and the capture-bound test in `StatusLineDecoderTests`.
+- [x] Session IDs become only approved digest keys; directories, locks, temporary files, and
   records are owner-only and symlink-safe. Concurrent helper invocations cannot partially write,
-  regress the activity counter/time, or lose a newer observation.
-- [ ] Five-hour, seven-day, missing/empty, dropped, unknown-kind, malformed, exact-bound, and
+  regress the activity counter/time, or lose a newer observation. Evidence: `StatusLineRecorderTests` and `SessionRecordFileTests` (owner-only modes, symlink and mode refusal, held-lock timeout, concurrent writers, digest-only names).
+- [x] Five-hour, seven-day, missing/empty, dropped, unknown-kind, malformed, exact-bound, and
   over-bound fixtures prove percentage/reset validation, exact known durations, no invented
   unknown duration, `fractionDigits == 1`, strict identifier grammar, duplicate/nesting/count
-  rejection, optional-activity handling, and the approved observation-time rule.
-- [ ] The catalog store gains Claude Code add/load/remove/state operations that follow decision 11,
+  rejection, optional-activity handling, and the approved observation-time rule. Evidence: `StatusLineDecoderTests` (every listed fixture class) and `StatusLineRecorderTests`.
+- [x] The catalog store gains Claude Code add/load/remove/state operations that follow decision 11,
   share the Task 2 owner-only primitives, keep the one-row cap, and pass catalog regression tests;
   `ClaudeCodeSource` and `ClaudeCodeConfigurator` use that single `AccountID`, and no window or
-  source carries an `AccountScope`.
-- [ ] The helper copy is version checked and atomically refreshed at the stable Application
+  source carries an `AccountScope`. Evidence: `ClaudeCodeCatalogTests`, `ClaudeCodeConfiguratorTests`, and the Codex catalog regression tests, all passing.
+- [x] The helper copy is version checked and atomically refreshed at the stable Application
   Support path. The executable target records locally, optionally runs one approved composed
   executable directly with identical input, preserves its visible output and exit behavior, and
-  emits no Reset Radar error text or private input.
-- [ ] Guided setup previews the exact revision-bound status-line change, preserves every
+  emits no Reset Radar error text or private input. Evidence: `StatusLineHelperInstallerTests` and `StatusLineHelperTests` (version flag, pre-launch refusals, no output of its own).
+- [x] Guided setup previews the exact revision-bound status-line change, preserves every
   unrelated setting and non-command `statusLine` member byte-for-byte outside the edited range,
   writes only a status-line restore record before mutation, survives each interrupted transaction
   point, verifies its write, and leaves unsafe or changed configurations untouched. It neither edits
-  nor claims precedence over managed, command-line, project-local, or shared-project settings.
-- [ ] Existing-command parsing accepts only the approved single-path grammar and validates the
+  nor claims precedence over managed, command-line, project-local, or shared-project settings. Evidence: `ClaudeCodeSettingsEditorTests`, `ClaudeCodeConfiguratorTests` (byte preservation, stale preview, managed and relocated-root refusal, interruption points).
+- [x] Existing-command parsing accepts only the approved single-path grammar and validates the
   resolved executable and ownership. Arguments, assignments, expansion, shell syntax,
   redirection, non-executable or replaced files, secret-bearing/unparseable strings, timeouts,
-  or synthetic output/exit mismatches create no restore record and make no settings change.
-- [ ] Restore replaces only the prior safe command in an existing object or removes the exact
+  or synthetic output/exit mismatches create no restore record and make no settings change. Evidence: `ExistingStatusLineParserTests`, `ExecutableIdentityTests`, and the synthetic-check tests in `ClaudeCodeConfiguratorTests` (mismatch, timeout, output cap).
+- [x] Restore replaces only the prior safe command in an existing object or removes the exact
   minimal object installed over an absent setting. It preserves unrelated and sibling-field edits,
   is idempotent, and follows the approved conflict rule when the current type/command no longer
-  matches Reset Radar's installed value.
-- [ ] Directory watching is armed before the initial scan, survives atomic file replacement,
+  matches Reset Radar's installed value. Evidence: `ClaudeCodeConfiguratorRestoreTests` (sibling edits kept, conflict refusal, absent-prior exact-object rule, interrupted install). A second restore reports there is nothing to restore rather than repeating work.
+- [x] Directory watching is armed before the initial scan, survives atomic file replacement,
   detects watched-root replacement, and fences callbacks from older watch generations. Events
   coalesce over two seconds, and an event newer than an in-flight enumeration leaves one trailing
   scan; start, foreground, and manual refresh rescan. Scans enforce record and total-entry bounds,
   ignore unrelated files, reject unsafe records, coordinate pruning with the fixed writer lock, and
-  never generate a Claude Code turn.
-- [ ] Multi-session fixtures select each kind's newest observation, keep another session from
+  never generate a Claude Code turn. Evidence: `DirectoryWatcherTests` (real `DispatchSource`, atomic replacement, renamed root) and `ClaudeCodeSourceTests` (arm before scan, two-second coalescing, generation fencing).
+- [x] Multi-session fixtures select each kind's newest observation, keep another session from
   freshening idle data, preserve dropped windows as retained, handle deterministic ties and
-  mixed versions by the approved rule, and prune observed and never-observed records correctly.
-- [ ] `ClaudeCodeSource` implements the approved exhaustive source-state/revalidation table, emits
+  mixed versions by the approved rule, and prune observed and never-observed records correctly. Evidence: `SessionMergerTests` and `SessionReaderPrunerTests`.
+- [x] `ClaudeCodeSource` implements the approved exhaustive source-state/revalidation table, emits
   complete reports only from a valid bounded scan, emits typed state-only failures otherwise,
   deduplicates unchanged scans, returns identical receipts to coalesced callers for the actual
   rescan, and terminally stops its watcher/stream without a late publication. A real
   `CollectUsage` integration proves complete replacement, retained missing windows, duplicate
-  stream/receipt ingestion idempotence, and failure preservation.
-- [ ] Privacy tests prove session records contain only the allowed synthetic digest, public
+  stream/receipt ingestion idempotence, and failure preservation. Evidence: `ClaudeCodeSourceTests` (failure table, backoff ladder, deferred receipts, terminal stop) and `ClaudeCodeCollectUsageTests` (real `CollectUsage`).
+- [x] Privacy tests prove session records contain only the allowed synthetic digest, public
   per-observation source version, invocation/observation metadata, activity counter and first-
   observation marker, and normalized windows. Restore records, diagnostics, thrown errors, helper
   output, and test failures contain no sentinel representing a raw session ID, unrelated setting,
   activity counter, percentage, reset, prompt, response, provider path, or raw payload. The restore
   record may contain only an absence marker or the explicitly approved prior safe command plus
   transaction metadata; an ephemeral owner-facing preview may show the exact approved local
-  settings/helper/executable paths but never raw input or usage values.
+  settings/helper/executable paths but never raw input or usage values. Evidence: recorder and restore-record sentinel tests, decoder error redaction tests, and the helper output tests.
 - [ ] Owner-present calibration passes four response-linked observations across two isolated
   sessions, at least one activity increase per session, idle redraws that do not advance time,
   cross-session isolation, a 60-minute unchanged idle event, and valid normal-window shapes. A
@@ -368,6 +368,15 @@ it lands first and is explicitly referenced from the M11 implementation record.
 - [ ] The `test_runner` passes the complete contribution-guide gate from the final reviewable
   worktree; focused ProviderAdapters/helper tests, `git diff --check`, and relative Markdown
   links also pass.
+
+## Implementation status
+
+Checkpoints A and B are implemented and covered by the tests named in the completion checklist.
+The `ResetRadarStatusLine` scaffold comment and the ProviderAdapters placeholder are replaced by
+the helper composition root. Checkpoint C needs the owner: the signed-in calibration, the 60-minute
+decision, cleanup, and the sanitized evidence entry cannot be performed or fabricated by an agent,
+so P1-M11 stays `Active`. The calibration commands are in
+[the runbook](../research/phase-1/source-calibration-spike-runbook.md) (`--mode claude`).
 
 ## Checkpoints
 

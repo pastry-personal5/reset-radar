@@ -29,7 +29,9 @@ extension ClaudeCodeConfigurator {
         guard case .command(let current) = snapshot.statusLine,
             current == record.installedCommand
         else {
-            return record.state == .pending ? .incompatible : .notConfigured
+            // A transaction interrupted before the settings write, or a later owner edit: either
+            // way Reset Radar's command is not installed, so setup can simply run again.
+            return .notConfigured
         }
         switch record.prior {
         case .absent:

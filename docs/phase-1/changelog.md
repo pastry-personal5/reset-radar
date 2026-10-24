@@ -6,6 +6,18 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Claude — Implemented P1-M11 Checkpoints A and B on branch
+  `m11-claude-code-adapter`: the Claude Code-only calibration mode, the bounded status-line
+  decoder, per-session records, helper composition root and installer, settings transaction with
+  status-line-only restore, and the directory-watching source with merge, pruning, and the failure
+  table. Rulings recorded for owner review: an expired reset is accepted and left to the Domain; a
+  value-only redraw updates the stored percentage but keeps the observation time and version; a
+  clock regression or decreased counter fails the invocation (nonzero, per decision 10); the first
+  counter appearance after a reading is a baseline; `refresh()` during a revalidation backoff
+  returns a deferred receipt; the synthetic composition check runs the helper in-process against
+  an isolated temporary root; the installed Claude Code version is not probed because no contract
+  field consumes it. Owner-present calibration (Checkpoint C) is outstanding; M11 stays `Active`.
+
 - 2026-10-25 — Owner/Claude — Answered P1-M11 decisions 9 and 10, completing the interview.
   The source-state table and retry model follow the recommendation (setup failures wait for a
   configuration change; watcher recovery uses the one/two/five/fifteen-minute ladder). The owner

@@ -124,7 +124,7 @@ current-data window, explicit profile isolation, and source calibration.
 Plan: [overview](milestone-10-codex-adapter-overview.md), [sequencing](milestone-10-codex-adapter-sequence.md), [ProviderAdapters](../architecture/provider-adapters.md)
 
 ### P1-M11: Claude Code adapter
-Status: Planned
+Status: Active
 Goal: Claude Code status-line parser and guided installer that never replaces an unsafe or unprovable command, with source calibration.
 Plan: [overview](milestone-11-claude-code-adapter-overview.md), [sequencing](milestone-11-claude-code-adapter-sequence.md), [ProviderAdapters](../architecture/provider-adapters.md)
 
