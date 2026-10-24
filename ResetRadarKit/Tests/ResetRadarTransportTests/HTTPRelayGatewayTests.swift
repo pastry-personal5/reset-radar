@@ -237,7 +237,7 @@ private let adminToken = SecretValue(Data(repeating: 0x33, count: 32))
 
         _ = try prepared("refresh-post")
         let refresh = await gateway.postRefreshRequest(
-            requestID, endpoint: relayOrigin, readToken: readToken)
+            requestID, target: .allCodex, endpoint: relayOrigin, readToken: readToken)
         if case .refreshAccepted = refresh {} else { Issue.record("Expected refresh acceptance") }
         try checkRequest("refresh-post", token: readToken)
 
@@ -256,6 +256,44 @@ private let adminToken = SecretValue(Data(repeating: 0x33, count: 32))
             await gateway.deleteRefreshRequest(
                 requestID, endpoint: relayOrigin, writeToken: writeToken) == .deleted)
         try checkRequest("refresh-delete", token: writeToken)
+    }
+
+    @Test func accountTargetUsesTheStrictV2BodyAndRoundTripsFromTheList() async throws {
+        let gateway = HTTPRelayGateway(protocolClasses: [RelayURLProtocol.self])
+        let requestID = RequestID(data: Data(repeating: 0x60, count: 16))!
+        let accountID = AccountID(data: Data(repeating: 0x61, count: 16))!
+        RelayURLProtocol.harness.configure(
+            status: 202,
+            body: Data(
+                "{\"expiresAt\":\"2023-11-14T22:18:20.000Z\",\"protocolVersion\":2}".utf8),
+            headers: ["Content-Type": "application/json"])
+        let posted = await gateway.postRefreshRequest(
+            requestID, target: .account(accountID), endpoint: relayOrigin,
+            readToken: readToken)
+        if case .refreshAccepted = posted {} else { Issue.record("Expected refresh acceptance") }
+        #expect(RelayURLProtocol.harness.requests.first?.url?.path == "/v2/refresh-requests")
+        #expect(
+            String(data: RelayURLProtocol.harness.requestBodies[0], encoding: .utf8)
+                == "{\"accountID\":\"\(accountID.hex)\",\"protocolVersion\":2,"
+                + "\"requestID\":\"\(requestID.hex)\",\"target\":\"account\"}")
+
+        let readerID = ReaderID(data: Data(repeating: 0x45, count: 16))!
+        RelayURLProtocol.harness.configure(
+            status: 200,
+            body: Data(
+                ("{\"protocolVersion\":2,\"requests\":[{\"accountID\":\"\(accountID.hex)\","
+                    + "\"expiresAt\":\"2023-11-14T22:18:20.000Z\","
+                    + "\"readerID\":\"\(readerID.hex)\",\"requestID\":\"\(requestID.hex)\","
+                    + "\"target\":\"account\"}]}").utf8),
+            headers: ["Content-Type": "application/json"])
+        let listed = await gateway.listRefreshRequests(
+            endpoint: relayOrigin, writeToken: writeToken)
+        guard case .value(let requests) = listed else {
+            Issue.record("Expected refresh list")
+            return
+        }
+        #expect(requests.count == 1)
+        #expect(requests.first?.target == .account(accountID))
     }
 
     @Test func gatewayUsesReaderAndDestroyFixtures() async throws {

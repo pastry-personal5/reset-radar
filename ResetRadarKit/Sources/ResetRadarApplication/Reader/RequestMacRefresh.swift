@@ -26,7 +26,9 @@ public actor RequestMacRefresh {
         self.ingest = ingest
     }
 
-    public func run(scope: Set<ProductID>) async -> MacRefreshOutcome {
+    public func run(
+        scope: Set<ProductID>, codexTarget: ManualRefreshTarget = .allCodex
+    ) async -> MacRefreshOutcome {
         let first = await ingest.run(trigger: .manual, inAppProcess: true)
         // A failed read shows even for a Claude Code-only action, which never posts a request.
         if let early = await earlyOutcome(after: first) { return early }
@@ -34,11 +36,15 @@ public actor RequestMacRefresh {
         guard let state = try? await reader.load(), let pairing = state.pairing else {
             return .failed(.notPaired)
         }
+        let pendingOther = state.pendingManualRequest.map {
+            $0.deadline > clock.now && $0.target != codexTarget
+        }
+        if pendingOther == true { return .rateLimited }
         let marker: PendingManualRequest
-        if let resumed = await resumableMarker(state) {
+        if let resumed = await resumableMarker(state, target: codexTarget) {
             marker = resumed
         } else {
-            switch await post(pairing: pairing) {
+            switch await post(pairing: pairing, target: codexTarget) {
             case .success(let posted): marker = posted
             case .failure(let outcome): return outcome
             }
@@ -59,9 +65,11 @@ public actor RequestMacRefresh {
 
     /// A marker from an interrupted wait that has not reached its deadline: resume it instead
     /// of posting again.
-    private func resumableMarker(_ state: ReaderState) async -> PendingManualRequest? {
+    private func resumableMarker(
+        _ state: ReaderState, target: ManualRefreshTarget
+    ) async -> PendingManualRequest? {
         guard let marker = state.pendingManualRequest else { return nil }
-        if marker.deadline > clock.now { return marker }
+        if marker.deadline > clock.now, marker.target == target { return marker }
         await clearMarker(marker)
         return nil
     }
@@ -71,7 +79,9 @@ public actor RequestMacRefresh {
         case failure(MacRefreshOutcome)
     }
 
-    private func post(pairing: ReaderPairing) async -> PostResult {
+    private func post(
+        pairing: ReaderPairing, target: ManualRefreshTarget
+    ) async -> PostResult {
         guard let token = try? await secrets.read(.readToken) else {
             return .failure(.failed(.secretsUnavailable))
         }
@@ -79,7 +89,8 @@ public actor RequestMacRefresh {
             return .failure(.failed(.secretsUnavailable))
         }
         let marker = PendingManualRequest(
-            requestID: requestID, deadline: clock.now.addingTimeInterval(Self.waitLimit))
+            requestID: requestID, target: target,
+            deadline: clock.now.addingTimeInterval(Self.waitLimit))
         do {
             // Written before the POST, so a crash never replays it.
             try await reader.transact { $0.pendingManualRequest = marker }
@@ -87,7 +98,7 @@ public actor RequestMacRefresh {
             return .failure(.failed(.invalidSnapshot))
         }
         let outcome = await relay.postRefreshRequest(
-            requestID, endpoint: pairing.endpoint, readToken: token)
+            requestID, target: target, endpoint: pairing.endpoint, readToken: token)
         if case .refreshAccepted = outcome { return .success(marker) }
         await clearMarker(marker)
         return .failure(Self.refusal(outcome))
@@ -120,7 +131,7 @@ public actor RequestMacRefresh {
             // Another process may have committed the result-bearing snapshot first.
             if let result = await matchingResult(marker, readerID) {
                 await clearMarker(marker)
-                return .completed(result.outcome)
+                return .completed(result.accountResults)
             }
             if outcome == .failed(.authorizationRequired) {
                 await clearMarker(marker)
@@ -134,8 +145,8 @@ public actor RequestMacRefresh {
     ) async -> ManualRefreshResult? {
         guard let snapshot = try? await reader.load().snapshot else { return nil }
         return ManualRefreshResults.result(
-            for: readerID, requestID: marker.requestID, in: snapshot.manualRefreshResults,
-            now: clock.now)
+            for: readerID, requestID: marker.requestID, target: marker.target,
+            in: snapshot.manualRefreshResults, now: clock.now)
     }
 
     private func finishTimedOut(_ marker: PendingManualRequest) async -> MacRefreshOutcome {

@@ -41,24 +41,33 @@ import Testing
     @Test func windowIDDependsOnScope() {
         let one = AccountScope(data: bytes(16, 1))!
         let two = AccountScope(data: bytes(16, 2))!
-        let base = WindowID(product: .codex, scope: one, limitID: "codex", durationMinutes: 300)
+        let base = WindowID(
+            accountID: codexAccountID, product: .codex, scope: one, limitID: "codex",
+            durationMinutes: 300)
         #expect(
-            base == WindowID(product: .codex, scope: one, limitID: "codex", durationMinutes: 300))
+            base
+                == WindowID(
+                    accountID: codexAccountID, product: .codex, scope: one, limitID: "codex",
+                    durationMinutes: 300))
         #expect(
-            base != WindowID(product: .codex, scope: two, limitID: "codex", durationMinutes: 300))
+            base
+                != WindowID(
+                    accountID: codexAccountID, product: .codex, scope: two, limitID: "codex",
+                    durationMinutes: 300))
         #expect(
-            base != WindowID(product: .codex, scope: nil, limitID: "codex", durationMinutes: 300))
+            base
+                != WindowID(
+                    accountID: codexAccountID, product: .codex, scope: nil, limitID: "codex",
+                    durationMinutes: 300))
     }
 
-    @Test func homeSlotAccessors() {
-        #expect(HomeSlot.codexFiveHour.product == .codex)
-        #expect(HomeSlot.claudeCodeWeekly.product == .claudeCode)
-        #expect(HomeSlot.codexFiveHour.durationMinutes == 300)
-        #expect(HomeSlot.claudeCodeWeekly.durationMinutes == 10_080)
+    @Test func accountWindowAccessors() {
+        #expect(AccountWindow.StandardWindow.fiveHour.durationMinutes == 300)
+        #expect(AccountWindow.StandardWindow.weekly.durationMinutes == 10_080)
         #expect(
-            HomeSlot.allCases.map(\.rawValue) == [
-                "codexFiveHour", "codexWeekly", "claudeCodeFiveHour", "claudeCodeWeekly",
-            ])
+            AccountWindow.StandardWindow.allCases.map(\.rawValue) == ["fiveHour", "weekly"])
+        #expect(codexFiveHour.accountID == codexAccountID)
+        #expect(codexFiveHour.window == .fiveHour)
     }
 
     @Test func closedIdentityThrowsOnUnknownValue() {

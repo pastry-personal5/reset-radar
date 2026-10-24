@@ -9,8 +9,12 @@ import Testing
         _ previous: UsageSnapshot?, _ reports: [SourceSnapshot], now: TimeInterval = 0
     ) throws -> (snapshot: UsageSnapshot, change: ChangeClass) {
         try SnapshotReducer.reduce(
-            previous: previous, reports: reports, publisherID: publisher, heartbeatSeconds: 300,
-            now: at(now))
+            previous: previous, reports: reports,
+            context: SnapshotAssemblyContext(
+                accounts: [
+                    AccountMetadata(id: codexAccountID, product: .codex, number: 1),
+                    AccountMetadata(id: claudeAccountID, product: .claudeCode, number: 2),
+                ], publisherID: publisher, heartbeatSeconds: 300, now: at(now)))
     }
 
     // MARK: change classification
@@ -55,6 +59,37 @@ import Testing
         #expect(result.snapshot.windows.map(\.scope) == [scopeB])
     }
 
+    @Test func aScopeChangeClearsOnlyItsLocalAccountRow() throws {
+        let accounts = [
+            AccountMetadata(id: codexAccountID, product: .codex, number: 1),
+            AccountMetadata(id: otherCodexAccountID, product: .codex, number: 2),
+        ]
+        let context = SnapshotAssemblyContext(
+            accounts: accounts, publisherID: publisher, heartbeatSeconds: 300, now: at(0))
+        let first = try SnapshotReducer.reduce(
+            previous: nil,
+            reports: [
+                report(windows: [window(scope: scopeA)]),
+                report(
+                    accountID: otherCodexAccountID,
+                    windows: [window(accountID: otherCodexAccountID, scope: scopeA)]),
+            ], context: context
+        ).snapshot
+        let switched = try SnapshotReducer.reduce(
+            previous: first,
+            reports: [report(windows: [window(scope: scopeB)])],
+            context: SnapshotAssemblyContext(
+                accounts: accounts, publisherID: publisher, heartbeatSeconds: 300, now: at(30))
+        )
+        .snapshot
+        #expect(switched.windows.count == 2)
+        #expect(
+            switched.windows.first(where: { $0.accountID == codexAccountID })?.scope == scopeB)
+        #expect(
+            switched.windows.first(where: { $0.accountID == otherCodexAccountID })?.scope
+                == scopeA)
+    }
+
     // MARK: retention
 
     @Test func anAbsentWindowIsRetainedWithItsLastObservation() throws {
@@ -85,28 +120,28 @@ import Testing
         #expect(boundary.snapshot.windows.isEmpty)
     }
 
-    @Test func aRetainedNonHomeWindowWithoutAResetIsDroppedImmediately() throws {
+    @Test func aRetainedNonStandardWindowWithoutAResetIsDroppedImmediately() throws {
         let extra = window(limitID: "extra", minutes: 60, isDefault: false, resetsAt: nil)
         let first = try reduce(nil, [report(windows: [extra])])
         #expect(try reduce(first.snapshot, [report(windows: [])], now: 1).snapshot.windows.isEmpty)
     }
 
-    @Test func aRetainedHomeWindowPastItsResetStaysButResolvesUnavailable() throws {
+    @Test func aRetainedStandardWindowPastItsResetStaysButResolvesUnavailable() throws {
         let first = try reduce(nil, [report(windows: [window(resetsAt: at(1_000))])])
         let result = try reduce(first.snapshot, [report(windows: [])], now: 5_000)
         #expect(result.snapshot.windows.count == 1)
-        let (resolution, _) = HomeSlotResolver.resolve(
-            .codexFiveHour, in: result.snapshot, now: at(5_000))
+        let (resolution, _) = AccountWindowResolver.resolve(
+            codexFiveHour, in: result.snapshot, now: at(5_000))
         guard case .window(let resolved) = resolution else {
             Issue.record("expected a window")
             return
         }
         let presentation = PresentationPolicy.derive(
-            window: resolved, source: result.snapshot.source(for: .codex), now: at(5_000))
+            window: resolved, source: result.snapshot.source(for: codexAccountID), now: at(5_000))
         #expect(presentation.state == .unavailable)
     }
 
-    @Test func aRetainedHomeWindowWithNoResetStays() throws {
+    @Test func aRetainedStandardWindowWithNoResetStays() throws {
         let first = try reduce(nil, [report(windows: [window(resetsAt: nil)])])
         let result = try reduce(first.snapshot, [report(windows: [])], now: 9_000)
         #expect(result.snapshot.windows.count == 1)
@@ -133,10 +168,27 @@ import Testing
         let first = try reduce(nil, [report(windows: [window(observedAt: at(5))])])
         let stateOnly = report(state: .signedOut, windows: [], complete: false)
         let result = try reduce(first.snapshot, [stateOnly], now: 50)
-        #expect(result.snapshot.source(for: .codex)?.state == .signedOut)
+        #expect(result.snapshot.source(for: codexAccountID)?.state == .signedOut)
         #expect(result.snapshot.windows == first.snapshot.windows)
         #expect(result.snapshot.windows.first?.observation?.observedAt == at(5))
         #expect(result.change == .transition)
+    }
+
+    @Test func aProvenIdentityEvictionClearsOnlyThatAccountRowsWindows() throws {
+        let first = try reduce(
+            nil,
+            [
+                report(windows: [window(scope: scopeA)]),
+                report(.claudeCode, windows: [window(product: .claudeCode)]),
+            ])
+        let eviction = SourceSnapshot(
+            source: AccountSource(
+                accountID: codexAccountID, product: .codex, kind: .codexAppServer,
+                version: "1", state: .incompatible, providerScope: scopeA),
+            windows: [], isCompleteReport: false, clearsWindows: true)
+        let result = try reduce(first.snapshot, [eviction])
+        #expect(result.snapshot.windows.map(\.product) == [.claudeCode])
+        #expect(result.snapshot.source(for: codexAccountID)?.state == .incompatible)
     }
 
     @Test func aWindowOfTheWrongProductIsDroppedWithADiagnosticAndItsSiblingSurvives() throws {
@@ -154,8 +206,12 @@ import Testing
     }
 
     @Test func resultsAreCarriedAndExpire() throws {
-        let result = ManualRefreshResult(
-            readerID: readerA, requestID: requestID(1), completedAt: at(0), outcome: .codexRead)
+        let result = try ManualRefreshResult(
+            readerID: readerA, requestID: requestID(1), completedAt: at(0),
+            target: .allCodex,
+            accountResults: [
+                ManualRefreshAccountResult(accountID: codexAccountID, outcome: .codexRead)
+            ])
         let first = snapshot(windows: [window()], results: [result])
         let kept = try reduce(first, [report(windows: [window()])], now: 120)
         #expect(kept.snapshot.manualRefreshResults == [result])
@@ -166,8 +222,9 @@ import Testing
     @Test func anInvalidHeartbeatThrows() {
         #expect(throws: UsageSnapshotError.invalidHeartbeat) {
             try SnapshotReducer.reduce(
-                previous: nil, reports: [], publisherID: publisher, heartbeatSeconds: 0,
-                now: at(0))
+                previous: nil, reports: [],
+                context: SnapshotAssemblyContext(
+                    accounts: [], publisherID: publisher, heartbeatSeconds: 0, now: at(0)))
         }
     }
 }

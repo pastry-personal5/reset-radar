@@ -2,25 +2,29 @@
 
 Status: Active
 
-This owner-run procedure validates the installed, signed-in Codex app-server and Claude Code status-line sources without creating the production project. It uses reviewed programs on the disposable `spike/provider-source-calibration` branch and retains only privacy-safe structural and timing evidence.
+This owner-run procedure validates the installed, signed-in Codex app-server independently, or
+Codex and Claude Code together during the later Claude Code milestone. It uses reviewed tracked
+programs from an owner-approved clean revision and retains only privacy-safe structural and timing
+evidence.
 
-## 1. Authority, scope, and branch
+## 1. Authority, scope, and revision
 
 Run this procedure only on the owner's Mac, with the owner present. It uses the owner's existing first-party sign-ins but never reads a provider authentication file or Keychain item directly. It does not connect to the Reset Radar relay, modify a real provider setting, install a dependency, or send provider data to Reset Radar infrastructure.
 
-The executable spike lives only on the disposable branch:
+The executable calibration programs are tracked in the repository. Before the run, the owner and
+reviewer choose the exact commit to calibrate. Record its public commit hash in the private
+worksheet, then require that exact clean revision throughout preparation and cleanup:
 
 ```zsh
-git branch --show-current
+git rev-parse HEAD
+git status --short
 ```
 
-The output must be exactly:
-
-```text
-spike/provider-source-calibration
-```
-
-Do not merge the `spikes/provider-source-calibration/` directory into the production branch. After the spike is decided, copy only reviewed reusable code through P1-M3 implementation and retain only redacted evidence and maintained documentation.
+The first command must equal the owner-approved revision and the second must print nothing. The
+scripts reject a different revision or dirty worktree and cleanup proves both remain unchanged.
+M10 uses `--mode codex`; this mode does not inspect Claude settings or history, require the
+`claude` executable, create Claude session identifiers or files, wait for Claude observations, or
+delete Claude data. `--mode combined` is retained for M11 and must be prepared as a separate run.
 
 The spike files are:
 
@@ -28,10 +32,10 @@ The spike files are:
 |---|---|
 | [`codex-calibration.mjs`](../../../spikes/provider-source-calibration/codex-calibration.mjs) | Bounded JSON-RPC client, sanitized Codex shape/timing report, default-bucket proof, polling, notification refetch, and clean shutdown check |
 | [`claude-recorder.mjs`](../../../spikes/provider-source-calibration/claude-recorder.mjs) | Bounded status-line decoder and per-session activity classification with no raw-value persistence |
-| [`prepare.zsh`](../../../spikes/provider-source-calibration/prepare.zsh) | Hidden `codex-profile` selection, isolated per-profile launchers and reports, fail-closed environment capture, disposable directory, exact Claude session IDs, settings wrappers, and cleanup baselines |
+| [`prepare.zsh`](../../../spikes/provider-source-calibration/prepare.zsh) | Exact-revision and clean-worktree gate, hidden `codex-profile` selection, isolated per-profile launchers and reports, mode-specific disposable state, and cleanup baselines |
 | [`preflight-codex.zsh`](../../../spikes/provider-source-calibration/preflight-codex.zsh) | Per-profile installed-version Codex schema validation and harness syntax checks without reading account usage |
-| [`verify-reports.mjs`](../../../spikes/provider-source-calibration/verify-reports.mjs) | Technical pass/fail checks and a redacted summary after both live observations |
-| [`cleanup.zsh`](../../../spikes/provider-source-calibration/cleanup.zsh) | Exact Claude history/session cleanup, settings/repository non-modification checks, and disposable-directory removal |
+| [`verify-reports.mjs`](../../../spikes/provider-source-calibration/verify-reports.mjs) | Mode-specific technical pass/fail checks and a redacted summary |
+| [`cleanup.zsh`](../../../spikes/provider-source-calibration/cleanup.zsh) | Revision/repository non-modification checks, exact mode-specific cleanup, and disposable-directory removal |
 | [`test.zsh`](../../../spikes/provider-source-calibration/test.zsh) | Offline synthetic tests; it never starts real Codex or Claude Code |
 
 ## 2. What the procedure does and does not prove
@@ -40,14 +44,19 @@ The Codex half, once for every profile the owner explicitly selects:
 
 1. Generates protocol schemas from the exact installed Codex executable.
 2. Starts `codex-profile cli PROFILE app-server --listen stdio://` from the disposable directory, with analytics disabled and a minimal environment. `codex-profile` validates the named profile and supplies its `CODEX_HOME`; the harness never uses an ambient profile or workspace binding.
-3. Initializes JSON-RPC and calls `account/rateLimits/read` through the signed-in first-party process.
+3. Initializes JSON-RPC, calls structured `account/read` with `refreshToken: false` and retains
+   only the approved sign-in discriminators, then calls `account/rateLimits/read` and retains only
+   account-identifier presence/type through the signed-in first-party process.
 4. Performs one initial read and six five-minute polls over 30 minutes.
 5. Observes `account/rateLimits/updated` during one owner-initiated Codex turn and refetches no more than once per minute.
 6. Measures only frame size, structural limits, latency, field presence/types, and the structural correspondence of the compatibility bucket.
 
 The Claude Code half cannot actively query usage. It temporarily overrides `statusLine` only for two command-line processes, then observes the status-line payload after owner-submitted turns. It validates whether `cost.total_api_duration_ms` increases after a response and stays unchanged on idle UI reruns. It never generates a turn itself.
 
-This validates the installed versions and the proposed source rules. Selecting multiple profiles for calibration does not decide that the first version tracks several Codex accounts simultaneously; it prevents the spike from silently testing the wrong profile and records whether the source assumptions hold for each owner-designated profile. The procedure does not prove compatibility with a future release, the production adapter implementation, source installation/restore behavior, relay publication, mobile ingestion, or UI behavior.
+This validates the installed versions and the proposed source rules. M10 requires both approved
+Codex profiles because the first version tracks up to two accounts concurrently. The procedure
+does not prove compatibility with a future release, the production adapter implementation,
+source installation/restore behavior, relay publication, mobile ingestion, or UI behavior.
 
 ## 3. Privacy boundary and stop conditions
 
@@ -56,8 +65,10 @@ Close screen sharing and terminal recording. Do not enable shell tracing (`set -
 The live harness may hold one raw source message in memory while classifying it. Its reports may contain only:
 
 - UTC event time and elapsed milliseconds;
-- message byte counts, latency, maximum string length, nesting depth, and decoded-window count;
-- field names, JSON value types, presence, validity, and timestamp plausibility classes;
+- message byte counts, latency, maximum decoded key/string UTF-8 bytes, nesting depth,
+  multi-bucket entry count, and decoded candidate-window count;
+- field names, JSON value types, presence, validity, account-identifier presence/type (never its
+  value), approved account-kind/authentication discriminators, and timestamp plausibility classes;
 - `unique`, `compatibility-only`, `not-found`, or `ambiguous` as the Codex default-bucket result;
 - `absent`, `first-observed`, `increased`, `unchanged`, `decreased`, or `invalid` as the Claude activity result;
 - the public Claude Code window kinds and the owner's accept/reject decision for each freshness candidate.
@@ -70,11 +81,16 @@ The preparation script assigns explicit disposable Claude session UUIDs and sepa
 
 Stop and record a failure or deferral if:
 
-- the active branch is not `spike/provider-source-calibration`;
+- the checkout is not the exact owner-approved revision or the worktree is dirty;
 - `codex-profile` is unavailable, a requested profile is uninitialized, a profile is selected twice, or any owner-intended profile is omitted;
 - synthetic tests or installed-schema preflight fail;
 - any command would require copying a credential or raw provider response;
-- a legitimate Codex frame exceeds 1 MiB, a string exceeds 4 KiB, nesting exceeds 32 levels, or more than 128 windows are decoded;
+- a legitimate Codex frame exceeds 1 MiB, a decoded key/string exceeds 4 KiB of UTF-8, nesting
+  exceeds 32 levels, more than 128 multi-bucket entries appear, or more than 128 candidate
+  windows are decoded;
+- `account/read` is absent or does not prove a supported ChatGPT account with
+  `requiresOpenaiAuth == false`, or the rate-limit response lacks a nonempty string account
+  identifier;
 - a multi-bucket Codex response cannot map the compatibility bucket to exactly one peer;
 - a normal Codex read exceeds the 10-second timeout or the app-server does not exit within five seconds of stdin closing;
 - Claude Code does not show the temporary Reset Radar status line before the first turn;
@@ -94,7 +110,7 @@ Keep a private worksheet outside the repository. Record only:
 |---|---|
 | Attendance | UTC date and `owner-present` |
 | Environment | macOS, Node.js, installed Codex version, installed Claude Code version |
-| Codex | Number of explicitly selected profiles; for each private ordinal only, schema preflight, read count, latency range, structural maxima, default-bucket result/basis, notification/refetch observed or deferred, child shutdown, and 15-minute decision |
+| Codex | Number of explicitly selected profiles; for each private ordinal only, schema preflight, account-identifier presence/type, approved sign-in shape, read count, latency range, frame/string-byte/depth/bucket-entry/candidate-window maxima, default-bucket result/basis, notification/refetch observed or deferred, child shutdown, and 15-minute decision |
 | Claude Code | Public field/window shape; counts of first/increased/unchanged classifications; two-session isolation; 60-minute observation; 60-minute decision |
 | Privacy | Settings unchanged; repository unchanged; history restored; UUID scan clear; disposable directory removed |
 | Result | Pass, fail, or deferred for each provider, with the failed criterion but no raw value |
@@ -114,12 +130,19 @@ This syntax-checks every script, exercises the Codex and Claude recorders only w
 
 ## 6. Prepare the live run
 
-Save all work and close every Claude Code process. Keep Codex closed until the Codex instruction below asks for one separate owner-controlled turn per profile. Count the initialized, signed-in `codex-profile` profiles that Reset Radar must validate; the owner has two at the time this runbook was written.
+Save all work and commit the reviewed M10 implementation. Keep Codex closed until the Codex
+instruction below asks for one separate owner-controlled turn per profile. Count the initialized,
+signed-in `codex-profile` profiles that Reset Radar must validate; M10 permits at most two.
 
 Run:
 
 ```zsh
-zsh spikes/provider-source-calibration/prepare.zsh --codex-profile-count 2
+approved_revision="$(git rev-parse HEAD)"
+test -z "$(git status --short)" || exit 1
+zsh spikes/provider-source-calibration/prepare.zsh \
+  --mode codex \
+  --codex-profile-count 2 \
+  --expected-revision "$approved_revision"
 ```
 
 The script privately prompts for each profile name with terminal echo disabled. Enter each name in a stable order that you keep only in memory; do not put profile names in the worksheet. It validates each profile through `codex-profile`, then prints tool versions by private ordinal, one `/private/tmp/reset-radar-source-calibration.XXXXXX` directory, and a quoted `source` command. Record only the versions and profile count in the private worksheet. Copy the printed `source` command into the current terminal and every additional terminal used below.
@@ -135,7 +158,10 @@ test -f "$source_calibration_root/session.zsh"
 printf 'Disposable session attached.\n'
 ```
 
-Preparation does not edit `~/.claude/settings.json`. It copies the reviewed harness programs into the disposable directory so the live run has an immutable per-run copy even if the branch changes later.
+Codex-only preparation does not read or edit anything under `~/.claude`, locate `claude`, or
+create Claude artifacts. It copies only the Codex harness and verifier into the disposable
+directory. Any later revision or worktree change causes cleanup to refuse until the reviewed state
+is restored.
 
 ## 7. Preflight the installed Codex protocol
 
@@ -152,7 +178,11 @@ For two selected profiles, it must report:
 Installed Codex schemas for 2 explicitly selected profiles and disposable harness preflight: PASS
 ```
 
-The preflight requires the installed schema to contain the initialization contract, `initialized` notification, `account/rateLimits/read`, `rateLimits`, and `rateLimitsByLimitId`. If a future installed Codex changes these contracts, stop rather than editing the live request ad hoc.
+The preflight requires the installed schema to contain the initialization contract, `initialized`
+notification, structured `account/read` request and response with the ChatGPT discriminator and
+boolean `requiresOpenaiAuth`, and `account/rateLimits/read` with `accountId`, `rateLimits`, and
+`rateLimitsByLimitId`. If a future installed Codex changes these contracts, stop rather than
+editing the live request ad hoc.
 
 ## 8. Run the Codex observation
 
@@ -184,6 +214,9 @@ jq '{
     kind,
     reason,
     latencyMs,
+    accountIdentifierClassification,
+    accountKind,
+    requiresOpenaiAuth,
     defaultBucket,
     bounds
   }],
@@ -211,13 +244,21 @@ For every selected profile, the 15-minute current-data candidate is technically 
 1. the report contains one initial and six scheduled reads;
 2. every read completes within 10 seconds;
 3. no scheduled successful-read gap exceeds 15 minutes;
-4. every legitimate response fits all four safety bounds;
+4. every legitimate response fits the frame, decoded UTF-8 string/key, depth, bucket-entry, and
+   candidate-window bounds;
 5. every default-bucket result is `unique` or `compatibility-only`; and
-6. app-server exits within five seconds after the harness closes stdin.
+6. the structured account read proves a supported ChatGPT account, a present string identifier,
+   and `requiresOpenaiAuth == false`; and
+7. app-server exits within five seconds after the harness closes stdin.
 
 The final verifier checks every ordinal report and fails the combined Codex result if any selected profile fails. The owner records `15 minutes confirmed` or `15 minutes rejected` for each private ordinal; the verifier cannot make the product-policy decision for the owner. A profile-specific rejection returns the production profile-selection behavior to the owner rather than silently dropping that profile.
 
 ## 9. Run the Claude Code observation
+
+M10 Codex-only calibration skips this section. M11 must repeat sections 5 through 8 from a new
+clean, separately approved revision, substituting `--mode combined` during preparation, before
+following the preserved combined-provider steps below. Never reuse a Codex-only disposable
+session.
 
 This part uses three Terminal windows at the same time. Keep every unrelated Claude Code process closed. Do not run the following commands in a terminal pane inside Claude Code.
 
@@ -386,33 +427,42 @@ Before editing any repository file, run:
 
 ```zsh
 "$source_calibration_node" "$source_calibration_root/harness/verify-reports.mjs" \
+  --mode codex \
   --root "$source_calibration_root"
 ```
 
-The verifier fails unless all required technical Codex and Claude observations are present. Its printed JSON is redacted and may be transcribed into the private worksheet. Do not copy either underlying report.
+The Codex-mode verifier fails unless every selected Codex profile has all required technical
+observations. It neither opens nor requires a Claude report. Its printed JSON is redacted and may
+be transcribed into the private worksheet. Do not copy an underlying report. M11 substitutes
+`--mode combined` for its later combined-provider verification.
 
 `updateNotificationObserved: false` in any ordinal profile summary is an explicit Codex deferral, even if every other technical check passes. The owner still decides whether each current-data window is confirmed or rejected.
 
 ## 11. Clean up before editing evidence
 
-Close every Claude Code process. Save the redacted verifier summary in the private worksheet, because cleanup permanently removes the disposable reports.
+Save the redacted verifier summary in the private worksheet, because cleanup permanently removes
+the disposable reports. Codex-only cleanup does not inspect or delete Claude data.
 
-The following command permanently deletes only UUID-matching entries for the two explicitly identified calibration sessions from Claude Code's `projects`, `session-env`, and `tasks` stores, removes their appended global-history entries after proving the original prefix is unchanged, and removes the validated `/private/tmp/reset-radar-source-calibration.*` directory:
+The following command removes only the validated Codex-mode
+`/private/tmp/reset-radar-source-calibration.*` directory after proving the repository is still at
+the recorded revision and status:
 
 ```zsh
 zsh spikes/provider-source-calibration/cleanup.zsh \
-  --confirm-delete-calibration-sessions \
+  --mode codex \
   "$source_calibration_root/session.zsh"
 ```
 
-The cleanup script refuses to proceed if another Claude Code process is running, either session UUID is malformed, the original history prefix changed, the real settings checksum changed, the repository status changed, or the target directory is outside the expected `/private/tmp` prefix.
+The cleanup script refuses if the repository revision or status changed, the session mode differs,
+or the target directory is outside the exact expected `/private/tmp` prefix. Combined-mode cleanup
+additionally retains the narrow Claude process, UUID, history-prefix, and settings checks.
 
 If cleanup refuses, do not broaden its path, delete by age, truncate an unverified history file, or use a wildcard over `~/.claude`. Preserve the disposable directory and investigate privately.
 
 Successful output is:
 
 ```text
-Calibration session data, history additions, and disposable files removed: PASS
+codex calibration disposable files removed and repository unchanged: PASS
 ```
 
 ## 12. Record project evidence
@@ -420,14 +470,13 @@ Calibration session data, history additions, and disposable files removed: PASS
 Only after successful cleanup, append one dated entry to [spike-results.md](spike-results.md):
 
 ```markdown
-### Provider source calibration — YYYY-MM-DD
+### Codex source calibration — YYYY-MM-DD
 
 - **Attendance:** Owner-present. No raw response, credential, account/session identifier, prompt, response content, percentage, reset timestamp, or project path was retained in Reset Radar evidence.
-- **Question:** Do the installed Codex and Claude Code versions satisfy the approved source, bounds, response-signal, and freshness assumptions?
-- **Method and versions:** macOS, Node.js, `codex-profile`, installed Codex versions by anonymous ordinal, selected profile count, installed Claude Code, disposable-branch revision, synthetic-test result, and observation durations.
-- **Codex measurements:** For each anonymous ordinal, sanitized field shape; read count and latency range; frame/string/depth/window maxima; compatibility-only or unique default-bucket result and matching basis; notification/refetch observation; clean child shutdown; 15-minute decision.
-- **Claude Code measurements:** Sanitized field shape and public window kinds; response-linked, increased, and unchanged event counts; two-session isolation; 60-minute observation; 60-minute decision.
-- **Privacy checks:** Real settings unchanged; repository unchanged during execution; original history restored; calibration UUID scan clear; disposable files removed.
+- **Question:** Do both installed Codex profiles satisfy the approved source, identity, bounds, notification, and freshness assumptions?
+- **Method and versions:** macOS, Node.js, `codex-profile`, installed Codex versions by anonymous ordinal, selected profile count, exact reviewed revision, synthetic-test result, and 30-minute observation duration.
+- **Codex measurements:** For each anonymous ordinal, sanitized field shape; account-identifier presence/type and approved sign-in shape; initial plus six scheduled reads and latency range; frame/string-byte/depth/bucket-entry/candidate-window maxima; compatibility-only or unique default-bucket result and matching basis; notification/refetch observation or explicit deferral; clean child shutdown; 15-minute decision.
+- **Privacy checks:** Repository revision and status unchanged during execution; no Claude state inspected or created; disposable files removed.
 - **Result:** Pass, fail, or deferred, with each blocker named. A rejected threshold or response signal returns that rule to the owner.
 ```
 

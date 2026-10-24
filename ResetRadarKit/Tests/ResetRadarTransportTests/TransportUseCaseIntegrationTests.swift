@@ -15,7 +15,7 @@ private func sealedOutcome(
 ) throws -> RelayOutcome {
     let snapshot = try UsageSnapshot(
         publisherID: publisher, generatedAt: date, heartbeatSeconds: 60,
-        sources: [], windows: [])
+        accounts: [], sources: [], windows: [])
     let header = EnvelopeHeader(
         protocolVersion: 1, envelopeVersion: 1, publisherID: publisher,
         sequence: sequence, keyVersion: 1)
@@ -44,7 +44,7 @@ private func sealedOutcome(
         diagnostics: FakeDiagnosticsSink(), clock: clock, random: CryptoSecretGenerator())
     let snapshot = try UsageSnapshot(
         publisherID: publisherID, generatedAt: clock.now, heartbeatSeconds: 60,
-        sources: [], windows: [])
+        accounts: [], sources: [], windows: [])
 
     let outcome = await useCase.publish(snapshot, change: .transition, trigger: .change)
     #expect(outcome == .published(sequence: 1))

@@ -1,0 +1,5 @@
+{
+  "status": 422,
+  "code": "unsupportedVersion",
+  "body": "{\"code\":\"unsupportedVersion\",\"protocolVersion\":2}"
+}

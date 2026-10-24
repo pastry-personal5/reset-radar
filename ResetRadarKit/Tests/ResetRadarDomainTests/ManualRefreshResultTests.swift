@@ -7,9 +7,16 @@ import Testing
     typealias Refresh = ManualRefreshResult
 
     func make(_ reader: ReaderID, _ id: UInt8, completedAt: TimeInterval = 0) -> Refresh {
-        ManualRefreshResult(
-            readerID: reader, requestID: requestID(id), completedAt: at(completedAt),
-            outcome: .codexRead)
+        do {
+            return try ManualRefreshResult(
+                readerID: reader, requestID: requestID(id), completedAt: at(completedAt),
+                target: .allCodex,
+                accountResults: [
+                    ManualRefreshAccountResult(accountID: codexAccountID, outcome: .codexRead)
+                ])
+        } catch {
+            preconditionFailure("invalid fixture: \(error)")
+        }
     }
 
     @Test func roundTrips() throws {
@@ -43,13 +50,16 @@ import Testing
         let items = [make(readerA, 1)]
         #expect(
             ManualRefreshResults.result(
-                for: readerB, requestID: requestID(1), in: items, now: at(1)) == nil)
+                for: readerB, requestID: requestID(1), target: .allCodex, in: items,
+                now: at(1)) == nil)
         #expect(
             ManualRefreshResults.result(
-                for: readerA, requestID: requestID(1), in: items, now: at(1)) == items[0])
+                for: readerA, requestID: requestID(1), target: .allCodex, in: items,
+                now: at(1)) == items[0])
         #expect(
             ManualRefreshResults.result(
-                for: readerA, requestID: requestID(2), in: items, now: at(1)) == nil)
+                for: readerA, requestID: requestID(2), target: .allCodex, in: items,
+                now: at(1)) == nil)
     }
 
     @Test func futureCompletionBeyondSkewIsDropped() {

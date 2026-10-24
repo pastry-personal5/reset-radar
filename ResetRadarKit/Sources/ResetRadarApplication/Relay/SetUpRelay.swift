@@ -110,7 +110,8 @@ public actor SetUpRelay {
         let base = try? await snapshots.load()
         return try? UsageSnapshot(
             publisherID: publisherID, generatedAt: clock.now, heartbeatSeconds: heartbeatSeconds,
-            sources: base?.sources ?? [], windows: base?.windows ?? [])
+            accounts: base?.accounts ?? [], sources: base?.sources ?? [],
+            windows: base?.windows ?? [])
     }
 
     private func resumableDigests(

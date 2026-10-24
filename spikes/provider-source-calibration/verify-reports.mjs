@@ -18,13 +18,18 @@ const CODEX_TOP_LEVEL_KEYS = new Set([
 ]);
 const CODEX_EVENT_KEYS = new Map([
   ["initialized", new Set(["at", "frameBytes", "kind", "latencyMs", "resultKeys"])],
+  ["account-read", new Set([
+    "accountKind", "accountType", "at", "bounds", "frameBytes", "kind", "latencyMs",
+    "requiresOpenaiAuth", "requiresOpenaiAuthType", "topLevelKeys",
+  ])],
   ["rate-limit-read", new Set([
     "at", "bounds", "compatibility", "defaultBucket", "elapsedMs", "kind", "latencyMs",
-    "multiBucketCount", "multiBucketShapes", "multiBucketType", "reason", "topLevelKeys",
+    "accountIdentifierClassification", "multiBucketCount", "multiBucketShapes", "multiBucketType",
+    "reason", "topLevelKeys",
   ])],
   ["read-coalesced", new Set(["at", "kind", "reason"])],
   ["rate-limit-update-notification", new Set([
-    "at", "frameBytes", "kind", "maxDepth", "maxStringLength", "parameterKeys",
+    "at", "frameBytes", "kind", "maxDepth", "maxStringBytes", "parameterKeys",
   ])],
   ["update-refetch-rate-limited", new Set(["at", "kind"])],
   ["other-message", new Set(["at", "kind", "method"])],
@@ -70,14 +75,16 @@ const RAW_VALUE_KEYS = new Set([
 ]);
 
 function parseArguments(argv) {
-  if (argv.length !== 2 || argv[0] !== "--root") {
-    throw new Error("usage: node verify-reports.mjs --root ROOT");
+  if (argv.length !== 4 || argv[0] !== "--mode" || argv[2] !== "--root"
+      || !["codex", "combined"].includes(argv[1])) {
+    throw new Error("usage: node verify-reports.mjs --mode codex|combined --root ROOT");
   }
-  const root = path.resolve(argv[1]);
+  const mode = argv[1];
+  const root = path.resolve(argv[3]);
   if (!root.startsWith("/private/tmp/reset-radar-source-calibration.")) {
     throw new Error("--root must be a Reset Radar source-calibration directory under /private/tmp");
   }
-  return root;
+  return { mode, root };
 }
 
 function assert(condition, message) {
@@ -116,7 +123,7 @@ async function readJsonLines(filePath) {
 function verifyCodex(report) {
   exactKeys(report, CODEX_TOP_LEVEL_KEYS, "Codex report");
   rejectRawValueKeys(report, "Codex report");
-  assert(report.formatVersion === 1, "unexpected Codex report version");
+  assert(report.formatVersion === 2, "unexpected Codex report version");
   assert(Array.isArray(report.failures) && report.failures.length === 0, "Codex report contains failures");
   assert(report.exitedAfterStdinClose === true, "Codex app-server did not exit after stdin closed");
   for (const event of report.events) {
@@ -124,9 +131,19 @@ function verifyCodex(report) {
     exactKeys(event, CODEX_EVENT_KEYS.get(event.kind), `Codex ${event.kind} event`);
   }
   const reads = report.events.filter((event) => event.kind === "rate-limit-read");
+  const accountReads = report.events.filter((event) => event.kind === "account-read");
+  assert(accountReads.length === 1, "Codex report must contain exactly one account-status read");
+  const accountRead = accountReads[0];
+  assert(accountRead.latencyMs <= 10_000, "Codex account read exceeded timeout");
+  assert(accountRead.accountType === "string", "Codex account discriminator has the wrong type");
+  assert(accountRead.accountKind === "chatgpt", "Codex account is not a supported ChatGPT account");
+  assert(accountRead.requiresOpenaiAuthType === "boolean", "Codex authentication discriminator has the wrong type");
+  assert(accountRead.requiresOpenaiAuth === false, "Codex account is not structurally authenticated");
+  assert(Object.values(accountRead.bounds).every((value) => value === true), "Codex account read exceeded a safety bound");
   const scheduled = reads.filter((event) => event.reason === "initial" || event.reason === "scheduled-poll");
   assert(scheduled.length === 7, "Codex report must contain one initial and six scheduled reads");
   for (const read of reads) {
+    assert(read.accountIdentifierClassification === "present-string", "Codex rate-limit account identifier is absent or malformed");
     assert(Number.isFinite(read.latencyMs) && read.latencyMs <= 10_000, "Codex read exceeded timeout");
     assert(
       read.defaultBucket?.status === "unique" || read.defaultBucket?.status === "compatibility-only",
@@ -147,9 +164,12 @@ function verifyCodex(report) {
     latencyMinimumMs: Math.min(...latencies),
     latencyMaximumMs: Math.max(...latencies),
     maximumFrameBytes: Math.max(...reads.map((read) => read.bounds.frameBytes)),
-    maximumStringLength: Math.max(...reads.map((read) => read.bounds.maxStringLength)),
+    maximumStringBytes: Math.max(...reads.map((read) => read.bounds.maxStringBytes)),
     maximumDepth: Math.max(...reads.map((read) => read.bounds.maxDepth)),
-    maximumWindowCount: Math.max(...reads.map((read) => read.bounds.windowCount)),
+    maximumBucketEntryCount: Math.max(...reads.map((read) => read.bounds.bucketEntryCount)),
+    maximumCandidateWindowCount: Math.max(...reads.map((read) => read.bounds.candidateWindowCount)),
+    accountIdentifierClassifications: [...new Set(reads.map((read) => read.accountIdentifierClassification))],
+    accountStatusChecks: "pass",
     defaultBucketStatuses: [...new Set(reads.map((read) => read.defaultBucket.status))].sort(),
     updateNotificationObserved: report.events.some((event) => event.kind === "rate-limit-update-notification"),
     currentDataWindowMinutes: 15,
@@ -199,7 +219,7 @@ function verifySixtyMinutes(events, increased) {
 }
 
 async function run() {
-  const root = parseArguments(process.argv.slice(2));
+  const { mode, root } = parseArguments(process.argv.slice(2));
   const codexReportNames = (await readdir(root))
     .filter((name) => /^codex-[1-9][0-9]*-report\.json$/.test(name))
     .sort((left, right) => Number(left.match(/[0-9]+/u)[0]) - Number(right.match(/[0-9]+/u)[0]));
@@ -212,26 +232,31 @@ async function run() {
     const report = JSON.parse(await readFile(path.join(root, name), "utf8"));
     codexSummaries.push(verifyCodex(report));
   }
-  const claudeA = await readJsonLines(path.join(root, "claude-A-report.jsonl"));
-  const claudeB = await readJsonLines(path.join(root, "claude-B-report.jsonl"));
-  const a = verifyClaude(claudeA, "A");
-  const b = verifyClaude(claudeB, "B");
-  assert(a.advancing.length + b.advancing.length >= 4, "Claude needs four response-linked observations across two sessions");
-  assert(verifySixtyMinutes(claudeA, a.increased), "Claude A lacks an unchanged idle event at least 60 minutes after an increase");
-  assert(b.advancing.some((bEvent) => claudeA.some((aEvent) =>
-    aEvent.activity === "unchanged"
-      && aEvent.advanceObservedAt === false
-      && Date.parse(aEvent.at) > Date.parse(bEvent.at))),
-  "Claude A lacks an unchanged idle event after Claude B activity");
-
   const summary = {
-    formatVersion: 1,
+    formatVersion: 2,
+    mode,
     codex: {
       profileCount: codexSummaries.length,
       profiles: codexSummaries,
-      allProfileTechnicalChecks: "pass",
+      allProfileTechnicalChecks: codexSummaries.every((profile) => profile.updateNotificationObserved)
+        ? "pass"
+        : "deferred",
     },
-    claudeCode: {
+    privacyShapeChecks: "pass",
+  };
+  if (mode === "combined") {
+    const claudeA = await readJsonLines(path.join(root, "claude-A-report.jsonl"));
+    const claudeB = await readJsonLines(path.join(root, "claude-B-report.jsonl"));
+    const a = verifyClaude(claudeA, "A");
+    const b = verifyClaude(claudeB, "B");
+    assert(a.advancing.length + b.advancing.length >= 4, "Claude needs four response-linked observations across two sessions");
+    assert(verifySixtyMinutes(claudeA, a.increased), "Claude A lacks an unchanged idle event at least 60 minutes after an increase");
+    assert(b.advancing.some((bEvent) => claudeA.some((aEvent) =>
+      aEvent.activity === "unchanged"
+        && aEvent.advanceObservedAt === false
+        && Date.parse(aEvent.at) > Date.parse(bEvent.at))),
+    "Claude A lacks an unchanged idle event after Claude B activity");
+    summary.claudeCode = {
       labels: ["A", "B"],
       eventCount: claudeA.length + claudeB.length,
       advancingEventCount: a.advancing.length + b.advancing.length,
@@ -241,9 +266,8 @@ async function run() {
       currentDataWindowMinutes: 60,
       currentDataWindowTechnicalChecks: "pass",
       crossSessionIsolationChecks: "pass",
-    },
-    privacyShapeChecks: "pass",
-  };
+    };
+  }
   const outputPath = path.join(root, "verification-summary.json");
   const temporaryPath = `${outputPath}.tmp`;
   await writeFile(temporaryPath, `${JSON.stringify(summary, null, 2)}\n`, { mode: 0o600 });

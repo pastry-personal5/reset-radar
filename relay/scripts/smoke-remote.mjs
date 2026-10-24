@@ -41,13 +41,13 @@ export async function runFiniteSmoke(originInput, secrets, fetchImplementation =
   const call = (path, options) => relayRequest(fetchImplementation, origin, path, options);
   const callError = async (path, options, code) => {
     const response = await call(path, options);
-    parseErrorResponse(response.text, code);
+    parseErrorResponse(response.text, code, path.startsWith("/v2/refresh-requests") ? 2 : 1);
     return response;
   };
 
   await call("/v1/relay", { expectedStatus: 204, label: "initial destruction", method: "DELETE", token: secrets.adminToken });
   await call("/v1/readers", { expectedStatus: 200, label: "administration authority preflight", token: secrets.adminToken });
-  await call("/v1/refresh-requests", { expectedStatus: 200, label: "write authority preflight", token: secrets.writeToken });
+  await call("/v2/refresh-requests", { expectedStatus: 200, label: "write authority preflight", token: secrets.writeToken });
   const crossoverEnvelope = canonicalJSON(createSyntheticEnvelope(1, { key, publisherID }).envelope);
   await callError("/v1/snapshot", { body: crossoverEnvelope, expectedStatus: 401, label: "admin-to-write crossover", method: "PUT", token: secrets.adminToken }, "unauthorized");
   await callError("/v1/readers", { expectedStatus: 401, label: "write-to-admin crossover", token: secrets.writeToken }, "unauthorized");
@@ -91,10 +91,10 @@ export async function runFiniteSmoke(originInput, secrets, fetchImplementation =
   await callError("/v1/snapshot", { body: firstText, expectedStatus: 409, label: "sequence replay", method: "PUT", token: secrets.writeToken }, "sequenceConflict");
   await callError("/v1/snapshot", { body: canonicalJSON(createSyntheticEnvelope(2, { key, publisherID: randomIdentifier(32) }).envelope), expectedStatus: 409, label: "publisher mismatch", method: "PUT", token: secrets.writeToken }, "publisherMismatch");
 
-  const refreshBody = canonicalJSON({ protocolVersion: 1, requestID });
-  parseExpiryResponse((await call("/v1/refresh-requests", { body: refreshBody, expectedStatus: 202, label: "refresh request", method: "POST", token: secrets.readTokens[0] })).text);
-  const listedOnce = (await call("/v1/refresh-requests", { expectedStatus: 200, label: "refresh poll", token: secrets.writeToken })).text;
-  const listedTwice = (await call("/v1/refresh-requests", { expectedStatus: 200, label: "non-consuming refresh poll", token: secrets.writeToken })).text;
+  const refreshBody = canonicalJSON({ protocolVersion: 2, requestID, target: "allCodex" });
+  parseExpiryResponse((await call("/v2/refresh-requests", { body: refreshBody, expectedStatus: 202, label: "refresh request", method: "POST", token: secrets.readTokens[0] })).text, 2);
+  const listedOnce = (await call("/v2/refresh-requests", { expectedStatus: 200, label: "refresh poll", token: secrets.writeToken })).text;
+  const listedTwice = (await call("/v2/refresh-requests", { expectedStatus: 200, label: "non-consuming refresh poll", token: secrets.writeToken })).text;
   const requests = parseRefreshList(listedOnce);
   parseRefreshList(listedTwice);
   if (listedOnce !== listedTwice || requests.length !== 1 || requests[0].requestID !== requestID) {
@@ -105,9 +105,9 @@ export async function runFiniteSmoke(originInput, secrets, fetchImplementation =
   const resultRead = await call("/v1/snapshot", { bodyLimit: SNAPSHOT_BODY_LIMIT, expectedStatus: 200, label: "manual result read", token: secrets.readTokens[0] });
   reader.commit(resultRead.text);
   if (reader.cache?.requestID !== requestID) throw new HarnessFailure("Manual result did not match its request.");
-  await call(`/v1/refresh-requests/${requestID}`, { expectedStatus: 204, label: "refresh acknowledgement", method: "DELETE", token: secrets.writeToken });
-  await callError("/v1/refresh-requests", { body: refreshBody, expectedStatus: 409, label: "completed request replay", method: "POST", token: secrets.readTokens[0] }, "requestAlreadyCompleted");
-  await callError("/v1/refresh-requests", { body: canonicalJSON({ protocolVersion: 1, requestID: randomIdentifier() }), expectedStatus: 429, label: "refresh rate limit", method: "POST", token: secrets.readTokens[0] }, "requestRateLimited");
+  await call(`/v2/refresh-requests/${requestID}`, { expectedStatus: 204, label: "refresh acknowledgement", method: "DELETE", token: secrets.writeToken });
+  await callError("/v2/refresh-requests", { body: refreshBody, expectedStatus: 409, label: "completed request replay", method: "POST", token: secrets.readTokens[0] }, "requestAlreadyCompleted");
+  await callError("/v2/refresh-requests", { body: canonicalJSON({ protocolVersion: 2, requestID: randomIdentifier(), target: "allCodex" }), expectedStatus: 429, label: "refresh rate limit", method: "POST", token: secrets.readTokens[0] }, "requestRateLimited");
 
   await call(`/v1/readers/${ids[0]}`, { expectedStatus: 204, label: "reader revocation", method: "DELETE", token: secrets.adminToken });
   await callError("/v1/snapshot", { expectedStatus: 401, label: "revoked reader", token: secrets.readTokens[0] }, "unauthorized");

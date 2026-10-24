@@ -10,6 +10,7 @@ public enum ReportState: String, TolerantEnum, CaseIterable, Hashable {
 public enum ProviderLimitState: String, TolerantEnum, CaseIterable, Hashable {
     case reached
     case ordinaryUsageAllowed
+    case ordinaryUsageDisallowed
     case unknown
 }
 
@@ -79,6 +80,7 @@ public struct RawObservation: Codable, Equatable, Sendable {
 
 /// The unvalidated wire shape of a window, as decoded from a snapshot or built by an adapter.
 public struct RawWindow: Codable, Equatable, Sendable {
+    public var accountID: String
     public var product: String
     public var accountScope: String?
     public var limitID: String
@@ -91,11 +93,12 @@ public struct RawWindow: Codable, Equatable, Sendable {
     public var providerLimitState: ProviderLimitState?
 
     public init(
-        product: String, accountScope: String? = nil, limitID: String, label: String? = nil,
-        durationMinutes: Int? = nil, isDefaultLimit: Bool, reportState: ReportState,
-        resetsAt: Date? = nil, observation: RawObservation? = nil,
+        accountID: String, product: String, accountScope: String? = nil, limitID: String,
+        label: String? = nil, durationMinutes: Int? = nil, isDefaultLimit: Bool,
+        reportState: ReportState, resetsAt: Date? = nil, observation: RawObservation? = nil,
         providerLimitState: ProviderLimitState? = nil
     ) {
+        self.accountID = accountID
         self.product = product
         self.accountScope = accountScope
         self.limitID = limitID
@@ -110,6 +113,7 @@ public struct RawWindow: Codable, Equatable, Sendable {
 }
 
 public struct AllowanceWindow: Codable, Hashable, Sendable {
+    public let accountID: AccountID
     public let product: ProductID
     public let scope: AccountScope?
     public let limitID: String
@@ -123,10 +127,12 @@ public struct AllowanceWindow: Codable, Hashable, Sendable {
 
     public var id: WindowID {
         WindowID(
-            product: product, scope: scope, limitID: limitID, durationMinutes: durationMinutes)
+            accountID: accountID, product: product, scope: scope, limitID: limitID,
+            durationMinutes: durationMinutes)
     }
 
     public init(validating raw: RawWindow) throws(WindowValidationError) {
+        guard let accountID = AccountID(hex: raw.accountID) else { throw .invalidIdentifier }
         guard let product = ProductID(rawValue: raw.product) else { throw .unknownProduct }
         guard !raw.limitID.isEmpty else { throw .invalidIdentifier }
         var scope: AccountScope?
@@ -146,6 +152,7 @@ public struct AllowanceWindow: Codable, Hashable, Sendable {
                 sourceVersion: rawObservation.sourceVersion,
                 fractionDigits: rawObservation.fractionDigits)
         }
+        self.accountID = accountID
         self.product = product
         self.scope = scope
         self.limitID = raw.limitID
@@ -159,6 +166,7 @@ public struct AllowanceWindow: Codable, Hashable, Sendable {
     }
 
     private init(copying other: AllowanceWindow, reportState: ReportState) {
+        self.accountID = other.accountID
         self.product = other.product
         self.scope = other.scope
         self.limitID = other.limitID
@@ -178,8 +186,9 @@ public struct AllowanceWindow: Codable, Hashable, Sendable {
 
     var raw: RawWindow {
         RawWindow(
-            product: product.rawValue, accountScope: scope?.hex, limitID: limitID, label: label,
-            durationMinutes: durationMinutes, isDefaultLimit: isDefaultLimit,
+            accountID: accountID.hex, product: product.rawValue, accountScope: scope?.hex,
+            limitID: limitID, label: label, durationMinutes: durationMinutes,
+            isDefaultLimit: isDefaultLimit,
             reportState: reportState, resetsAt: resetsAt,
             observation: observation.map {
                 RawObservation(

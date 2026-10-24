@@ -9,8 +9,8 @@ import Testing
     static let events: [DiagnosticEvent] = [
         .invalidWindow(.invalidPercentage, product: .codex, at: at(0)),
         .unknownProduct(at: at(0)),
-        .duplicateWindow(product: .claudeCode, at: at(0)),
-        .ambiguousHomeSlot(.codexWeekly, at: at(0)),
+        .duplicateWindow(accountID: claudeAccountID, product: .claudeCode, at: at(0)),
+        .ambiguousAccountWindow(codexWeekly, product: .codex, at: at(0)),
         .invalidHeartbeat(at: at(0)),
         .unsupportedSchema(found: 9, supported: 1...1, at: at(0)),
         .publicationStopped(httpStatusClass: 4, lastSequence: 7, at: at(0)),
@@ -27,9 +27,11 @@ import Testing
     @Test func encodedValuesAreEnumsNumbersAndDates() throws {
         let allowed = Set(
             DiagnosticEvent.Category.allCases.map(\.rawValue) + ProductID.allCases.map(\.rawValue)
-                + HomeSlot.allCases.map(\.rawValue) + TransportStatus.allCases.map(\.rawValue) + [
+                + TransportStatus.allCases.map(\.rawValue) + [
+                    codexAccountID.hex,
+                    claudeAccountID.hex,
                     try wire([at(0)])
-                        .trimmingCharacters(in: CharacterSet(charactersIn: "[]\""))
+                        .trimmingCharacters(in: CharacterSet(charactersIn: "[]\"")),
                 ])
         for event in Self.events {
             let object = try #require(

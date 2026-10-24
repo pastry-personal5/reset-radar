@@ -1,6 +1,6 @@
 {
   "operation": "postRefreshRequest",
   "status": 400,
-  "requestBody": "{\"protocolVersion\":1,\"requestID\":\"56565656565656565656565656565656\"}",
-  "responseBody": "{\"code\":\"badRequest\",\"protocolVersion\":1}"
+  "requestBody": "{\"protocolVersion\":2,\"requestID\":\"56565656565656565656565656565656\",\"target\":\"allCodex\"}",
+  "responseBody": "{\"code\":\"badRequest\",\"protocolVersion\":2}"
 }

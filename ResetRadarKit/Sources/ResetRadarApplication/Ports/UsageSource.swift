@@ -2,6 +2,7 @@ import ResetRadarDomain
 
 /// One product's source on the Mac.
 public protocol UsageSource: Sendable {
+    var accountID: AccountID { get }
     var product: ProductID { get }
     var updates: AsyncStream<SourceSnapshot> { get }
     func start() async throws

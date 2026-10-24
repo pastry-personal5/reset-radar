@@ -10,12 +10,13 @@ import errorAwaitingFirstPublish from "../../Fixtures/Protocol/error-awaiting-fi
 import errorBadRequest from "../../Fixtures/Protocol/error-bad-request.json";
 import errorPayloadTooLarge from "../../Fixtures/Protocol/error-payload-too-large.json";
 import errorReaderCapReached from "../../Fixtures/Protocol/error-reader-cap-reached.json";
-import errorRequestAlreadyCompleted from "../../Fixtures/Protocol/error-request-already-completed.json";
-import errorRequestRateLimited from "../../Fixtures/Protocol/error-request-rate-limited.json";
 import errorSequenceConflict from "../../Fixtures/Protocol/error-sequence-conflict.json";
 import errorUnauthorized from "../../Fixtures/Protocol/error-unauthorized.json";
 import errorUnknownRoute from "../../Fixtures/Protocol/error-unknown-route.json";
 import errorUnsupportedVersion from "../../Fixtures/Protocol/error-unsupported-version.json";
+import errorRefreshPayloadTooLarge from "../../Fixtures/Protocol/error-refresh-payload-too-large.json";
+import errorRefreshRequestAlreadyCompleted from "../../Fixtures/Protocol/error-refresh-request-already-completed.json";
+import errorRefreshRequestRateLimited from "../../Fixtures/Protocol/error-refresh-request-rate-limited.json";
 import activate from "../../Fixtures/Protocol/operation-reader-activate.json";
 import listReaders from "../../Fixtures/Protocol/operation-reader-list.json";
 import registerReader from "../../Fixtures/Protocol/operation-reader-register.json";
@@ -86,7 +87,7 @@ async function objectStorage<T>(callback: (state: DurableObjectState) => T | Pro
   return runInDurableObject(stub, (_instance, state) => callback(state));
 }
 
-describe("Relay Worker v1", () => {
+describe("Relay Worker v1 snapshots and v2 refresh", () => {
   it("canonicalizes nested response objects recursively", () => {
     expect(canonicalJSON({ values: [{ z: 1, a: 2 }] })).toBe('{"values":[{"a":2,"z":1}]}');
   });
@@ -216,7 +217,11 @@ describe("Relay Worker v1", () => {
     const refresh = stalled(
       tokens.reader,
       postRefresh.path,
-      JSON.stringify({ protocolVersion: 1, requestID: "59595959595959595959595959595959" }),
+      JSON.stringify({
+        protocolVersion: 2,
+        requestID: "59595959595959595959595959595959",
+        target: "allCodex",
+      }),
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
     for (const id of [readerOneID, readerTwoID]) {
@@ -313,7 +318,7 @@ describe("Relay Worker v1", () => {
   });
 
   it("enforces streamed limits before media-type validation and rejects noncanonical JSON", async () => {
-    const oversizedRefresh = await request(postRefresh.path, postRefresh.method, tokens.reader, "x".repeat(129), {
+    const oversizedRefresh = await request(postRefresh.path, postRefresh.method, tokens.reader, "x".repeat(193), {
       "Content-Length": "1",
       "Content-Type": "text/plain",
     });
@@ -321,13 +326,14 @@ describe("Relay Worker v1", () => {
 
     expect((await register()).status).toBe(200);
     expect((await activateReader()).status).toBe(200);
-    const oversizedAuthenticatedRefresh = await request(postRefresh.path, postRefresh.method, tokens.reader, "x".repeat(129), {
+    const oversizedAuthenticatedRefresh = await request(postRefresh.path, postRefresh.method, tokens.reader, "x".repeat(193), {
       "Content-Length": "1",
       "Content-Type": "text/plain",
     });
-    expect(oversizedAuthenticatedRefresh.status).toBe(errorPayloadTooLarge.status);
+    expect(oversizedAuthenticatedRefresh.status).toBe(errorRefreshPayloadTooLarge.status);
+    expect(await oversizedAuthenticatedRefresh.text()).toBe(errorRefreshPayloadTooLarge.body);
 
-    const wrongMediaType = await SELF.fetch("https://relay.invalid/v1/refresh-requests", {
+    const wrongMediaType = await SELF.fetch("https://relay.invalid/v2/refresh-requests", {
       body: postRefresh.requestBody,
       headers: { Authorization: `Bearer ${tokens.reader}`, "Content-Type": "text/plain" },
       method: "POST",
@@ -360,9 +366,9 @@ describe("Relay Worker v1", () => {
 
     expect((await register()).status).toBe(200);
     expect((await activateReader()).status).toBe(200);
-    for (const size of [127, 128, 129]) {
+    for (const size of [191, 192, 193]) {
       const response = await request(postRefresh.path, postRefresh.method, tokens.reader, "x".repeat(size));
-      expect(response.status).toBe(size > 128 ? 413 : 400);
+      expect(response.status).toBe(size > 192 ? 413 : 400);
     }
   });
 
@@ -434,7 +440,11 @@ describe("Relay Worker v1", () => {
     ];
     const mailbox = await Promise.all(winners.map((winner, index) =>
       request(postRefresh.path, postRefresh.method, winner.token,
-        JSON.stringify({ protocolVersion: 1, requestID: requestIDs[index] }))));
+        JSON.stringify({
+          protocolVersion: 2,
+          requestID: requestIDs[index],
+          target: "allCodex",
+        }))));
     expect(mailbox.map((response) => response.status)).toEqual([202, 202, 202]);
     const listed = JSON.parse(await (await request(listRefresh.path, listRefresh.method, tokens.writer)).text()) as {
       requests: Array<{ readerID: string; requestID: string }>;
@@ -460,8 +470,8 @@ describe("Relay Worker v1", () => {
     expect(await retry.text()).toBe(postRefresh.responseBody);
     const rateLimited = await request(postRefresh.path, postRefresh.method, tokens.reader,
       postRefresh.requestBody.replaceAll("56565656565656565656565656565656", "57575757575757575757575757575757"));
-    expect(rateLimited.status).toBe(errorRequestRateLimited.status);
-    expect(await rateLimited.text()).toBe(errorRequestRateLimited.body);
+    expect(rateLimited.status).toBe(errorRefreshRequestRateLimited.status);
+    expect(await rateLimited.text()).toBe(errorRefreshRequestRateLimited.body);
 
     const requests = await request(listRefresh.path, listRefresh.method, tokens.writer);
     expect(requests.status).toBe(listRefresh.status);
@@ -482,8 +492,104 @@ describe("Relay Worker v1", () => {
     expect(await acknowledged.text()).toBe(deleteRefresh.responseBody);
     expect((await request(deleteRefresh.path, deleteRefresh.method, tokens.writer)).status).toBe(204);
     const completedReplay = await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody);
-    expect(completedReplay.status).toBe(errorRequestAlreadyCompleted.status);
-    expect(await completedReplay.text()).toBe(errorRequestAlreadyCompleted.body);
+    expect(completedReplay.status).toBe(errorRefreshRequestAlreadyCompleted.status);
+    expect(await completedReplay.text()).toBe(errorRefreshRequestAlreadyCompleted.body);
+  });
+
+  it("stores strict account targets and keeps the rate limit reader-global", async () => {
+    expect((await register()).status).toBe(200);
+    expect((await activateReader()).status).toBe(200);
+    await setClock(refreshStart);
+    const requestID = "60606060606060606060606060606060";
+    const accountID = "61616161616161616161616161616161";
+    const accountBody = JSON.stringify({ accountID, protocolVersion: 2, requestID, target: "account" });
+    const posted = await request(postRefresh.path, postRefresh.method, tokens.reader, accountBody);
+    expect(posted.status).toBe(202);
+    expect((await request(postRefresh.path, postRefresh.method, tokens.reader, accountBody)).status).toBe(202);
+
+    const listed = await request(listRefresh.path, listRefresh.method, tokens.writer);
+    expect(JSON.parse(await listed.text()).requests).toEqual([{
+      accountID,
+      expiresAt: "2023-11-14T22:18:20.000Z",
+      readerID: readerOneID,
+      requestID,
+      target: "account",
+    }]);
+
+    const changedTarget = JSON.stringify({ protocolVersion: 2, requestID, target: "allCodex" });
+    expect((await request(postRefresh.path, postRefresh.method, tokens.reader, changedTarget)).status).toBe(400);
+    const differentID = JSON.stringify({
+      protocolVersion: 2,
+      requestID: "62626262626262626262626262626262",
+      target: "allCodex",
+    });
+    expect((await request(postRefresh.path, postRefresh.method, tokens.reader, differentID)).status).toBe(429);
+
+    const malformedBodies = [
+      JSON.stringify({ accountID, protocolVersion: 2, requestID, target: "allCodex" }),
+      JSON.stringify({ protocolVersion: 2, requestID, target: "account" }),
+      JSON.stringify({ protocolVersion: 2, requestID, target: "codex" }),
+      JSON.stringify({ extra: true, protocolVersion: 2, requestID, target: "allCodex" }),
+      JSON.stringify({ accountID: "A".repeat(32), protocolVersion: 2, requestID, target: "account" }),
+    ];
+    for (const body of malformedBodies) {
+      expect((await request(postRefresh.path, postRefresh.method, tokens.reader, body)).status).toBe(400);
+    }
+    const oldVersion = JSON.stringify({ protocolVersion: 1, requestID, target: "allCodex" });
+    expect((await request(postRefresh.path, postRefresh.method, tokens.reader, oldVersion)).status).toBe(422);
+  });
+
+  it("migrates schema 1 in place while preserving readers and the stored snapshot", async () => {
+    const storedEnvelope = JSON.parse(envelope.outerJSON) as {
+      publisherID: string;
+      sequence: number;
+    };
+    await objectStorage((state) => {
+      state.storage.sql.exec("CREATE TABLE relay_schema (id INTEGER PRIMARY KEY CHECK (id = 1), version INTEGER NOT NULL)");
+      state.storage.sql.exec("CREATE TABLE relay_state (id INTEGER PRIMARY KEY CHECK (id = 1), publisher_id TEXT NOT NULL, last_sequence INTEGER NOT NULL, envelope TEXT NOT NULL, etag TEXT NOT NULL, accepted_at INTEGER NOT NULL)");
+      state.storage.sql.exec("CREATE TABLE readers (reader_id TEXT PRIMARY KEY, token_digest TEXT NOT NULL UNIQUE, activated INTEGER NOT NULL, pending_expires_at INTEGER NOT NULL, last_accepted_at INTEGER, last_accepted_id TEXT, last_completed_id TEXT)");
+      state.storage.sql.exec("CREATE TABLE refresh_requests (request_id TEXT PRIMARY KEY, reader_id TEXT NOT NULL UNIQUE, accepted_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)");
+      state.storage.sql.exec("INSERT INTO relay_schema (id, version) VALUES (1, 1)");
+      state.storage.sql.exec(
+        "INSERT INTO relay_state (id, publisher_id, last_sequence, envelope, etag, accepted_at) VALUES (1, ?, ?, ?, ?, ?)",
+        storedEnvelope.publisherID, storedEnvelope.sequence, envelope.outerJSON, envelope.etag,
+        refreshStart,
+      );
+      state.storage.sql.exec(
+        "INSERT INTO readers (reader_id, token_digest, activated, pending_expires_at, last_accepted_at, last_accepted_id, last_completed_id) VALUES (?, ?, 1, ?, NULL, NULL, NULL)",
+        readerOneID, digests.reader, registrationStart + 300_000,
+      );
+      state.storage.sql.exec(
+        "INSERT INTO refresh_requests (request_id, reader_id, accepted_at, expires_at) VALUES (?, ?, ?, ?)",
+        "63636363636363636363636363636363", readerOneID, refreshStart, refreshStart + 60_000,
+      );
+    });
+
+    const migrated = await request(listRefresh.path, listRefresh.method, tokens.writer);
+    expect(migrated.status).toBe(200);
+    expect(await migrated.text()).toBe('{"protocolVersion":2,"requests":[]}');
+    const stored = await objectStorage((state) => ({
+      columns: state.storage.sql.exec("PRAGMA table_info(refresh_requests)").toArray().map((row) => row.name),
+      reader: state.storage.sql.exec("SELECT reader_id, token_digest, activated FROM readers").toArray(),
+      refreshCount: state.storage.sql.exec("SELECT COUNT(*) AS n FROM refresh_requests").one().n,
+      schema: state.storage.sql.exec("SELECT version FROM relay_schema WHERE id = 1").one().version,
+      snapshot: state.storage.sql.exec("SELECT publisher_id, last_sequence, envelope, etag FROM relay_state WHERE id = 1").one(),
+    }));
+    expect(stored.schema).toBe(2);
+    expect(stored.columns).toEqual([
+      "request_id", "reader_id", "target", "account_id", "accepted_at", "expires_at",
+    ]);
+    expect(stored.refreshCount).toBe(0);
+    expect(stored.reader).toEqual([{ activated: 1, reader_id: readerOneID, token_digest: digests.reader }]);
+    expect(stored.snapshot).toEqual({
+      envelope: envelope.outerJSON,
+      etag: envelope.etag,
+      last_sequence: storedEnvelope.sequence,
+      publisher_id: storedEnvelope.publisherID,
+    });
+    const snapshot = await request(getSnapshot.path, getSnapshot.method, tokens.reader);
+    expect(snapshot.status).toBe(200);
+    expect(await snapshot.text()).toBe(envelope.outerJSON);
   });
 
   it("uses relay time at registration and refresh expiry boundaries", async () => {
@@ -527,7 +633,8 @@ describe("Relay Worker v1", () => {
     const newerID = postRefresh.requestBody.replaceAll("56565656565656565656565656565656", "57575757575757575757575757575757");
     expect((await request(postRefresh.path, postRefresh.method, tokens.reader, newerID)).status).toBe(202);
     const completedReplayWhileNewerPending = await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody);
-    expect(completedReplayWhileNewerPending.status).toBe(errorRequestAlreadyCompleted.status);
+    expect(completedReplayWhileNewerPending.status)
+      .toBe(errorRefreshRequestAlreadyCompleted.status);
   });
 
   it("expires pending readers before a registration cap check without expiring activated readers", async () => {
@@ -581,7 +688,7 @@ describe("Relay Worker v1", () => {
 
     expect((await request(revokeReader.path, revokeReader.method, tokens.admin)).status).toBe(204);
     const requests = await request(listRefresh.path, listRefresh.method, tokens.writer);
-    expect(await requests.text()).toBe("{\"protocolVersion\":1,\"requests\":[]}");
+    expect(await requests.text()).toBe("{\"protocolVersion\":2,\"requests\":[]}");
     expect((await request(postRefresh.path, postRefresh.method, tokens.reader, postRefresh.requestBody)).status).toBe(401);
   });
 
@@ -595,7 +702,7 @@ describe("Relay Worker v1", () => {
     expect(await destroyed.text()).toBe(destroyRelay.responseBody);
     expect((await request(getSnapshot.path, getSnapshot.method, tokens.reader)).status).toBe(401);
     expect(await (await request(listRefresh.path, listRefresh.method, tokens.writer)).text())
-      .toBe("{\"protocolVersion\":1,\"requests\":[]}");
+      .toBe("{\"protocolVersion\":2,\"requests\":[]}");
     const newPublisher = putSnapshot.requestBody
       .replaceAll("2323232323232323232323232323232323232323232323232323232323232323", "2424242424242424242424242424242424242424242424242424242424242424")
       .replace("\"sequence\":7", "\"sequence\":1");
@@ -605,7 +712,7 @@ describe("Relay Worker v1", () => {
     expect((await register()).status).toBe(200);
     const stub = env.RELAY.get(env.RELAY.idFromName("relay"));
     await runInDurableObject(stub, (_instance, state) => {
-      state.storage.sql.exec("UPDATE relay_schema SET version = 2 WHERE id = 1");
+      state.storage.sql.exec("UPDATE relay_schema SET version = 3 WHERE id = 1");
     });
     const unavailable = await request("/v1/nope", "GET");
     expect(unavailable.status).toBe(503);

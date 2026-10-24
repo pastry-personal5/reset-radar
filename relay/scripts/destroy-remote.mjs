@@ -12,7 +12,7 @@ export async function destroyRemote(originInput, { adminToken, writeToken }, fet
   for (let attempt = 0; attempt < 2; attempt += 1) {
     await relayRequest(fetchImplementation, origin, "/v1/relay", { expectedStatus: 204, label: "relay destruction", method: "DELETE", token: adminToken });
   }
-  const requests = parseRefreshList((await relayRequest(fetchImplementation, origin, "/v1/refresh-requests", { expectedStatus: 200, label: "empty request state", token: writeToken })).text);
+  const requests = parseRefreshList((await relayRequest(fetchImplementation, origin, "/v2/refresh-requests", { expectedStatus: 200, label: "empty request state", token: writeToken })).text);
   if (requests.length !== 0) throw new HarnessFailure("Relay destruction left active requests.");
   const probeID = randomIdentifier();
   let probeToken;

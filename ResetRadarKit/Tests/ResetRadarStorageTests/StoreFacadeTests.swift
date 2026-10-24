@@ -62,16 +62,16 @@ struct DefaultsPreferenceStoreTests {
         return (UserDefaults(suiteName: name)!, name)
     }
 
-    @Test func optInIsPerSlotAndNilUntilSet() async {
+    @Test func optInIsPerAccountWindowAndNilUntilSet() async {
         let (defaults, name) = suite()
         defer { defaults.removePersistentDomain(forName: name) }
         let store = DefaultsPreferenceStore(defaults: defaults)
-        for slot in HomeSlot.allCases { #expect(await store.notificationOptIn(slot) == nil) }
-        await store.setNotificationOptIn(.codexWeekly, enabled: true)
-        await store.setNotificationOptIn(.codexFiveHour, enabled: false)
-        #expect(await store.notificationOptIn(.codexWeekly) == true)
-        #expect(await store.notificationOptIn(.codexFiveHour) == false)
-        #expect(await store.notificationOptIn(.claudeCodeWeekly) == nil)
+        #expect(await store.notificationOptIn(codexWeekly) == nil)
+        await store.setNotificationOptIn(codexWeekly, enabled: true)
+        await store.setNotificationOptIn(codexFiveHour, enabled: false)
+        #expect(await store.notificationOptIn(codexWeekly) == true)
+        #expect(await store.notificationOptIn(codexFiveHour) == false)
+        #expect(await store.notificationOptIn(otherWeekly) == nil)
     }
 
     @Test func complicationDefaultsToFalse() async {
@@ -91,10 +91,10 @@ struct DefaultsPreferenceStoreTests {
             second.removePersistentDomain(forName: secondName)
         }
         await DefaultsPreferenceStore(defaults: first).setNotificationOptIn(
-            .codexWeekly, enabled: true)
+            codexWeekly, enabled: true)
         await DefaultsPreferenceStore(defaults: first).setComplicationEnabled(true)
         let other = DefaultsPreferenceStore(defaults: second)
-        #expect(await other.notificationOptIn(.codexWeekly) == nil)
+        #expect(await other.notificationOptIn(codexWeekly) == nil)
         #expect(await other.complicationEnabled() == false)
     }
 }

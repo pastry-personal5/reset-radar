@@ -12,13 +12,20 @@ public final class FakeUsageSource: UsageSource, @unchecked Sendable {
         var startFailure = false
     }
 
+    public let accountID: AccountID
     public let product: ProductID
     public let updates: AsyncStream<SourceSnapshot>
     private let continuation: AsyncStream<SourceSnapshot>.Continuation
     private let clock: any AppClock
     private let state = Locked(State())
 
-    public init(product: ProductID, clock: any AppClock) {
+    public init(accountID: AccountID? = nil, product: ProductID, clock: any AppClock) {
+        self.accountID =
+            accountID
+            ?? AccountID(
+                data: Data(
+                    repeating: product == .codex ? 0xC0 : 0xC1,
+                    count: AccountID.byteCount))!
         self.product = product
         self.clock = clock
         (updates, continuation) = AsyncStream.makeStream()
@@ -52,6 +59,7 @@ public final class FakeUsageSource: UsageSource, @unchecked Sendable {
 
 public enum FakeConfigurationError: Error, Equatable, Sendable {
     case unsafeExistingConfiguration
+    case unknownOption
 }
 
 public final class FakeSourceConfigurator: SourceConfigurator, @unchecked Sendable {
@@ -60,25 +68,41 @@ public final class FakeSourceConfigurator: SourceConfigurator, @unchecked Sendab
         var applied: [ConfigurationPreview] = []
         var restores = 0
         var previews = 0
+        var removed: [AccountID] = []
     }
 
     public let product: ProductID
+    public let option: ConfigurationOption
     private let state = Locked(State())
 
     public init(product: ProductID, configuration: ConfigurationState = .notConfigured) {
         self.product = product
+        option = ConfigurationOption(
+            id: ConfigurationOptionID(), product: product,
+            launch: ConfigurationLaunchPreview(
+                executablePath: "/synthetic/provider", environment: []))
         state.withLock { $0.configuration = configuration }
     }
 
     public var applied: [ConfigurationPreview] { state.withLock { $0.applied } }
     public var restoreCount: Int { state.withLock { $0.restores } }
     public var previewCount: Int { state.withLock { $0.previews } }
+    public var removed: [AccountID] { state.withLock { $0.removed } }
 
-    public func inspect() async -> ConfigurationState { state.withLock { $0.configuration } }
+    public func inspect(accountID: AccountID?) async -> ConfigurationState {
+        state.withLock { $0.configuration }
+    }
 
-    public func preview() async throws -> ConfigurationPreview {
+    public func discover() async throws -> [ConfigurationOption] { [option] }
+
+    public func preview(
+        optionID: ConfigurationOptionID, intent: ConfigurationIntent
+    ) async throws -> ConfigurationPreview {
+        guard optionID == option.id else { throw FakeConfigurationError.unknownOption }
         state.withLock { $0.previews += 1 }
-        return ConfigurationPreview(product: product, change: .install)
+        return ConfigurationPreview(
+            product: product, optionID: optionID, revision: ConfigurationPreviewRevision(),
+            intent: intent, launch: option.launch)
     }
 
     public func apply(_ preview: ConfigurationPreview) async throws {
@@ -88,6 +112,13 @@ public final class FakeSourceConfigurator: SourceConfigurator, @unchecked Sendab
             }
             state.applied.append(preview)
             state.configuration = .configured
+        }
+    }
+
+    public func remove(accountID: AccountID) async throws {
+        state.withLock {
+            $0.removed.append(accountID)
+            $0.configuration = .notConfigured
         }
     }
 

@@ -12,8 +12,8 @@ private let origin = Date(timeIntervalSinceReferenceDate: 800_000_000)
 
 private func emptySnapshot() throws -> UsageSnapshot {
     try UsageSnapshot(
-        publisherID: publisherID, generatedAt: origin, heartbeatSeconds: 300, sources: [],
-        windows: [])
+        publisherID: publisherID, generatedAt: origin, heartbeatSeconds: 300, accounts: [],
+        sources: [], windows: [])
 }
 
 @Suite struct ClockContractTests {
@@ -233,23 +233,39 @@ private func emptySnapshot() throws -> UsageSnapshot {
 }
 
 @Suite struct SystemFakeContractTests {
+    @Test func deferredReadReceiptCannotMasqueradeAsAPhysicalRead() {
+        let receipt = ReadReceipt.deferred(
+            retryAt: origin.addingTimeInterval(60), sourceState: .sourceOffline)
+        #expect(!receipt.performedAfter(origin))
+        #expect(!receipt.performedSuccessfully)
+        #expect(receipt.report == nil)
+    }
+
     @Test func configuratorRefusesAnUnsafeExistingCommand() async {
         let configurator = FakeSourceConfigurator(product: .claudeCode, configuration: .unsafe)
         await #expect(throws: FakeConfigurationError.unsafeExistingConfiguration) {
             try await configurator.apply(
-                ConfigurationPreview(product: .claudeCode, change: .install))
+                ConfigurationPreview(
+                    product: .claudeCode, optionID: configurator.option.id,
+                    revision: ConfigurationPreviewRevision(), intent: .add,
+                    launch: configurator.option.launch))
         }
         #expect(configurator.applied.isEmpty)
     }
 
-    @Test func schedulerKeepsOneRequestPerSlotAndRequestsAuthorizationOnce() async throws {
+    @Test func schedulerKeepsOneRequestPerAccountWindowAndRequestsAuthorizationOnce() async throws {
         let scheduler = FakeNotificationScheduler(authorization: .notDetermined)
         #expect(await scheduler.requestAuthorization() == .authorized)
-        try await scheduler.schedule(ResetRequest(slot: .codexFiveHour, fireAt: origin))
+        let accountID = AccountID(data: Data(repeating: 0xC1, count: 16))!
+        let fiveHour = AccountWindow(accountID: accountID, window: .fiveHour)
+        let weekly = AccountWindow(accountID: accountID, window: .weekly)
+        try await scheduler.schedule(ResetRequest(accountWindow: fiveHour, fireAt: origin))
         try await scheduler.schedule(
-            ResetRequest(slot: .codexFiveHour, fireAt: origin.addingTimeInterval(60)))
+            ResetRequest(accountWindow: fiveHour, fireAt: origin.addingTimeInterval(60)))
         #expect(await scheduler.pending().count == 1)
-        #expect(ResetRequest(slot: .codexWeekly, fireAt: origin).identifier == "reset.codexWeekly")
+        #expect(
+            ResetRequest(accountWindow: weekly, fireAt: origin).identifier
+                == "reset.\(accountID.hex).weekly")
     }
 
     @Test func diagnosticsKeepHistoryInOrder() async {

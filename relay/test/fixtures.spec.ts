@@ -23,6 +23,8 @@ import errorPayloadTooLarge from "../../Fixtures/Protocol/error-payload-too-larg
 import errorUnsupportedVersion from "../../Fixtures/Protocol/error-unsupported-version.json";
 import errorRequestRate from "../../Fixtures/Protocol/error-request-rate-limited.json";
 import errorQuota from "../../Fixtures/Protocol/error-quota-limited.json";
+import errorRefreshBadRequest from "../../Fixtures/Protocol/error-refresh-bad-request.json";
+import errorRefreshRequestCompleted from "../../Fixtures/Protocol/error-refresh-request-already-completed.json";
 import scenarioReaderRetry from "../../Fixtures/Protocol/scenario-reader-retry.json";
 import scenarioReaderChanged from "../../Fixtures/Protocol/scenario-reader-changed-digest.json";
 import scenarioReaderReused from "../../Fixtures/Protocol/scenario-reader-reused-digest.json";
@@ -96,14 +98,14 @@ const operations = [
 it("validates every shared operation body and route fixture", () => {
   expect(operations).toHaveLength(10);
   for (const fixture of operations) {
-    expect(fixture.path).toMatch(/^\/v1\//);
+    expect(fixture.path).toMatch(/^\/v[12]\//);
     expect(["GET", "PUT", "POST", "DELETE"]).toContain(fixture.method);
     expect(["read", "write", "admin"]).toContain(fixture.authority);
     for (const body of [fixture.requestBody, fixture.responseBody]) {
       if (body === "") { continue; }
       const parsed = JSON.parse(body) as Record<string, unknown>;
       expect(canonical(parsed)).toBe(body);
-      expect(parsed.protocolVersion).toBe(1);
+      expect(parsed.protocolVersion).toBe(fixture.path.startsWith("/v2/") ? 2 : 1);
     }
     if (fixture.status === 204) { expect(fixture.responseBody).toBe(""); }
   }
@@ -147,13 +149,17 @@ it("pins registration, refresh-ID, and sequence-boundary decisions", () => {
   expect(scenarioReaderRetry.responseBody).toBe(opReaderRegister.responseBody);
   for (const scenario of [
     scenarioReaderChanged, scenarioReaderReused, scenarioReaderPrivileged,
-    scenarioRefreshExpired, scenarioRefreshCrossReader, scenarioSequenceOverflow,
+    scenarioSequenceOverflow,
   ]) {
     expect(scenario.status).toBe(400);
     expect(scenario.responseBody).toBe(errorBadRequest.body);
   }
+  for (const scenario of [scenarioRefreshExpired, scenarioRefreshCrossReader]) {
+    expect(scenario.status).toBe(400);
+    expect(scenario.responseBody).toBe(errorRefreshBadRequest.body);
+  }
   expect(scenarioRefreshCompleted.status).toBe(409);
-  expect(scenarioRefreshCompleted.responseBody).toBe(errorRequestCompleted.body);
+  expect(scenarioRefreshCompleted.responseBody).toBe(errorRefreshRequestCompleted.body);
   const overflow = JSON.parse(scenarioSequenceOverflow.requestBody) as Record<string, unknown>;
   expect(Number.isSafeInteger(overflow.sequence)).toBe(false);
   expect(overflow.sequence).toBe(9_007_199_254_740_992);

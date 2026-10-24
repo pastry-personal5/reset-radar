@@ -1,10 +1,10 @@
 import Foundation
 import ResetRadarDomain
 
-/// Plain values of Domain types and dates: no strings, no formatting. The UI turns them into text.
-public struct HomeCell: Sendable, Equatable {
-    public let slot: HomeSlot
-    public let resolution: HomeSlotResolution
+/// Plain values of Domain types and dates: no localized copy or formatting.
+public struct AccountRingSummary: Sendable, Equatable {
+    public let accountWindow: AccountWindow
+    public let resolution: AccountWindowResolution
     public let presentation: PresentationState
     public let usedPercent: Double?
     public let resetsAt: Date?
@@ -14,10 +14,16 @@ public struct HomeCell: Sendable, Equatable {
 }
 
 public struct HomeReadModel: Sendable, Equatable {
-    /// Always four cells, in `HomeSlot.allCases` order.
-    public let cells: [HomeCell]
-    /// The earliest `nextChange` of any cell: when the UI must load again.
+    public let accounts: [AccountRow]
+    /// The earliest ring change: when the UI must load again.
     public let nextChange: Date?
+}
+
+public struct AccountRow: Sendable, Equatable {
+    public let account: AccountMetadata
+    public let source: AccountSource
+    /// Five-hour then weekly, including unavailable resolutions.
+    public let standardWindows: [AccountRingSummary]
 }
 
 public struct WindowDetails: Sendable, Equatable {
@@ -26,17 +32,28 @@ public struct WindowDetails: Sendable, Equatable {
     public let nextChange: Date?
 }
 
-public struct ProductDetails: Sendable, Equatable {
-    public let product: ProductID
-    public let source: ProductSource?
+public struct AccountDetails: Sendable, Equatable {
+    public let account: AccountMetadata
+    public let source: AccountSource
     public let windows: [WindowDetails]
 }
 
 public struct UsageDetailsReadModel: Sendable, Equatable {
-    public let products: [ProductDetails]
+    public let accounts: [AccountDetails]
     /// `nil` when there is no snapshot to judge.
     public let macLive: Bool?
     public let transport: TransportStatus
+}
+
+public enum AccountDisplayOrder {
+    public static func sorted(_ accounts: [AccountMetadata]) -> [AccountMetadata] {
+        accounts.sorted { left, right in
+            let comparison = left.effectiveDisplayLabel.localizedStandardCompare(
+                right.effectiveDisplayLabel)
+            return comparison == .orderedSame
+                ? left.number < right.number : comparison == .orderedAscending
+        }
+    }
 }
 
 public enum PairingState: Sendable, Equatable {

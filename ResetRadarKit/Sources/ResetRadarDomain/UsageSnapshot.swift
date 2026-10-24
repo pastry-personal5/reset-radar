@@ -2,12 +2,13 @@ import Foundation
 
 public enum UsageSnapshotError: Error, Equatable, Sendable {
     case invalidHeartbeat
+    case invalidAccountReferences
 }
 
 /// The unit the Mac publishes.
 public struct UsageSnapshot: Codable, Hashable, Sendable {
-    public static let supportedSchemaVersions = 1...1
-    public static let currentSchemaVersion = SchemaVersion(rawValue: 1)
+    public static let supportedSchemaVersions = 2...2
+    public static let currentSchemaVersion = SchemaVersion(rawValue: 2)
     /// Heartbeats outside `1...maximumHeartbeatSeconds` are rejected: zero would mark the Mac
     /// never publishing, and an absurd value would hide an outage.
     public static let maximumHeartbeatSeconds = 3_600
@@ -16,35 +17,40 @@ public struct UsageSnapshot: Codable, Hashable, Sendable {
     public let publisherID: PublisherID
     public let generatedAt: Date
     public let heartbeatSeconds: Int
-    public let sources: [ProductSource]
+    public let accounts: [AccountMetadata]
+    public let sources: [AccountSource]
     public let windows: [AllowanceWindow]
     public let diagnostics: [DiagnosticEvent]
     public let manualRefreshResults: [ManualRefreshResult]
 
     public init(
         publisherID: PublisherID, generatedAt: Date, heartbeatSeconds: Int,
-        sources: [ProductSource], windows: [AllowanceWindow],
+        accounts: [AccountMetadata], sources: [AccountSource], windows: [AllowanceWindow],
         diagnostics: [DiagnosticEvent] = [], manualRefreshResults: [ManualRefreshResult] = []
     ) throws(UsageSnapshotError) {
         guard (1...Self.maximumHeartbeatSeconds).contains(heartbeatSeconds) else {
             throw .invalidHeartbeat
         }
+        guard Self.referencesAreValid(accounts: accounts, sources: sources, windows: windows) else {
+            throw .invalidAccountReferences
+        }
         self.schemaVersion = Self.currentSchemaVersion
         self.publisherID = publisherID
         self.generatedAt = generatedAt
         self.heartbeatSeconds = heartbeatSeconds
+        self.accounts = accounts
         self.sources = sources
         self.windows = windows
         self.diagnostics = diagnostics
         self.manualRefreshResults = manualRefreshResults
     }
 
-    public func source(for product: ProductID) -> ProductSource? {
-        sources.first { $0.product == product }
+    public func source(for accountID: AccountID) -> AccountSource? {
+        sources.first { $0.accountID == accountID }
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, publisherID, generatedAt, heartbeatSeconds, sources, windows
+        case schemaVersion, publisherID, generatedAt, heartbeatSeconds, accounts, sources, windows
         case diagnostics, manualRefreshResults
     }
 
@@ -61,15 +67,47 @@ public struct UsageSnapshot: Codable, Hashable, Sendable {
         guard (1...Self.maximumHeartbeatSeconds).contains(heartbeatSeconds) else {
             throw UsageSnapshotError.invalidHeartbeat
         }
-        sources = try container.decode([ProductSource].self, forKey: .sources)
+        let catalog = try AccountCatalog(
+            validating: container.decode([AccountMetadata].self, forKey: .accounts))
+        accounts = catalog.accounts
+        sources = try container.decode([AccountSource].self, forKey: .sources)
         let rawWindows = try container.decode([RawWindow].self, forKey: .windows)
+        guard
+            rawWindows.allSatisfy({ raw in
+                guard let accountID = AccountID(hex: raw.accountID),
+                    let account = catalog.account(id: accountID),
+                    account.product.rawValue == raw.product
+                else { return false }
+                return true
+            })
+        else { throw UsageSnapshotError.invalidAccountReferences }
         let validation = WindowValidation.validate(rawWindows, now: generatedAt)
         windows = validation.valid
+        guard Self.referencesAreValid(accounts: accounts, sources: sources, windows: windows) else {
+            throw UsageSnapshotError.invalidAccountReferences
+        }
         let wireDiagnostics =
             try container.decodeIfPresent([DiagnosticEvent].self, forKey: .diagnostics) ?? []
         diagnostics = wireDiagnostics + validation.diagnostics
         manualRefreshResults =
             try container.decodeIfPresent([ManualRefreshResult].self, forKey: .manualRefreshResults)
             ?? []
+    }
+
+    private static func referencesAreValid(
+        accounts: [AccountMetadata], sources: [AccountSource], windows: [AllowanceWindow]
+    ) -> Bool {
+        guard let catalog = try? AccountCatalog(validating: accounts) else { return false }
+        guard Set(sources.map(\.accountID)).count == sources.count,
+            Set(sources.map(\.accountID)) == Set(accounts.map(\.id))
+        else { return false }
+        guard
+            sources.allSatisfy({ source in
+                catalog.account(id: source.accountID)?.product == source.product
+            })
+        else { return false }
+        return windows.allSatisfy { window in
+            catalog.account(id: window.accountID)?.product == window.product
+        }
     }
 }

@@ -26,8 +26,8 @@ const REVIEWED_PATHS = [
   /^\/v1\/readers$/,
   /^\/v1\/readers\/activate$/,
   /^\/v1\/readers\/[0-9a-f]{32}$/,
-  /^\/v1\/refresh-requests$/,
-  /^\/v1\/refresh-requests\/[0-9a-f]{32}$/,
+  /^\/v2\/refresh-requests$/,
+  /^\/v2\/refresh-requests\/[0-9a-f]{32}$/,
 ];
 
 export class HarnessFailure extends Error {}
@@ -206,9 +206,10 @@ function isCanonicalTimestamp(value) {
   return !Number.isNaN(milliseconds) && new Date(milliseconds).toISOString() === value;
 }
 
-export function parseExpiryResponse(text) {
+export function parseExpiryResponse(text, protocolVersion = 1) {
   const value = parseCanonicalResponse(text);
-  if (!hasExactKeys(value, ["expiresAt", "protocolVersion"]) || value.protocolVersion !== 1 ||
+  if (!hasExactKeys(value, ["expiresAt", "protocolVersion"]) ||
+      value.protocolVersion !== protocolVersion ||
       !isCanonicalTimestamp(value.expiresAt)) throw new HarnessFailure("Relay returned an invalid expiry response.");
   return value;
 }
@@ -230,9 +231,10 @@ export function parsePublicationResponse(text, expectedSequence) {
   return value;
 }
 
-export function parseErrorResponse(text, expectedCode) {
+export function parseErrorResponse(text, expectedCode, protocolVersion = 1) {
   const value = parseCanonicalResponse(text);
-  if (!hasExactKeys(value, ["code", "protocolVersion"]) || value.protocolVersion !== 1 ||
+  if (!hasExactKeys(value, ["code", "protocolVersion"]) ||
+      value.protocolVersion !== protocolVersion ||
       value.code !== expectedCode) throw new HarnessFailure("Relay returned an invalid error response.");
   return value;
 }
@@ -251,9 +253,13 @@ export function parseReaderList(text) {
 
 export function parseRefreshList(text) {
   const value = parseCanonicalResponse(text);
-  if (!hasExactKeys(value, ["protocolVersion", "requests"]) || value.protocolVersion !== 1 ||
+  if (!hasExactKeys(value, ["protocolVersion", "requests"]) || value.protocolVersion !== 2 ||
       !Array.isArray(value.requests) || value.requests.some((request) =>
-        !hasExactKeys(request, ["expiresAt", "readerID", "requestID"]) ||
+        (request.target === "account"
+          ? !hasExactKeys(request, ["accountID", "expiresAt", "readerID", "requestID", "target"]) ||
+            !/^[0-9a-f]{32}$/.test(request.accountID)
+          : request.target !== "allCodex" ||
+            !hasExactKeys(request, ["expiresAt", "readerID", "requestID", "target"])) ||
         !isCanonicalTimestamp(request.expiresAt) || !/^[0-9a-f]{32}$/.test(request.readerID) ||
         !/^[0-9a-f]{32}$/.test(request.requestID)) || value.requests.length > 3 ||
       new Set(value.requests.map((request) => request.readerID)).size !== value.requests.length ||

@@ -38,7 +38,6 @@ private final class ParkingStep: AfterCommitStep, @unchecked Sendable {
     }
 }
 
-/// An iPhone whose reader state lives in files; `openStore()` is a relaunch.
 private final class ReaderRig: @unchecked Sendable {
     let directory = TemporaryDirectory()
     let clock = FakeAppClock(start: epoch)
@@ -134,8 +133,8 @@ struct ReaderIntegrationTests {
 
     @Test func anInterruptedManualWaitResumesFromDiskWithoutReposting() async throws {
         let rig = try await ReaderRig()
-        let marker = PendingManualRequest(
-            requestID: requestID(1), deadline: rig.clock.now.addingTimeInterval(10))
+        let due = rig.clock.now.addingTimeInterval(10)
+        let marker = PendingManualRequest(requestID: requestID(1), target: .allCodex, deadline: due)
         try await rig.openStore().transact { $0.pendingManualRequest = marker }
         rig.relay.queueGet(rig.envelope(sequence: 5))
         let store = rig.openStore()
@@ -384,12 +383,14 @@ struct PublisherIntegrationTests {
                 publisher: store, snapshots: snapshots,
                 collector: CollectUsage(
                     snapshots: snapshots, diagnostics: rig.sink, clock: rig.clock,
+                    catalogStore: FakeAccountCatalogStore(accounts: snapshot().accounts),
                     publisherID: publisher, heartbeatSeconds: 300),
                 sources: [codex, claude], publishing: rig.makePublisher(store),
                 secrets: rig.secrets, relay: rig.relay, clock: rig.clock)
         }
+        let expiry = rig.clock.now.addingTimeInterval(60)
         let request = PendingRefreshRequest(
-            id: requestID(1), readerID: readerA, expiresAt: rig.clock.now.addingTimeInterval(60))
+            id: requestID(1), readerID: readerA, target: .allCodex, expiresAt: expiry)
         _ = await makeHandler().handle(pending: [request])
         rig.clock.advance(by: 40)
         _ = await makeHandler().handle(pending: [request])

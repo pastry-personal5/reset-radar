@@ -37,10 +37,12 @@ public struct FetchClaim: Codable, Sendable, Equatable {
 
 public struct PendingManualRequest: Codable, Sendable, Equatable {
     public let requestID: RequestID
+    public let target: ManualRefreshTarget
     public let deadline: Date
 
-    public init(requestID: RequestID, deadline: Date) {
+    public init(requestID: RequestID, target: ManualRefreshTarget, deadline: Date) {
         self.requestID = requestID
+        self.target = target
         self.deadline = deadline
     }
 }
@@ -68,15 +70,16 @@ public struct ConfirmedWatchErasure: Codable, Sendable, Equatable {
 /// What the last complication transfer carried, to detect a change since.
 public struct ComplicationValues: Codable, Sendable, Equatable {
     public struct Cell: Codable, Sendable, Equatable {
-        public let slot: HomeSlot
+        public let accountWindow: AccountWindow
         public let usedPercent: Double?
         public let resetsAt: Date?
         public let sourceState: SourceState?
 
         public init(
-            slot: HomeSlot, usedPercent: Double?, resetsAt: Date?, sourceState: SourceState?
+            accountWindow: AccountWindow, usedPercent: Double?, resetsAt: Date?,
+            sourceState: SourceState?
         ) {
-            self.slot = slot
+            self.accountWindow = accountWindow
             self.usedPercent = usedPercent
             self.resetsAt = resetsAt
             self.sourceState = sourceState

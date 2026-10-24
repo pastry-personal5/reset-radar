@@ -1,32 +1,63 @@
 import Foundation
 import ResetRadarDomain
 
+public struct SnapshotAssemblyContext: Sendable {
+    public let accounts: [AccountMetadata]
+    public let publisherID: PublisherID
+    public let heartbeatSeconds: Int
+    public let now: Date
+
+    public init(
+        accounts: [AccountMetadata], publisherID: PublisherID, heartbeatSeconds: Int, now: Date
+    ) {
+        self.accounts = accounts
+        self.publisherID = publisherID
+        self.heartbeatSeconds = heartbeatSeconds
+        self.now = now
+    }
+}
+
 /// Merges source reports into the authoritative snapshot and classifies what changed. Pure.
 public enum SnapshotReducer {
     public static func reduce(
-        previous: UsageSnapshot?, reports: [SourceSnapshot], publisherID: PublisherID,
-        heartbeatSeconds: Int, now: Date
+        previous: UsageSnapshot?, reports: [SourceSnapshot], context: SnapshotAssemblyContext
     ) throws(UsageSnapshotError) -> (snapshot: UsageSnapshot, change: ChangeClass) {
+        let accounts = context.accounts
+        let now = context.now
         var sources = previous?.sources ?? []
         var windows = previous?.windows ?? []
         var diagnostics: [DiagnosticEvent] = []
+        let accountIDs = Set(accounts.map(\.id))
+        sources.removeAll { !accountIDs.contains($0.accountID) }
+        windows.removeAll { !accountIDs.contains($0.accountID) }
+        for account in accounts where !sources.contains(where: { $0.accountID == account.id }) {
+            sources.append(
+                AccountSource(
+                    accountID: account.id, product: account.product,
+                    kind: account.product == .codex ? .codexAppServer : .claudeCodeStatusLine,
+                    version: "", state: .unavailable))
+        }
         for report in reports {
             merge(report.source, into: &sources)
+            if report.clearsWindows {
+                windows.removeAll { $0.accountID == report.source.accountID }
+            }
             guard report.isCompleteReport else { continue }
             let accepted = acceptedWindows(of: report, now: now, diagnostics: &diagnostics)
-            windows = merged(windows, with: accepted, product: report.source.product)
+            windows = merged(windows, with: accepted, accountID: report.source.accountID)
         }
         windows.removeAll { isExpiredRetained($0, now: now) }
         let results = ManualRefreshResults.retained(previous?.manualRefreshResults ?? [], now: now)
         let snapshot = try UsageSnapshot(
-            publisherID: publisherID, generatedAt: now, heartbeatSeconds: heartbeatSeconds,
-            sources: sources, windows: windows, diagnostics: diagnostics,
+            publisherID: context.publisherID, generatedAt: now,
+            heartbeatSeconds: context.heartbeatSeconds,
+            accounts: accounts, sources: sources, windows: windows, diagnostics: diagnostics,
             manualRefreshResults: results)
         return (snapshot, classify(previous: previous, current: snapshot))
     }
 
-    private static func merge(_ source: ProductSource, into sources: inout [ProductSource]) {
-        if let index = sources.firstIndex(where: { $0.product == source.product }) {
+    private static func merge(_ source: AccountSource, into sources: inout [AccountSource]) {
+        if let index = sources.firstIndex(where: { $0.accountID == source.accountID }) {
             sources[index] = source
         } else {
             sources.append(source)
@@ -40,11 +71,16 @@ public enum SnapshotReducer {
         var seen: Set<WindowID> = []
         var accepted: [AllowanceWindow] = []
         for window in report.windows {
-            if window.product != report.source.product {
+            let belongsToSource =
+                window.accountID == report.source.accountID
+                && window.product == report.source.product
+            if !belongsToSource {
                 diagnostics.append(
                     .invalidWindow(.unknownProduct, product: report.source.product, at: now))
             } else if !seen.insert(window.id).inserted {
-                diagnostics.append(.duplicateWindow(product: window.product, at: now))
+                diagnostics.append(
+                    .duplicateWindow(
+                        accountID: window.accountID, product: window.product, at: now))
             } else {
                 accepted.append(window)
             }
@@ -53,14 +89,14 @@ public enum SnapshotReducer {
     }
 
     private static func merged(
-        _ existing: [AllowanceWindow], with accepted: [AllowanceWindow], product: ProductID
+        _ existing: [AllowanceWindow], with accepted: [AllowanceWindow], accountID: AccountID
     ) -> [AllowanceWindow] {
         let reportedScopes = Set(accepted.compactMap(\.scope))
         var remaining = Dictionary(
             accepted.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var result: [AllowanceWindow] = []
         for window in existing {
-            if window.product != product {
+            if window.accountID != accountID {
                 result.append(window)
             } else if let replacement = remaining.removeValue(forKey: window.id) {
                 result.append(replacement)
@@ -81,18 +117,18 @@ public enum SnapshotReducer {
         return !reportedScopes.isEmpty && !reportedScopes.contains(scope)
     }
 
-    /// A retained window that resolves to no Home slot is dropped once its reset passes, or at
-    /// once if it has no reset instant. A retained Home window stays; Domain shows it unavailable.
+    /// A retained non-standard window is dropped once its reset passes, or at once if it has no
+    /// reset instant. A retained standard window stays; Domain shows it unavailable.
     private static func isExpiredRetained(_ window: AllowanceWindow, now: Date) -> Bool {
-        guard window.reportState == .retained, !isHomeWindow(window) else { return false }
+        guard window.reportState == .retained, !isStandardWindow(window) else { return false }
         guard let resetsAt = window.resetsAt else { return true }
         return resetsAt <= now
     }
 
-    private static func isHomeWindow(_ window: AllowanceWindow) -> Bool {
+    private static func isStandardWindow(_ window: AllowanceWindow) -> Bool {
         window.isDefaultLimit
-            && HomeSlot.allCases.contains {
-                $0.product == window.product && $0.durationMinutes == window.durationMinutes
+            && AccountWindow.StandardWindow.allCases.contains {
+                $0.durationMinutes == window.durationMinutes
             }
     }
 

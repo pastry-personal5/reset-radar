@@ -63,7 +63,8 @@ public actor ForwardToWatch: AfterCommitStep {
     private static func watchCopy(of snapshot: UsageSnapshot) -> UsageSnapshot {
         let stripped = try? UsageSnapshot(
             publisherID: snapshot.publisherID, generatedAt: snapshot.generatedAt,
-            heartbeatSeconds: snapshot.heartbeatSeconds, sources: snapshot.sources,
+            heartbeatSeconds: snapshot.heartbeatSeconds, accounts: snapshot.accounts,
+            sources: snapshot.sources,
             windows: snapshot.windows, diagnostics: snapshot.diagnostics)
         return stripped ?? snapshot
     }
@@ -99,15 +100,23 @@ public actor ForwardToWatch: AfterCommitStep {
 
     static func complicationValues(of snapshot: UsageSnapshot, now: Date) -> ComplicationValues {
         ComplicationValues(
-            cells: HomeSlot.allCases.map { slot in
-                let (resolution, _) = HomeSlotResolver.resolve(slot, in: snapshot, now: now)
-                guard case .window(let window) = resolution else {
-                    return .init(slot: slot, usedPercent: nil, resetsAt: nil, sourceState: nil)
+            cells: AccountDisplayOrder.sorted(snapshot.accounts).flatMap { account in
+                AccountWindow.StandardWindow.allCases.map { standardWindow in
+                    let accountWindow = AccountWindow(
+                        accountID: account.id, window: standardWindow)
+                    let (resolution, _) = AccountWindowResolver.resolve(
+                        accountWindow, in: snapshot, now: now)
+                    guard case .window(let window) = resolution else {
+                        return .init(
+                            accountWindow: accountWindow, usedPercent: nil, resetsAt: nil,
+                            sourceState: snapshot.source(for: account.id)?.state)
+                    }
+                    return .init(
+                        accountWindow: accountWindow,
+                        usedPercent: window.observation?.usedPercent,
+                        resetsAt: window.resetsAt,
+                        sourceState: snapshot.source(for: account.id)?.state)
                 }
-                return .init(
-                    slot: slot, usedPercent: window.observation?.usedPercent,
-                    resetsAt: window.resetsAt,
-                    sourceState: snapshot.source(for: slot.product)?.state)
             })
     }
 }

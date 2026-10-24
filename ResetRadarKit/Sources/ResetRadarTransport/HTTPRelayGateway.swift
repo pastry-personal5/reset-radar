@@ -49,12 +49,14 @@ public final class HTTPRelayGateway: RelayGateway, @unchecked Sendable {
     }
 
     public func postRefreshRequest(
-        _ id: RequestID, endpoint: URL, readToken: SecretValue
+        _ id: RequestID, target: ManualRefreshTarget, endpoint: URL,
+        readToken: SecretValue
     ) async -> RelayOutcome {
-        let body = try? WireCoding.encoder().encode(RequestIDBody(requestID: id))
-        guard let body, body.count <= 128 else { return .protocolFailure }
+        let body = try? WireCoding.encoder().encode(
+            RefreshRequestBody(requestID: id, target: target))
+        guard let body, body.count <= 192 else { return .protocolFailure }
         return await perform(
-            .postRefreshRequest, method: "POST", path: "/v1/refresh-requests",
+            .postRefreshRequest, method: "POST", path: "/v2/refresh-requests",
             endpoint: endpoint, token: readToken, body: body
         ).outcome
     }
@@ -63,7 +65,7 @@ public final class HTTPRelayGateway: RelayGateway, @unchecked Sendable {
         endpoint: URL, writeToken: SecretValue
     ) async -> RelayResponse<[PendingRefreshRequest]> {
         let mapped = await perform(
-            .listRefreshRequests, method: "GET", path: "/v1/refresh-requests",
+            .listRefreshRequests, method: "GET", path: "/v2/refresh-requests",
             endpoint: endpoint, token: writeToken)
         if case .refreshRequests(let requests) = mapped { return .value(requests) }
         return .outcome(mapped.outcome)
@@ -74,7 +76,7 @@ public final class HTTPRelayGateway: RelayGateway, @unchecked Sendable {
     ) async -> RelayOutcome {
         await perform(
             .deleteRefreshRequest, method: "DELETE",
-            path: "/v1/refresh-requests/\(id.hex)", endpoint: endpoint,
+            path: "/v2/refresh-requests/\(id.hex)", endpoint: endpoint,
             token: writeToken
         ).outcome
     }
@@ -202,9 +204,23 @@ private final class RedirectRejector: NSObject, URLSessionTaskDelegate, @uncheck
     }
 }
 
-private struct RequestIDBody: Encodable {
-    let protocolVersion = 1
+private struct RefreshRequestBody: Encodable {
+    let protocolVersion = 2
     let requestID: RequestID
+    let target: String
+    let accountID: AccountID?
+
+    init(requestID: RequestID, target: ManualRefreshTarget) {
+        self.requestID = requestID
+        switch target {
+        case .account(let accountID):
+            self.target = "account"
+            self.accountID = accountID
+        case .allCodex:
+            self.target = "allCodex"
+            self.accountID = nil
+        }
+    }
 }
 
 private struct DigestBody: Encodable {

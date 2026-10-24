@@ -87,9 +87,11 @@ public actor ForgetMac {
         } catch {
             return .cleanupPending
         }
-        for slot in HomeSlot.allCases {
-            await notifications.cancel(slot: slot)
-            await activities.end(slot: slot)
+        for request in await notifications.pending() {
+            await notifications.cancel(accountWindow: request.accountWindow)
+        }
+        for activity in await activities.list() {
+            await activities.end(accountWindow: activity.accountWindow)
         }
         reloader.reloadWidgets()
         do {

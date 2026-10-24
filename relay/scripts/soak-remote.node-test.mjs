@@ -17,14 +17,14 @@ import {
 } from "./soak-remote.mjs";
 import { SAMPLE_SECONDS, sampleWorkload, SLOT_SECONDS } from "./harness-core.mjs";
 
-const expiry = '{"expiresAt":"2023-11-14T22:18:20.000Z","protocolVersion":1}';
+const expiry = '{"expiresAt":"2023-11-14T22:18:20.000Z","protocolVersion":2}';
 
 test("manual request response classification distinguishes relay and unrecognized 429", () => {
-  assert.equal(parseManualRequestResponse({ status: 202, text: expiry }).protocolVersion, 1);
+  assert.equal(parseManualRequestResponse({ status: 202, text: expiry }).protocolVersion, 2);
   assert.throws(
     () => parseManualRequestResponse({
       status: 429,
-      text: '{"code":"requestRateLimited","protocolVersion":1}',
+      text: '{"code":"requestRateLimited","protocolVersion":2}',
     }),
     /Relay rate-limited a scheduled manual request/,
   );

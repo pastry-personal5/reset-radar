@@ -2,7 +2,8 @@ import Foundation
 import ResetRadarApplication
 import ResetRadarDomain
 
-/// Typed per-device preferences. Notification opt-in is stored per slot and never synchronized.
+/// Typed per-device preferences. Notification opt-in is stored per account window and never
+/// synchronized.
 public struct DefaultsPreferenceStore: PreferenceStore {
     private static let complicationKey = "complicationEnabled"
 
@@ -13,18 +14,18 @@ public struct DefaultsPreferenceStore: PreferenceStore {
         self.defaults = defaults
     }
 
-    private static func optInKey(_ slot: HomeSlot) -> String {
-        "notificationOptIn.\(slot.rawValue)"
+    private static func optInKey(_ accountWindow: AccountWindow) -> String {
+        "notificationOptIn.\(accountWindow.accountID.hex).\(accountWindow.window.rawValue)"
     }
 
-    public func notificationOptIn(_ slot: HomeSlot) async -> Bool? {
-        let key = Self.optInKey(slot)
+    public func notificationOptIn(_ accountWindow: AccountWindow) async -> Bool? {
+        let key = Self.optInKey(accountWindow)
         guard defaults.object(forKey: key) != nil else { return nil }
         return defaults.bool(forKey: key)
     }
 
-    public func setNotificationOptIn(_ slot: HomeSlot, enabled: Bool) async {
-        defaults.set(enabled, forKey: Self.optInKey(slot))
+    public func setNotificationOptIn(_ accountWindow: AccountWindow, enabled: Bool) async {
+        defaults.set(enabled, forKey: Self.optInKey(accountWindow))
     }
 
     public func complicationEnabled() async -> Bool {

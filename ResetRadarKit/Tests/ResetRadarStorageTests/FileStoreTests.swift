@@ -177,7 +177,8 @@ struct FileReaderStoreTests {
             $0.committedSequence = 5
             $0.etag = "\"abc\""
             $0.lease = FetchClaim(id: UUID(), expiresAt: at(30))
-            $0.pendingManualRequest = PendingManualRequest(requestID: requestID(2), deadline: at(9))
+            $0.pendingManualRequest = PendingManualRequest(
+                requestID: requestID(2), target: .allCodex, deadline: at(9))
             $0.watchErasePending = WatchErasure(clear: watchPayload(4, cleared: true))
             $0.lastWatchPayload = watchPayload(3)
             $0.complicationTransfers = [at(1), at(2)]
@@ -290,7 +291,7 @@ struct NestedSchemaTests {
             try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
         var payload = try #require(object["payload"] as? [String: Any])
         var nested = try #require(payload["snapshot"] as? [String: Any])
-        nested["schemaVersion"] = 2
+        nested["schemaVersion"] = 3
         payload["snapshot"] = nested
         object["payload"] = payload
         let edited = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
@@ -302,10 +303,10 @@ struct NestedSchemaTests {
         let directory = TemporaryDirectory()
         let edited = try await bundleWithNewerSnapshot(directory)
         let store = FileReaderStore(locations: locations(directory))
-        await #expect(throws: StorageFailure.incompatible(foundVersion: 2)) {
+        await #expect(throws: StorageFailure.incompatible(foundVersion: 3)) {
             try await store.load()
         }
-        await #expect(throws: StorageFailure.incompatible(foundVersion: 2)) {
+        await #expect(throws: StorageFailure.incompatible(foundVersion: 3)) {
             try await store.transact { $0.failureCount += 1 }
         }
         #expect(try bytesOf(directory, "reader.json") == edited)

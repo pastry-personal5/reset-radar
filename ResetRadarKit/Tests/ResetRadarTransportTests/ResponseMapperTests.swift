@@ -124,7 +124,8 @@ private func fixtureString(_ name: String, _ field: String) throws -> String {
     ]
     for row in rows {
         let fixture = try JSONDecoder().decode(
-            ErrorFixture.self, from: fixtureData("error-\(row.name)"))
+            ErrorFixture.self,
+            from: fixtureData("error\(row.operation.isRefresh ? "-refresh" : "")-\(row.name)"))
         let actual = ResponseMapper.map(
             RelayResponseContext(
                 operation: row.operation, status: fixture.status, body: Data(fixture.body.utf8),
@@ -171,7 +172,9 @@ private func fixtureString(_ name: String, _ field: String) throws -> String {
 private func mappedError(
     _ name: String, operation: TransportRelayOperation
 ) throws -> RelayOutcome {
-    let fixture = try JSONDecoder().decode(ErrorFixture.self, from: fixtureData("error-\(name)"))
+    let fixture = try JSONDecoder().decode(
+        ErrorFixture.self,
+        from: fixtureData("error\(operation.isRefresh ? "-refresh" : "")-\(name)"))
     return ResponseMapper.map(
         RelayResponseContext(
             operation: operation, status: fixture.status, body: Data(fixture.body.utf8),

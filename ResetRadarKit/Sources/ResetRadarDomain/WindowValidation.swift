@@ -16,7 +16,9 @@ public enum WindowValidation {
                 if seen.insert(window.id).inserted {
                     valid.append(window)
                 } else {
-                    diagnostics.append(.duplicateWindow(product: window.product, at: now))
+                    diagnostics.append(
+                        .duplicateWindow(
+                            accountID: window.accountID, product: window.product, at: now))
                 }
             } catch {
                 diagnostics.append(

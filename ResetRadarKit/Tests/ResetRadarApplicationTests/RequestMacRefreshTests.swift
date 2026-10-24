@@ -38,7 +38,7 @@ private func drive(_ clock: FakeAppClock, until finished: Locked<Bool>) async {
     }
 
     func postedID() -> RequestID? {
-        if case .postRefreshRequest(let id) = rig.relay.calls(.postRefreshRequest).first {
+        if case .postRefreshRequest(let id, _) = rig.relay.calls(.postRefreshRequest).first {
             return id
         }
         return nil
@@ -46,10 +46,18 @@ private func drive(_ clock: FakeAppClock, until finished: Locked<Bool>) async {
 
     func resultFor(
         _ id: RequestID, reader: ReaderID = readerA,
-        outcome: ManualRefreshResult.Outcome = .codexRead
+        outcome: ManualRefreshAccountResult.Outcome = .codexRead
     ) -> ManualRefreshResult {
-        ManualRefreshResult(
-            readerID: reader, requestID: id, completedAt: rig.clock.now, outcome: outcome)
+        do {
+            return try ManualRefreshResult(
+                readerID: reader, requestID: id, completedAt: rig.clock.now,
+                target: .allCodex,
+                accountResults: [
+                    ManualRefreshAccountResult(accountID: codexAccountID, outcome: outcome)
+                ])
+        } catch {
+            preconditionFailure("invalid fixture: \(error)")
+        }
     }
 
     @Test func aClaudeCodeOnlyActionReadsOrdinarilyAndNeverPosts() async {
@@ -77,7 +85,11 @@ private func drive(_ clock: FakeAppClock, until finished: Locked<Bool>) async {
             .notModified,
             rig.envelope(sequence: 6, results: [resultFor(id ?? requestID(0))]))
         await drive(rig.clock, until: finished)
-        #expect(await task.value == .completed(.codexRead))
+        #expect(
+            await task.value
+                == .completed([
+                    ManualRefreshAccountResult(accountID: codexAccountID, outcome: .codexRead)
+                ]))
         #expect(rig.relay.calls(.getSnapshot).count == 3)
         #expect(rig.store.state.pendingManualRequest == nil)
     }
@@ -96,7 +108,12 @@ private func drive(_ clock: FakeAppClock, until finished: Locked<Bool>) async {
         rig.relay.queueGet(
             rig.envelope(sequence: 6, results: [resultFor(id, outcome: .sourceUnavailable)]))
         await drive(rig.clock, until: finished)
-        #expect(await task.value == .completed(.sourceUnavailable))
+        #expect(
+            await task.value
+                == .completed([
+                    ManualRefreshAccountResult(
+                        accountID: codexAccountID, outcome: .sourceUnavailable)
+                ]))
     }
 
     enum Signal: CaseIterable {

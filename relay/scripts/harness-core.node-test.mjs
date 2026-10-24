@@ -69,7 +69,7 @@ test("canonical JSON recursively sorts object keys inside arrays", () => {
   assert.equal(canonicalJSON({ values: [{ z: 1, a: 2 }] }), '{"values":[{"a":2,"z":1}]}');
 });
 
-test("remote response parsers require exact canonical v1 shapes", () => {
+test("remote response parsers require exact canonical operation versions", () => {
   assert.deepEqual(parseActivationResponse('{"activated":true,"protocolVersion":1}'), {
     activated: true,
     protocolVersion: 1,
@@ -78,14 +78,16 @@ test("remote response parsers require exact canonical v1 shapes", () => {
   assert.equal(parseExpiryResponse('{"expiresAt":"2023-11-14T22:18:20.000Z","protocolVersion":1}').protocolVersion, 1);
   assert.equal(parseErrorResponse('{"code":"unauthorized","protocolVersion":1}', "unauthorized").code, "unauthorized");
   assert.deepEqual(parseReaderList('{"protocolVersion":1,"readers":[]}'), []);
-  assert.deepEqual(parseRefreshList('{"protocolVersion":1,"requests":[]}'), []);
+  assert.deepEqual(parseRefreshList('{"protocolVersion":2,"requests":[]}'), []);
+  assert.equal(parseExpiryResponse('{"expiresAt":"2023-11-14T22:18:20.000Z","protocolVersion":2}', 2).protocolVersion, 2);
+  assert.equal(parseErrorResponse('{"code":"unauthorized","protocolVersion":2}', "unauthorized", 2).protocolVersion, 2);
   for (const action of [
     () => parseActivationResponse('{"activated":false,"protocolVersion":1}'),
     () => parsePublicationResponse('{"protocolVersion":1,"sequence":8}', 7),
     () => parseExpiryResponse('{"expiresAt":"2023-11-14T22:18:20Z","protocolVersion":1}'),
     () => parseErrorResponse('{"code":"badRequest","protocolVersion":1}', "unauthorized"),
     () => parseReaderList('{"protocolVersion":1,"readers":[{"activated":true,"readerID":"45454545454545454545454545454545"},{"activated":false,"readerID":"45454545454545454545454545454545"}]}'),
-    () => parseRefreshList('{"protocolVersion":1,"requests":[{"expiresAt":"2023-11-14T22:18:20.000Z","readerID":"45454545454545454545454545454545","requestID":"56565656565656565656565656565656"},{"expiresAt":"2023-11-14T22:18:20.000Z","readerID":"45454545454545454545454545454545","requestID":"57575757575757575757575757575757"}]}'),
+    () => parseRefreshList('{"protocolVersion":2,"requests":[{"expiresAt":"2023-11-14T22:18:20.000Z","readerID":"45454545454545454545454545454545","requestID":"56565656565656565656565656565656","target":"allCodex"},{"expiresAt":"2023-11-14T22:18:20.000Z","readerID":"45454545454545454545454545454545","requestID":"57575757575757575757575757575757","target":"allCodex"}]}'),
   ]) assert.throws(action, HarnessFailure);
 });
 

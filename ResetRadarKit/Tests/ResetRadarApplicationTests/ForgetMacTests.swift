@@ -93,17 +93,20 @@ final class ProbeWatchLink: WatchLink, @unchecked Sendable {
         #expect(state.transportStatus == .notPaired)
     }
 
-    @Test func successCancelsEverySlotEndsEveryActivityAndClearsTheMarker() async {
-        for slot in HomeSlot.allCases {
+    @Test func successCancelsRemindersEndsActivitiesAndClearsTheMarker() async throws {
+        let accountWindows = [codexFiveHour, codexWeekly, claudeFiveHour, claudeWeekly]
+        for accountWindow in accountWindows {
+            try await scheduler.schedule(
+                ResetRequest(accountWindow: accountWindow, fireAt: at(10)))
             activities.seed(
-                slot,
+                accountWindow,
                 content: ActivityContent(
                     windowID: window().id, usedPercent: 1, resetsAt: at(10), observedAt: at(0)),
                 staleDate: at(10))
         }
         #expect(await make(watch: FakeWatchLink()).forget() == .complete)
-        #expect(Set(scheduler.cancelled) == Set(HomeSlot.allCases))
-        #expect(Set(activities.ends) == Set(HomeSlot.allCases))
+        #expect(Set(scheduler.cancelled) == Set(accountWindows))
+        #expect(Set(activities.ends) == Set(accountWindows))
         #expect(activities.running.isEmpty)
         #expect(rig.secrets.names.isEmpty)
         #expect(!rig.store.state.forgetCleanupPending)

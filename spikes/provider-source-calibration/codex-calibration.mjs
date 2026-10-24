@@ -6,9 +6,10 @@ import process from "node:process";
 
 const LIMITS = Object.freeze({
   frameBytes: 1024 * 1024,
-  stringLength: 4 * 1024,
+  stringBytes: 4 * 1024,
   nestingDepth: 32,
-  windows: 128,
+  bucketEntries: 128,
+  candidateWindows: 128,
   requestTimeoutMs: 10_000,
 });
 const POLL_INTERVAL_MS = 5 * 60_000;
@@ -50,20 +51,36 @@ function jsonType(value) {
 }
 
 function inspectValue(root) {
-  const metrics = { maxDepth: 0, maxStringLength: 0 };
+  const metrics = { maxDepth: 0, maxStringBytes: 0 };
   const stack = [{ value: root, depth: 0 }];
   while (stack.length > 0) {
     const { value, depth } = stack.pop();
     metrics.maxDepth = Math.max(metrics.maxDepth, depth);
     if (typeof value === "string") {
-      metrics.maxStringLength = Math.max(metrics.maxStringLength, [...value].length);
+      metrics.maxStringBytes = Math.max(metrics.maxStringBytes, Buffer.byteLength(value, "utf8"));
     } else if (Array.isArray(value)) {
       for (const item of value) stack.push({ value: item, depth: depth + 1 });
     } else if (value !== null && typeof value === "object") {
-      for (const item of Object.values(value)) stack.push({ value: item, depth: depth + 1 });
+      for (const [key, item] of Object.entries(value)) {
+        metrics.maxStringBytes = Math.max(metrics.maxStringBytes, Buffer.byteLength(key, "utf8"));
+        stack.push({ value: item, depth: depth + 1 });
+      }
     }
   }
   return metrics;
+}
+
+function accountStatusShape(result) {
+  const account = result?.account;
+  const accountIsObject = account !== null && typeof account === "object" && !Array.isArray(account);
+  return {
+    accountType: account === null ? "null" : accountIsObject ? jsonType(account.type) : jsonType(account),
+    accountKind: accountIsObject && typeof account.type === "string" ? account.type : null,
+    requiresOpenaiAuthType: jsonType(result?.requiresOpenaiAuth),
+    requiresOpenaiAuth: typeof result?.requiresOpenaiAuth === "boolean"
+      ? result.requiresOpenaiAuth
+      : null,
+  };
 }
 
 function windowShape(window) {
@@ -157,7 +174,7 @@ async function run() {
   const { codexPath, reportPath, durationMinutes } = parseArguments(process.argv.slice(2));
   const startedAt = Date.now();
   const report = {
-    formatVersion: 1,
+    formatVersion: 2,
     startedAt: new Date(startedAt).toISOString(),
     limits: LIMITS,
     events: [],
@@ -220,8 +237,9 @@ async function run() {
     const bucketValues = buckets && typeof buckets === "object" && !Array.isArray(buckets)
       ? Object.values(buckets)
       : [];
-    const totalWindows = compatibility.windowCount
+    const candidateWindows = compatibility.windowCount
       + bucketValues.map((value) => snapshotShape(value).windowCount).reduce((sum, count) => sum + count, 0);
+    const accountIdentifier = result?.accountId;
     return {
       at: new Date().toISOString(),
       elapsedMs: Date.now() - startedAt,
@@ -229,6 +247,11 @@ async function run() {
       reason,
       latencyMs,
       topLevelKeys: result && typeof result === "object" ? Object.keys(result).sort() : [],
+      accountIdentifierClassification: accountIdentifier === undefined || accountIdentifier === null
+        ? "absent"
+        : typeof accountIdentifier === "string" && accountIdentifier.length > 0
+          ? "present-string"
+          : "wrong-type-or-empty",
       compatibility,
       multiBucketType: jsonType(buckets),
       multiBucketCount: bucketValues.length,
@@ -236,13 +259,15 @@ async function run() {
       defaultBucket: defaultBucketResult(result?.rateLimits, buckets),
       bounds: {
         frameBytes,
-        maxStringLength: metrics.maxStringLength,
+        maxStringBytes: metrics.maxStringBytes,
         maxDepth: metrics.maxDepth,
-        windowCount: totalWindows,
+        bucketEntryCount: bucketValues.length,
+        candidateWindowCount: candidateWindows,
         withinFrameBound: frameBytes <= LIMITS.frameBytes,
-        withinStringBound: metrics.maxStringLength <= LIMITS.stringLength,
+        withinStringBound: metrics.maxStringBytes <= LIMITS.stringBytes,
         withinDepthBound: metrics.maxDepth <= LIMITS.nestingDepth,
-        withinWindowBound: totalWindows <= LIMITS.windows,
+        withinBucketEntryBound: bucketValues.length <= LIMITS.bucketEntries,
+        withinWindowBound: candidateWindows <= LIMITS.candidateWindows,
       },
     };
   };
@@ -290,7 +315,7 @@ async function run() {
         parameterKeys: message.params && typeof message.params === "object"
           ? Object.keys(message.params).sort()
           : [],
-        maxStringLength: metrics.maxStringLength,
+        maxStringBytes: metrics.maxStringBytes,
         maxDepth: metrics.maxDepth,
       });
       const now = Date.now();
@@ -360,6 +385,26 @@ async function run() {
         : [],
     });
     send({ jsonrpc: "2.0", method: "initialized" });
+    const account = await request("account/read", { refreshToken: false });
+    if (account.error) {
+      throw new Error(`account/read returned JSON-RPC error code ${account.error.code ?? "unknown"}`);
+    }
+    const accountMetrics = inspectValue(account.result);
+    report.events.push({
+      at: new Date().toISOString(),
+      kind: "account-read",
+      latencyMs: account.latencyMs,
+      frameBytes: account.frameBytes,
+      topLevelKeys: account.result && typeof account.result === "object"
+        ? Object.keys(account.result).sort()
+        : [],
+      ...accountStatusShape(account.result),
+      bounds: {
+        withinFrameBound: account.frameBytes <= LIMITS.frameBytes,
+        withinStringBound: accountMetrics.maxStringBytes <= LIMITS.stringBytes,
+        withinDepthBound: accountMetrics.maxDepth <= LIMITS.nestingDepth,
+      },
+    });
     await calibratedRead("initial");
     const pollCount = Math.floor((durationMinutes * 60_000) / POLL_INTERVAL_MS);
     for (let poll = 0; poll < pollCount && report.failures.length === 0; poll += 1) {

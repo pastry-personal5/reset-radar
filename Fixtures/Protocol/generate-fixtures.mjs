@@ -20,9 +20,9 @@ const header = {
   sequence: 7, keyVersion: 1,
 };
 const snapshot = {
-  schemaVersion: 1, publisherID: header.publisherID,
+  schemaVersion: 2, publisherID: header.publisherID,
   generatedAt: "2023-11-14T22:13:20.000Z", heartbeatSeconds: 60,
-  sources: [], windows: [], diagnostics: [], manualRefreshResults: [],
+  accounts: [], sources: [], windows: [], diagnostics: [], manualRefreshResults: [],
 };
 const headerJSON = canonical(header);
 const plaintextJSON = canonical(snapshot);
@@ -63,12 +63,13 @@ const operations = [
   ["snapshot-get", "GET", "/v1/snapshot", "read", "", 200, outerJSON, etag],
   ["reader-activate", "POST", "/v1/readers/activate", "read", "", 200,
     canonical({ activated: true, protocolVersion: 1 }), null],
-  ["refresh-post", "POST", "/v1/refresh-requests", "read",
-    canonical({ protocolVersion: 1, requestID }), 202,
-    canonical({ expiresAt: expiry, protocolVersion: 1 }), null],
-  ["refresh-list", "GET", "/v1/refresh-requests", "write", "", 200,
-    canonical({ protocolVersion: 1, requests: [{ expiresAt: expiry, readerID, requestID }] }), null],
-  ["refresh-delete", "DELETE", `/v1/refresh-requests/${requestID}`, "write", "", 204, "", null],
+  ["refresh-post", "POST", "/v2/refresh-requests", "read",
+    canonical({ protocolVersion: 2, requestID, target: "allCodex" }), 202,
+    canonical({ expiresAt: expiry, protocolVersion: 2 }), null],
+  ["refresh-list", "GET", "/v2/refresh-requests", "write", "", 200,
+    canonical({ protocolVersion: 2,
+      requests: [{ expiresAt: expiry, readerID, requestID, target: "allCodex" }] }), null],
+  ["refresh-delete", "DELETE", `/v2/refresh-requests/${requestID}`, "write", "", 204, "", null],
   ["reader-register", "PUT", `/v1/readers/${readerID}`, "admin",
     canonical({ protocolVersion: 1, tokenDigest: digest }), 200,
     canonical({ expiresAt: expiry, protocolVersion: 1 }), null],
@@ -96,12 +97,16 @@ for (const [status, code] of errors) {
   output(`error-${filename}.json`, {
     status, code, body: canonical({ code, protocolVersion: 1 }),
   });
+  output(`error-refresh-${filename}.json`, {
+    status, code, body: canonical({ code, protocolVersion: 2 }),
+  });
 }
 
 const badRequestBody = canonical({ code: "badRequest", protocolVersion: 1 });
-const completedBody = canonical({ code: "requestAlreadyCompleted", protocolVersion: 1 });
+const refreshBadRequestBody = canonical({ code: "badRequest", protocolVersion: 2 });
+const completedBody = canonical({ code: "requestAlreadyCompleted", protocolVersion: 2 });
 const registration = canonical({ protocolVersion: 1, tokenDigest: digest });
-const refresh = canonical({ protocolVersion: 1, requestID });
+const refresh = canonical({ protocolVersion: 2, requestID, target: "allCodex" });
 const scenarios = {
   "reader-retry": ["registerReader", 200, registration,
     canonical({ expiresAt: expiry, protocolVersion: 1 })],
@@ -114,8 +119,8 @@ const scenarios = {
     canonical({ protocolVersion: 1,
       tokenDigest: createHash("sha256").update(Buffer.alloc(32, 0x11)).digest("hex") }),
     badRequestBody],
-  "refresh-expired-id": ["postRefreshRequest", 400, refresh, badRequestBody],
-  "refresh-cross-reader-id": ["postRefreshRequest", 400, refresh, badRequestBody],
+  "refresh-expired-id": ["postRefreshRequest", 400, refresh, refreshBadRequestBody],
+  "refresh-cross-reader-id": ["postRefreshRequest", 400, refresh, refreshBadRequestBody],
   "refresh-completed-id": ["postRefreshRequest", 409, refresh, completedBody],
   "sequence-overflow": ["putSnapshot", 400,
     outerJSON.replace('"sequence":7', '"sequence":9007199254740992'), badRequestBody],

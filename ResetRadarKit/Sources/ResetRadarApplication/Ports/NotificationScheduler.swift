@@ -5,5 +5,5 @@ public protocol NotificationScheduler: Sendable {
     func requestAuthorization() async -> NotificationAuthorization
     func pending() async -> [ResetRequest]
     func schedule(_ request: ResetRequest) async throws
-    func cancel(slot: HomeSlot) async
+    func cancel(accountWindow: AccountWindow) async
 }

@@ -10,6 +10,7 @@ import {
   parseEnvelope,
   parseRefreshRequest,
   parseRegistration,
+  REFRESH_PROTOCOL_VERSION,
   REFRESH_LIMIT,
   REGISTRATION_LIMIT,
   RESPONSE_LIMIT,
@@ -18,7 +19,7 @@ import {
 } from "./domain/protocol";
 
 const INTERNAL_AUTHORITY = "X-Reset-Radar-Authority";
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const READER_LIMIT = 3;
 const PENDING_READER_LIFETIME_MS = 5 * 60 * 1000;
 const REFRESH_LIFETIME_MS = 60 * 1000;
@@ -36,9 +37,22 @@ type StoredReader = {
   token_digest: string;
 };
 type StoredSnapshot = { envelope: string; etag: string; last_sequence: number; publisher_id: string };
-type StoredRefreshRequest = { accepted_at: number; expires_at: number; reader_id: string; request_id: string };
+type StoredRefreshRequest = {
+  accepted_at: number;
+  account_id: string | null;
+  expires_at: number;
+  reader_id: string;
+  request_id: string;
+  target: "account" | "allCodex";
+};
 type BodyResult = { text: string } | { error: "badRequest" | "payloadTooLarge" };
-type ResponseOptions = { bodyLimit?: number; etag?: string; noStore?: boolean; noTransform?: boolean };
+type ResponseOptions = {
+  bodyLimit?: number;
+  etag?: string;
+  noStore?: boolean;
+  noTransform?: boolean;
+  protocolVersion?: 1 | 2;
+};
 
 function success(status: number, body?: string, options: ResponseOptions = {}): Response {
   if (body !== undefined && new TextEncoder().encode(body).byteLength > (options.bodyLimit ?? RESPONSE_LIMIT)) {
@@ -54,7 +68,12 @@ function success(status: number, body?: string, options: ResponseOptions = {}): 
 function failure(code: ErrorCode, options: ResponseOptions = {}): Response {
   const headers = new Headers({ "Content-Type": "application/json" });
   if (options.noStore) headers.set("Cache-Control", options.noTransform ? "no-store, no-transform" : "no-store");
-  return new Response(errorBody(code), { headers, status: statusFor(code) });
+  return new Response(errorBody(code, options.protocolVersion), { headers, status: statusFor(code) });
+}
+
+function isV2RefreshRoute(url: URL): boolean {
+  return url.pathname === "/v2/refresh-requests" ||
+    /^\/v2\/refresh-requests\/[0-9a-f]{32}$/.test(url.pathname);
 }
 
 function statusFor(code: ErrorCode): number {
@@ -75,8 +94,8 @@ function fixedRouteAuthority(request: Request): InternalAuthority | undefined {
   if (url.search !== "") return undefined;
   if (request.method === "PUT" && url.pathname === "/v1/snapshot") return "write";
   if (
-    (request.method === "GET" && url.pathname === "/v1/refresh-requests") ||
-    (request.method === "DELETE" && /^\/v1\/refresh-requests\/[0-9a-f]{32}$/.test(url.pathname))
+    (request.method === "GET" && url.pathname === "/v2/refresh-requests") ||
+    (request.method === "DELETE" && /^\/v2\/refresh-requests\/[0-9a-f]{32}$/.test(url.pathname))
   ) return "write";
   if (
     (request.method === "PUT" && /^\/v1\/readers\/[0-9a-f]{32}$/.test(url.pathname)) ||
@@ -143,8 +162,14 @@ export class RelayObject extends DurableObject {
   override async fetch(request: Request): Promise<Response> {
     try {
       const url = new URL(request.url);
+      const fail = (code: ErrorCode, options: ResponseOptions = {}): Response =>
+        failure(code, {
+          ...options,
+          protocolVersion: isV2RefreshRoute(url) ? REFRESH_PROTOCOL_VERSION : 1,
+        });
       const schemaState = this.schemaState();
-      if (schemaState === "unavailable") return failure("relayUnavailable");
+      if (schemaState === "unavailable") return fail("relayUnavailable");
+      if (schemaState === "migrate" && !this.ensureSchema()) return fail("relayUnavailable");
       if (schemaState === "missing") {
         if (
           url.search === "" && request.method === "DELETE" && url.pathname === "/v1/relay" &&
@@ -154,46 +179,64 @@ export class RelayObject extends DurableObject {
           return "error" in empty ? failure(empty.error) : success(204);
         }
         if (this.isInternal(request, "admin") || this.isInternal(request, "write")) {
-          if (!this.ensureSchema()) return failure("relayUnavailable");
+          if (!this.ensureSchema()) return fail("relayUnavailable");
         } else if (url.search === "" && (
           (request.method === "GET" && url.pathname === "/v1/snapshot") ||
           (request.method === "POST" && (
-            url.pathname === "/v1/readers/activate" || url.pathname === "/v1/refresh-requests"
+            url.pathname === "/v1/readers/activate" || url.pathname === "/v2/refresh-requests"
           ))
         )) {
-          return failure("unauthorized", {
+          return fail("unauthorized", {
             noStore: url.pathname === "/v1/snapshot",
             noTransform: url.pathname === "/v1/snapshot",
           });
         }
       }
-      if (url.search !== "") return failure("unknownRoute");
+      if (url.search !== "") return fail("unknownRoute");
       if (request.method === "PUT" && url.pathname === "/v1/snapshot") return this.putSnapshot(request);
       if (request.method === "GET" && url.pathname === "/v1/snapshot") return this.getSnapshot(request);
       if (request.method === "POST" && url.pathname === "/v1/readers/activate") return this.activateReader(request);
-      if (request.method === "POST" && url.pathname === "/v1/refresh-requests") return this.postRefreshRequest(request);
-      if (request.method === "GET" && url.pathname === "/v1/refresh-requests") return this.listRefreshRequests(request);
-      if (request.method === "DELETE" && /^\/v1\/refresh-requests\/[0-9a-f]{32}$/.test(url.pathname)) return this.deleteRefreshRequest(request, url.pathname.split("/").at(-1)!);
+      if (request.method === "POST" && url.pathname === "/v2/refresh-requests") return this.postRefreshRequest(request);
+      if (request.method === "GET" && url.pathname === "/v2/refresh-requests") return this.listRefreshRequests(request);
+      if (request.method === "DELETE" && /^\/v2\/refresh-requests\/[0-9a-f]{32}$/.test(url.pathname)) return this.deleteRefreshRequest(request, url.pathname.split("/").at(-1)!);
       if (request.method === "PUT" && /^\/v1\/readers\/[0-9a-f]{32}$/.test(url.pathname)) return this.registerReader(request, url.pathname.split("/").at(-1)!);
       if (request.method === "GET" && url.pathname === "/v1/readers") return this.listReaders(request);
       if (request.method === "DELETE" && /^\/v1\/readers\/[0-9a-f]{32}$/.test(url.pathname)) return this.deleteReader(request, url.pathname.split("/").at(-1)!);
       if (request.method === "DELETE" && url.pathname === "/v1/relay") return this.destroyRelay(request);
-      return failure("unknownRoute");
+      return fail("unknownRoute");
     } catch {
-      return failure("relayUnavailable");
+      const url = new URL(request.url);
+      return failure("relayUnavailable", {
+        protocolVersion: isV2RefreshRoute(url) ? REFRESH_PROTOCOL_VERSION : 1,
+      });
     }
   }
 
   private ensureSchema(): boolean {
     try {
-      this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS relay_schema (id INTEGER PRIMARY KEY CHECK (id = 1), version INTEGER NOT NULL)");
-      const version = this.one<{ version: number }>("SELECT version FROM relay_schema WHERE id = 1");
-      if (version === undefined) this.ctx.storage.sql.exec("INSERT INTO relay_schema (id, version) VALUES (1, ?)", SCHEMA_VERSION);
-      else if (version.version !== SCHEMA_VERSION) return false;
-      this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS relay_state (id INTEGER PRIMARY KEY CHECK (id = 1), publisher_id TEXT NOT NULL, last_sequence INTEGER NOT NULL, envelope TEXT NOT NULL, etag TEXT NOT NULL, accepted_at INTEGER NOT NULL)");
-      this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS readers (reader_id TEXT PRIMARY KEY, token_digest TEXT NOT NULL UNIQUE, activated INTEGER NOT NULL, pending_expires_at INTEGER NOT NULL, last_accepted_at INTEGER, last_accepted_id TEXT, last_completed_id TEXT)");
-      this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS refresh_requests (request_id TEXT PRIMARY KEY, reader_id TEXT NOT NULL UNIQUE, accepted_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)");
-      return true;
+      return this.ctx.storage.transactionSync(() => {
+        this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS relay_schema (id INTEGER PRIMARY KEY CHECK (id = 1), version INTEGER NOT NULL)");
+        const version = this.one<{ version: number }>("SELECT version FROM relay_schema WHERE id = 1");
+        if (version !== undefined && version.version !== 1 && version.version !== SCHEMA_VERSION) {
+          return false;
+        }
+        this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS relay_state (id INTEGER PRIMARY KEY CHECK (id = 1), publisher_id TEXT NOT NULL, last_sequence INTEGER NOT NULL, envelope TEXT NOT NULL, etag TEXT NOT NULL, accepted_at INTEGER NOT NULL)");
+        this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS readers (reader_id TEXT PRIMARY KEY, token_digest TEXT NOT NULL UNIQUE, activated INTEGER NOT NULL, pending_expires_at INTEGER NOT NULL, last_accepted_at INTEGER, last_accepted_id TEXT, last_completed_id TEXT)");
+        if (version?.version === 1) {
+          this.ctx.storage.sql.exec("DROP TABLE IF EXISTS refresh_requests");
+        }
+        this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS refresh_requests (request_id TEXT PRIMARY KEY, reader_id TEXT NOT NULL UNIQUE, target TEXT NOT NULL CHECK (target IN ('account', 'allCodex')), account_id TEXT, accepted_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, CHECK ((target = 'account' AND account_id IS NOT NULL) OR (target = 'allCodex' AND account_id IS NULL)))");
+        if (version === undefined) {
+          this.ctx.storage.sql.exec(
+            "INSERT INTO relay_schema (id, version) VALUES (1, ?)", SCHEMA_VERSION,
+          );
+        } else if (version.version === 1) {
+          this.ctx.storage.sql.exec(
+            "UPDATE relay_schema SET version = ? WHERE id = 1", SCHEMA_VERSION,
+          );
+        }
+        return true;
+      });
     } catch { return false; }
   }
 
@@ -202,7 +245,7 @@ export class RelayObject extends DurableObject {
    * a database. A missing schema means an empty/destroyed relay; partial or
    * version-mismatched schema state is unavailable rather than silently reset.
    */
-  private schemaState(): "missing" | "ready" | "unavailable" {
+  private schemaState(): "missing" | "migrate" | "ready" | "unavailable" {
     try {
       const tables = this.all<{ name: string }>(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('relay_schema', 'relay_state', 'readers', 'refresh_requests')",
@@ -211,7 +254,8 @@ export class RelayObject extends DurableObject {
         return tables.length === 0 ? "missing" : "unavailable";
       }
       const version = this.one<{ version: number }>("SELECT version FROM relay_schema WHERE id = 1");
-      return version?.version === SCHEMA_VERSION ? "ready" : "unavailable";
+      if (version?.version === SCHEMA_VERSION) return "ready";
+      return version?.version === 1 ? "migrate" : "unavailable";
     } catch {
       return "unavailable";
     }
@@ -363,53 +407,86 @@ export class RelayObject extends DurableObject {
   }
 
   private async postRefreshRequest(request: Request): Promise<Response> {
+    const fail = (code: ErrorCode): Response =>
+      failure(code, { protocolVersion: REFRESH_PROTOCOL_VERSION });
     const reader = await this.authenticatedReader(request);
     const now = this.clock.now();
-    if (reader === undefined || reader.activated !== 1) return failure("unauthorized");
+    if (reader === undefined || reader.activated !== 1) return fail("unauthorized");
     const body = await readBody(request, REFRESH_LIMIT);
-    if ("error" in body) return failure(body.error);
-    if (!validJSONContentType(request)) return failure("badRequest");
+    if ("error" in body) return fail(body.error);
+    if (!validJSONContentType(request)) return fail("badRequest");
     const parsed = parseRefreshRequest(body.text);
-    if ("failure" in parsed) return failure(parsed.failure);
+    if ("failure" in parsed) return fail(parsed.failure);
+    const target = parsed.value.target;
+    const accountID = target === "account" ? parsed.value.accountID : null;
     const outcome = this.ctx.storage.transactionSync(() => {
       this.ctx.storage.sql.exec("DELETE FROM refresh_requests WHERE expires_at <= ?", now);
       const current = this.one<StoredReader>("SELECT reader_id, token_digest, activated, pending_expires_at, last_accepted_at, last_accepted_id, last_completed_id FROM readers WHERE reader_id = ?", reader.reader_id);
       if (current === undefined || current.activated !== 1) return { code: "unauthorized" as const };
       if (current.last_completed_id === parsed.value.requestID) return { code: "requestAlreadyCompleted" as const };
-      const existingID = this.one<StoredRefreshRequest>("SELECT request_id, reader_id, accepted_at, expires_at FROM refresh_requests WHERE request_id = ?", parsed.value.requestID);
+      const existingID = this.one<StoredRefreshRequest>("SELECT request_id, reader_id, target, account_id, accepted_at, expires_at FROM refresh_requests WHERE request_id = ?", parsed.value.requestID);
       if (existingID !== undefined && existingID.reader_id !== current.reader_id) return { code: "badRequest" as const };
-      const currentRequest = this.one<StoredRefreshRequest>("SELECT request_id, reader_id, accepted_at, expires_at FROM refresh_requests WHERE reader_id = ?", current.reader_id);
-      if (currentRequest !== undefined && currentRequest.request_id === parsed.value.requestID) return { expiresAt: currentRequest.expires_at };
+      if (
+        existingID !== undefined &&
+        (existingID.target !== target || existingID.account_id !== accountID)
+      ) return { code: "badRequest" as const };
+      const currentRequest = this.one<StoredRefreshRequest>("SELECT request_id, reader_id, target, account_id, accepted_at, expires_at FROM refresh_requests WHERE reader_id = ?", current.reader_id);
+      if (currentRequest !== undefined && currentRequest.request_id === parsed.value.requestID) {
+        return { expiresAt: currentRequest.expires_at };
+      }
       if (current.last_accepted_id === parsed.value.requestID) return { code: "badRequest" as const };
       if (current.last_accepted_at !== null && now - current.last_accepted_at < REFRESH_LIFETIME_MS) return { code: "requestRateLimited" as const };
       const expiresAt = now + REFRESH_LIFETIME_MS;
-      this.ctx.storage.sql.exec("INSERT INTO refresh_requests (request_id, reader_id, accepted_at, expires_at) VALUES (?, ?, ?, ?)", parsed.value.requestID, current.reader_id, now, expiresAt);
+      this.ctx.storage.sql.exec("INSERT INTO refresh_requests (request_id, reader_id, target, account_id, accepted_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)", parsed.value.requestID, current.reader_id, target, accountID, now, expiresAt);
       this.ctx.storage.sql.exec("UPDATE readers SET last_accepted_at = ?, last_accepted_id = ? WHERE reader_id = ?", now, parsed.value.requestID, current.reader_id);
       return { expiresAt };
     });
-    if ("code" in outcome) return failure(outcome.code!);
-    return success(202, canonicalJSON({ expiresAt: formatTime(outcome.expiresAt), protocolVersion: 1 }));
+    if ("code" in outcome) return fail(outcome.code!);
+    return success(202, canonicalJSON({
+      expiresAt: formatTime(outcome.expiresAt),
+      protocolVersion: REFRESH_PROTOCOL_VERSION,
+    }));
   }
 
   private async listRefreshRequests(request: Request): Promise<Response> {
-    if (!this.isInternal(request, "write")) return failure("unauthorized");
+    const fail = (code: ErrorCode, options: ResponseOptions = {}): Response =>
+      failure(code, { ...options, protocolVersion: REFRESH_PROTOCOL_VERSION });
+    if (!this.isInternal(request, "write")) return fail("unauthorized");
     const empty = await requestHasNoBody(request);
-    if ("error" in empty) return failure(empty.error, { noStore: true });
+    if ("error" in empty) return fail(empty.error, { noStore: true });
     const now = this.clock.now();
     const requests = this.ctx.storage.transactionSync(() => {
       this.ctx.storage.sql.exec("DELETE FROM refresh_requests WHERE expires_at <= ?", now);
-      return this.all<StoredRefreshRequest>("SELECT request_id, reader_id, accepted_at, expires_at FROM refresh_requests ORDER BY reader_id ASC, request_id ASC");
+      return this.all<StoredRefreshRequest>("SELECT request_id, reader_id, target, account_id, accepted_at, expires_at FROM refresh_requests ORDER BY reader_id ASC, request_id ASC");
     });
-    return success(200, canonicalJSON({ protocolVersion: 1, requests: requests.map((item) => ({ expiresAt: formatTime(item.expires_at), readerID: item.reader_id, requestID: item.request_id })) }), { noStore: true });
+    return success(200, canonicalJSON({
+      protocolVersion: REFRESH_PROTOCOL_VERSION,
+      requests: requests.map((item) => item.target === "account"
+        ? {
+          accountID: item.account_id,
+          expiresAt: formatTime(item.expires_at),
+          readerID: item.reader_id,
+          requestID: item.request_id,
+          target: item.target,
+        }
+        : {
+          expiresAt: formatTime(item.expires_at),
+          readerID: item.reader_id,
+          requestID: item.request_id,
+          target: item.target,
+        }),
+    }), { noStore: true });
   }
 
   private async deleteRefreshRequest(request: Request, requestID: string): Promise<Response> {
-    if (!this.isInternal(request, "write")) return failure("unauthorized");
+    const fail = (code: ErrorCode): Response =>
+      failure(code, { protocolVersion: REFRESH_PROTOCOL_VERSION });
+    if (!this.isInternal(request, "write")) return fail("unauthorized");
     const empty = await requestHasNoBody(request);
-    if ("error" in empty) return failure(empty.error);
+    if ("error" in empty) return fail(empty.error);
     const now = this.clock.now();
     this.ctx.storage.transactionSync(() => {
-      const current = this.one<StoredRefreshRequest>("SELECT request_id, reader_id, accepted_at, expires_at FROM refresh_requests WHERE request_id = ?", requestID);
+      const current = this.one<StoredRefreshRequest>("SELECT request_id, reader_id, target, account_id, accepted_at, expires_at FROM refresh_requests WHERE request_id = ?", requestID);
       if (current === undefined) return;
       this.ctx.storage.sql.exec("DELETE FROM refresh_requests WHERE request_id = ?", requestID);
       if (current.expires_at > now) this.ctx.storage.sql.exec("UPDATE readers SET last_completed_id = ? WHERE reader_id = ?", requestID, current.reader_id);
@@ -432,7 +509,13 @@ export default {
     headers.delete(INTERNAL_AUTHORITY);
     const authority = fixedRouteAuthority(request);
     if (authority !== undefined) {
-      if (!await isAuthorizedForWorkerRole(request, env, authority)) return failure("unauthorized");
+      if (!await isAuthorizedForWorkerRole(request, env, authority)) {
+        return failure("unauthorized", {
+          protocolVersion: isV2RefreshRoute(new URL(request.url))
+            ? REFRESH_PROTOCOL_VERSION
+            : 1,
+        });
+      }
       headers.set(INTERNAL_AUTHORITY, authority);
     }
     const stub = env.RELAY.get(env.RELAY.idFromName("relay"));

@@ -7,7 +7,7 @@ import Testing
     typealias Win = AllowanceWindow
     typealias Derived = PresentationState
 
-    func state(_ item: Win, _ src: ProductSource? = source(), now: TimeInterval = 0) -> Derived {
+    func state(_ item: Win, _ src: AccountSource? = source(), now: TimeInterval = 0) -> Derived {
         PresentationPolicy.derive(window: item, source: src, now: at(now)).state
     }
 
@@ -127,7 +127,7 @@ import Testing
         #expect(MacLiveness.isPublishing(snapshot: live, now: at(5_100)))
         #expect(
             PresentationPolicy.derive(
-                window: live.windows[0], source: live.source(for: .codex), now: at(5_100)
+                window: live.windows[0], source: live.source(for: codexAccountID), now: at(5_100)
             ).state
                 == .stale(reason: .observationOld))
     }

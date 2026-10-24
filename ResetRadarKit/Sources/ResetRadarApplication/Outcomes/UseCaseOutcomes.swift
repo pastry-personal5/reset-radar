@@ -33,7 +33,7 @@ public enum IngestOutcome: Sendable, Equatable {
 }
 
 public enum MacRefreshOutcome: Sendable, Equatable {
-    case completed(ManualRefreshResult.Outcome)
+    case completed([ManualRefreshAccountResult])
     case macAsleepOrPending
     case rateLimited
     case alreadyCompleted

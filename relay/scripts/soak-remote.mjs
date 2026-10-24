@@ -88,10 +88,10 @@ export function validateSoakAccounting(planned, counts, latencies, responseBytes
 }
 
 export function parseManualRequestResponse(response) {
-  if (response.status === 202) return parseExpiryResponse(response.text);
+  if (response.status === 202) return parseExpiryResponse(response.text, 2);
   if (response.status === 429) {
     try {
-      parseErrorResponse(response.text, "requestRateLimited");
+      parseErrorResponse(response.text, "requestRateLimited", 2);
     } catch {
       throw new HarnessFailure("Unrecognized HTTP 429 stopped the scheduled sample.");
     }
@@ -125,8 +125,8 @@ export async function runManualRequestRound({
     const remaining = manualRequestWaitMilliseconds(readyAt[index] ?? 0, now());
     if (remaining > 0) await wait(remaining);
     const requestID = requestIDs[index];
-    const response = await measured("manualRequests", "/v1/refresh-requests", {
-      body: canonicalJSON({ protocolVersion: 1, requestID }),
+    const response = await measured("manualRequests", "/v2/refresh-requests", {
+      body: canonicalJSON({ protocolVersion: 2, requestID, target: "allCodex" }),
       label: "manual request",
       method: "POST",
       token,
@@ -265,7 +265,7 @@ export async function runSoak(originInput, secrets, fetchImplementation = fetch)
     }
     await runFollowUpReadsForSlot({ measured, schedule: followUpSchedule, slot });
     if ((slot - 1) % 3 === 0) {
-      const listed = parseRefreshList((await measured("requestListPolls", "/v1/refresh-requests", {
+      const listed = parseRefreshList((await measured("requestListPolls", "/v2/refresh-requests", {
         expectedStatus: 200,
         label: "request-list poll",
         token: secrets.writeToken,
@@ -281,7 +281,7 @@ export async function runSoak(originInput, secrets, fetchImplementation = fetch)
       const completion = pending.shift();
       if (completion === undefined) throw new HarnessFailure("No live manual request was available for the planned result.");
       await publish("manualResultPublications", completion.requestID);
-      await measured("acknowledgements", `/v1/refresh-requests/${completion.requestID}`, { expectedStatus: 204, label: "manual acknowledgement", method: "DELETE", token: secrets.writeToken });
+      await measured("acknowledgements", `/v2/refresh-requests/${completion.requestID}`, { expectedStatus: 204, label: "manual acknowledgement", method: "DELETE", token: secrets.writeToken });
     }
     if ((slot - 1) % 60 === 0) await publish("heartbeatPublications");
   }

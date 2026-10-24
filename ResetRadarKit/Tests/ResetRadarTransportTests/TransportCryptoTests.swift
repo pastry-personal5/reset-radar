@@ -107,7 +107,8 @@ private func fixture(_ name: String) throws -> [String: String] {
 @Test func envelopeAuthenticatesHeaderAndRejectsSequenceOverflow() throws {
     let cipher = AESGCMEnvelopeCipher(nonceSource: { Data(repeating: 0xAB, count: 12) })
     let snapshot = try UsageSnapshot(
-        publisherID: publisher, generatedAt: now, heartbeatSeconds: 60, sources: [], windows: [])
+        publisherID: publisher, generatedAt: now, heartbeatSeconds: 60, accounts: [], sources: [],
+        windows: [])
     let header = EnvelopeHeader(
         protocolVersion: 1, envelopeVersion: 1, publisherID: publisher, sequence: 7,
         keyVersion: 1)
@@ -137,7 +138,8 @@ private func fixture(_ name: String) throws -> [String: String] {
         protocolVersion: 1, envelopeVersion: 1, publisherID: publisher, sequence: 7,
         keyVersion: 1)
     let snapshot = try UsageSnapshot(
-        publisherID: publisher, generatedAt: now, heartbeatSeconds: 60, sources: [], windows: [])
+        publisherID: publisher, generatedAt: now, heartbeatSeconds: 60, accounts: [], sources: [],
+        windows: [])
     #expect(
         String(data: try WireCoding.encoder().encode(header), encoding: .utf8)
             == golden["headerJSON"])
@@ -286,8 +288,11 @@ private func fixture(_ name: String) throws -> [String: String] {
     #expect(throws: EnvelopeCipherError.unsupportedVersion) {
         try cipher.open(Data(unsupported.utf8), key: key)
     }
-    let ciphertext = outer.replacingOccurrences(
-        of: "\"ciphertext\":\"", with: "\"ciphertext\":\"A")
+    var ciphertext = outer
+    let ciphertextPrefix = try #require(ciphertext.range(of: "\"ciphertext\":\"")?.upperBound)
+    let ciphertextEnd = ciphertext.index(after: ciphertextPrefix)
+    let replacement = ciphertext[ciphertextPrefix] == "A" ? "B" : "A"
+    ciphertext.replaceSubrange(ciphertextPrefix..<ciphertextEnd, with: replacement)
     #expect(throws: EnvelopeCipherError.authenticationFailed) {
         try cipher.open(Data(ciphertext.utf8), key: key)
     }
@@ -300,7 +305,7 @@ private func fixture(_ name: String) throws -> [String: String] {
 @Test func maximumSafeSequenceSealsAndOpens() throws {
     let snapshot = try UsageSnapshot(
         publisherID: publisher, generatedAt: now, heartbeatSeconds: 60,
-        sources: [], windows: [])
+        accounts: [], sources: [], windows: [])
     let header = EnvelopeHeader(
         protocolVersion: 1, envelopeVersion: 1, publisherID: publisher,
         sequence: AESGCMEnvelopeCipher.maximumSequence, keyVersion: 1)

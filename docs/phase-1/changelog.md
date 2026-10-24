@@ -6,6 +6,19 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-24 — Codex — Began P1-M10 implementation by making source calibration explicitly
+  Codex-only or combined. The Codex-only preparation now requires an owner-approved exact clean
+  revision, accepts no more than two privately selected profiles, creates no Claude Code state,
+  and cleanup proves the revision and worktree stayed unchanged before removing only its exact
+  disposable directory. The sanitized harness now checks structured `account/read`, classifies
+  the rate-limit response's account-identifier presence/type without retaining its value, measures
+  decoded keys and strings in UTF-8 bytes, and reports separate bucket-entry and candidate-window
+  maxima. Offline calibration tests and installed public-schema generation passed without starting
+  a signed-in process or reading usage. The recorded public tools are Swift 6.4, Xcode 27.1,
+  Codex 0.164.0, and `codex-profile` 1.3.0. Implementation also started the shared account model
+  with opaque `AccountID`, standard `AccountWindow`, safe exact aliases, bounded catalog
+  invariants, and the approved Domain/Application dependencies for provider-adapter tests.
+
 - 2026-10-24 — Owner/Codex — Started P1-M10 on `feat/p1-m10-codex-adapter` from
   `5b4725d` after fast-forwarding the then-current M9 commits to local `main`; the recorded clean
   baseline passed the complete delegated gate. The owner replaced the planned single Codex

@@ -10,7 +10,8 @@ public actor HandleManualRefreshRequests {
     private let publisher: any PublisherStore
     private let snapshots: any LocalSnapshotCommitting
     private let collector: CollectUsage
-    private let codex: (any UsageSource)?
+    private let codexSources: [AccountID: any UsageSource]
+    private let codexOrder: [AccountID]
     private let publishing: PublishSnapshot
     private let secrets: any SecretStore
     private let relay: any RelayGateway
@@ -25,7 +26,12 @@ public actor HandleManualRefreshRequests {
         self.publisher = publisher
         self.snapshots = snapshots
         self.collector = collector
-        self.codex = sources.first { $0.product == .codex }
+        let codex = sources.filter { $0.product == .codex }
+        self.codexSources = Dictionary(
+            codex.map { ($0.accountID, $0) }, uniquingKeysWith: { first, _ in first })
+        self.codexOrder = codex.reduce(into: []) { order, source in
+            if !order.contains(source.accountID) { order.append(source.accountID) }
+        }
         self.publishing = publishing
         self.secrets = secrets
         self.relay = relay
@@ -38,9 +44,13 @@ public actor HandleManualRefreshRequests {
         guard !live.isEmpty, let state = try? await publisher.load() else { return .idle }
         let fresh = live.filter { state.handledRequests[$0.id] == nil }
         if !fresh.isEmpty {
-            if let wait = throttleDeadline(now: observedAt) { return .waiting(until: wait) }
-            guard let outcome = await readOnce(observedAt: observedAt) else { return .idle }
-            guard await record(fresh, outcome: outcome, now: clock.now) else { return .idle }
+            let targets = targetAccountIDs(for: fresh)
+            if !targets.isEmpty, let wait = throttleDeadline(now: observedAt) {
+                return .waiting(until: wait)
+            }
+            let outcomes = await read(targets, observedAt: observedAt)
+            let results = makeResults(fresh, outcomes: outcomes, now: clock.now)
+            guard await record(fresh, results: results, now: clock.now) else { return .idle }
         }
         return await publishAndAcknowledge(live)
     }
@@ -51,32 +61,53 @@ public actor HandleManualRefreshRequests {
         return now < next ? next : nil
     }
 
-    /// One forced read; a second only if the first finished before the request was observed.
-    private func readOnce(observedAt: Date) async -> ManualRefreshResult.Outcome? {
-        guard let codex else { return nil }
+    private func read(
+        _ accountIDs: [AccountID], observedAt: Date
+    ) async -> [AccountID: ManualRefreshAccountResult.Outcome] {
+        guard !accountIDs.isEmpty else { return [:] }
         lastForcedRead = clock.now
-        var receipt = await codex.refresh()
-        if receipt.finishedAt < observedAt { receipt = await codex.refresh() }
-        if let report = receipt.report {
-            do { _ = try await collector.ingest(report) } catch { return .sourceUnavailable }
+        let receipts = await withTaskGroup(of: (AccountID, ReadReceipt).self) { group in
+            for accountID in accountIDs {
+                guard let source = codexSources[accountID] else { continue }
+                group.addTask {
+                    var receipt = await source.refresh()
+                    if !receipt.performedAfter(observedAt) { receipt = await source.refresh() }
+                    return (accountID, receipt)
+                }
+            }
+            var values: [AccountID: ReadReceipt] = [:]
+            for await (accountID, receipt) in group { values[accountID] = receipt }
+            return values
         }
-        return receipt.succeeded ? .codexRead : .sourceUnavailable
+        var outcomes: [AccountID: ManualRefreshAccountResult.Outcome] = [:]
+        for accountID in accountIDs {
+            guard let receipt = receipts[accountID] else {
+                outcomes[accountID] = .accountUnavailable
+                continue
+            }
+            if let report = receipt.report {
+                do {
+                    _ = try await collector.ingest(report)
+                } catch {
+                    outcomes[accountID] = .sourceUnavailable
+                    continue
+                }
+            }
+            outcomes[accountID] = receipt.performedSuccessfully ? .codexRead : .sourceUnavailable
+        }
+        return outcomes
     }
 
     /// Commits the results to the local snapshot, then persists the handled IDs. If the commit
     /// fails nothing is marked handled, so the requests are retried instead of being
     /// acknowledged with no result. A crash between the two steps repeats one read at worst.
     private func record(
-        _ requests: [PendingRefreshRequest], outcome: ManualRefreshResult.Outcome, now: Date
+        _ requests: [PendingRefreshRequest], results: [ManualRefreshResult], now: Date
     ) async -> Bool {
         let until = now.addingTimeInterval(Self.resultRetention)
         let ids = requests.map(\.id)
-        let added = requests.map {
-            ManualRefreshResult(
-                readerID: $0.readerID, requestID: $0.id, completedAt: now, outcome: outcome)
-        }
         do {
-            try await collector.addManualResults(added)
+            try await collector.addManualResults(results)
             try await publisher.transact { state in
                 state.handledRequests = state.handledRequests.filter { $0.value > now }
                 for id in ids { state.handledRequests[id] = until }
@@ -84,6 +115,44 @@ public actor HandleManualRefreshRequests {
             return true
         } catch {
             return false
+        }
+    }
+
+    private func targetAccountIDs(for requests: [PendingRefreshRequest]) -> [AccountID] {
+        let requested = requests.reduce(into: Set<AccountID>()) { result, request in
+            switch request.target {
+            case .account(let accountID):
+                if codexSources[accountID] != nil { result.insert(accountID) }
+            case .allCodex:
+                result.formUnion(codexSources.keys)
+            }
+        }
+        return codexOrder.filter(requested.contains)
+    }
+
+    private func makeResults(
+        _ requests: [PendingRefreshRequest],
+        outcomes: [AccountID: ManualRefreshAccountResult.Outcome], now: Date
+    ) -> [ManualRefreshResult] {
+        requests.compactMap { request in
+            let accountResults: [ManualRefreshAccountResult]
+            switch request.target {
+            case .account(let accountID):
+                accountResults = [
+                    ManualRefreshAccountResult(
+                        accountID: accountID,
+                        outcome: outcomes[accountID] ?? .accountUnavailable)
+                ]
+            case .allCodex:
+                accountResults = codexOrder.compactMap { accountID in
+                    outcomes[accountID].map {
+                        ManualRefreshAccountResult(accountID: accountID, outcome: $0)
+                    }
+                }
+            }
+            return try? ManualRefreshResult(
+                readerID: request.readerID, requestID: request.id, completedAt: now,
+                target: request.target, accountResults: accountResults)
         }
     }
 

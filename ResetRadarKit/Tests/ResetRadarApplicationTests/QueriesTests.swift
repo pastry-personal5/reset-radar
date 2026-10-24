@@ -37,24 +37,43 @@ func fullSnapshot(
         LoadHome(visible: VisibleSnapshot(snapshots: store), clock: clock)
     }
 
-    @Test func fourCellsInFixedSlotOrder() async {
-        let model = await home().load()
-        #expect(model.cells.map(\.slot) == HomeSlot.allCases)
-        #expect(model.cells.map(\.usedPercent) == [20, 30, 40, 50])
-        #expect(model.cells.allSatisfy { $0.presentation == .current })
+    func rings(_ model: HomeReadModel) -> [AccountRingSummary] {
+        model.accounts.flatMap(\.standardWindows)
     }
 
-    @Test func aMissingSnapshotGivesFourUnavailableCells() async {
+    @Test func accountRowsContainTwoStandardWindowsInDisplayOrder() async {
+        let model = await home().load()
+        #expect(model.accounts.map(\.account.id) == [codexAccountID, claudeAccountID])
+        #expect(
+            rings(model).map(\.accountWindow) == [
+                codexFiveHour, codexWeekly, claudeFiveHour, claudeWeekly,
+            ])
+        #expect(rings(model).map(\.usedPercent) == [20, 30, 40, 50])
+        #expect(rings(model).allSatisfy { $0.presentation == .current })
+    }
+
+    @Test func accountDisplayOrderUsesLocalizedNaturalLabels() throws {
+        let team10 = AccountMetadata(
+            id: codexAccountID, product: .codex, number: 10,
+            alias: try AccountAlias(validating: "Team 10"))
+        let team2 = AccountMetadata(
+            id: otherCodexAccountID, product: .codex, number: 2,
+            alias: try AccountAlias(validating: "Team 2"))
+        #expect(
+            AccountDisplayOrder.sorted([team10, team2]).map(\.id)
+                == [otherCodexAccountID, codexAccountID])
+    }
+
+    @Test func aMissingSnapshotDoesNotFabricateAccountRows() async {
         try? await store.clear()
         let model = await home().load()
-        #expect(model.cells.count == 4)
-        #expect(model.cells.allSatisfy { $0.presentation == .unavailable && $0.usedPercent == nil })
+        #expect(model.accounts.isEmpty)
         #expect(model.nextChange == nil)
     }
 
     @Test func theNextChangeIsTheEarliestCellChangeAndReloadingThereChangesACell() async {
         let first = await home().load()
-        let earliest = first.cells.compactMap(\.nextChange).min()
+        let earliest = rings(first).compactMap(\.nextChange).min()
         #expect(first.nextChange == earliest)
         guard let next = first.nextChange else {
             Issue.record("expected a next change")
@@ -62,33 +81,33 @@ func fullSnapshot(
         }
         clock.set(next)
         let second = await home().load()
-        #expect(second.cells.map(\.presentation) != first.cells.map(\.presentation))
+        #expect(rings(second).map(\.presentation) != rings(first).map(\.presentation))
     }
 
     @Test func presentationCrossesEachThresholdAtItsInstant() async {
         var states: [PresentationState] = []
-        var current = await home().load().cells[0]
+        var current = rings(await home().load())[0]
         states.append(current.presentation)
         while let next = current.nextChange {
             clock.set(next)
-            current = await home().load().cells[0]
+            current = rings(await home().load())[0]
             states.append(current.presentation)
         }
         #expect(states == [.current, .stale(reason: .observationOld), .resetAwaitingRefresh])
         clock.set(epoch.addingTimeInterval(3_599.999))
-        #expect(await home().load().cells[0].presentation == .stale(reason: .observationOld))
+        #expect(rings(await home().load())[0].presentation == .stale(reason: .observationOld))
         clock.set(epoch.addingTimeInterval(3_600))
-        #expect(await home().load().cells[0].presentation == .resetAwaitingRefresh)
+        #expect(rings(await home().load())[0].presentation == .resetAwaitingRefresh)
     }
 
     @Test func theFiveMinuteSkewEdgeIsCrossedAtItsInstant() async {
         let future = FakeSnapshotStore(snapshot: fullSnapshot(observedAt: at(600)))
         let use = LoadHome(visible: VisibleSnapshot(snapshots: future), clock: clock)
-        let before = await use.load().cells[0]
+        let before = rings(await use.load())[0]
         #expect(before.presentation == .stale(reason: .observationInFuture))
         #expect(before.nextChange == at(300))
         clock.set(at(300))
-        #expect(await use.load().cells[0].presentation == .current)
+        #expect(rings(await use.load())[0].presentation == .current)
     }
 
     @Test func macLivenessEndsAfterThreeHeartbeatsAndTheObservationStaysStale() async {
@@ -96,13 +115,14 @@ func fullSnapshot(
         clock.set(at(900))
         let live = await details.load()
         #expect(live.macLive == true)
-        #expect(live.products.flatMap(\.windows).first?.presentation == .current)
+        #expect(live.accounts.flatMap(\.windows).first?.presentation == .current)
         clock.set(at(901))
         let silent = await details.load()
         #expect(silent.macLive == false)
         #expect(
-            silent.products.first?.windows.first?.presentation == .stale(reason: .observationOld))
-        #expect(silent.products.map(\.product) == [.codex, .claudeCode])
+            silent.accounts.first?.windows.first?.presentation
+                == .stale(reason: .observationOld))
+        #expect(silent.accounts.map(\.account.id) == [codexAccountID, claudeAccountID])
         #expect(silent.transport == .current)
     }
 
@@ -116,14 +136,14 @@ func fullSnapshot(
         }
         let hidden = LoadHome(
             visible: VisibleSnapshot(snapshots: store, reader: reader), clock: clock)
-        #expect(await hidden.load().cells.allSatisfy { $0.presentation == .unavailable })
+        #expect(await hidden.load().accounts.isEmpty)
         reader.seed {
             $0.awaitingActivation = false
             $0.forgetCleanupPending = true
         }
-        #expect(await hidden.load().cells.allSatisfy { $0.presentation == .unavailable })
+        #expect(await hidden.load().accounts.isEmpty)
         reader.seed { $0.forgetCleanupPending = false }
-        #expect(await hidden.load().cells[0].presentation == .current)
+        #expect(rings(await hidden.load())[0].presentation == .current)
     }
 
     @Test func pairingStatusDistinguishesCleanupPendingAndWatchErasure() async {

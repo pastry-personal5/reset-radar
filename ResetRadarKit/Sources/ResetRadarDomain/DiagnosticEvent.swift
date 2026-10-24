@@ -1,5 +1,18 @@
 import Foundation
 
+public enum ProviderFailureClass: String, Codable, CaseIterable, Hashable, Sendable {
+    case notInstalled
+    case signedOut
+    case incompatible
+    case timeout
+    case processExited
+    case malformed
+    case permissionDenied
+    case accountScope
+    case duplicateProviderScope
+    case temporarilyUnavailable
+}
+
 /// A redacted compatibility or validation event.
 ///
 /// Redaction holds by construction: no stored property, initializer, or factory parameter is a
@@ -14,20 +27,21 @@ public struct DiagnosticEvent: Codable, Hashable, Sendable {
         case invalidReportState
         case unknownProduct
         case duplicateWindow
-        case ambiguousHomeSlot
+        case ambiguousAccountWindow
         case invalidHeartbeat
         case unsupportedSchema
         case publicationStopped
         case envelopeTooLarge
         case secretsUnavailable
         case relayFailure
+        case providerFailure
         case unknown
     }
 
     public let category: Category
     public let timestamp: Date
     public let product: ProductID?
-    public let slot: HomeSlot?
+    public let accountID: AccountID?
     public let sourceState: SourceState?
     public let transportStatus: TransportStatus?
     public let durationSeconds: Double?
@@ -36,16 +50,19 @@ public struct DiagnosticEvent: Codable, Hashable, Sendable {
     public let schemaVersion: Int?
     public let supportedSchemaVersion: Int?
     public let httpStatusClass: Int?
+    public let providerFailureClass: ProviderFailureClass?
 
     private init(
-        _ category: Category, at timestamp: Date, product: ProductID? = nil, slot: HomeSlot? = nil,
-        transportStatus: TransportStatus? = nil, lastSequence: UInt64? = nil,
-        schemaVersion: Int? = nil, supportedSchemaVersion: Int? = nil, httpStatusClass: Int? = nil
+        _ category: Category, at timestamp: Date, product: ProductID? = nil,
+        accountID: AccountID? = nil, transportStatus: TransportStatus? = nil,
+        lastSequence: UInt64? = nil, schemaVersion: Int? = nil,
+        supportedSchemaVersion: Int? = nil, httpStatusClass: Int? = nil,
+        providerFailureClass: ProviderFailureClass? = nil
     ) {
         self.category = category
         self.timestamp = timestamp
         self.product = product
-        self.slot = slot
+        self.accountID = accountID
         self.sourceState = nil
         self.transportStatus = transportStatus
         self.durationSeconds = nil
@@ -54,6 +71,7 @@ public struct DiagnosticEvent: Codable, Hashable, Sendable {
         self.schemaVersion = schemaVersion
         self.supportedSchemaVersion = supportedSchemaVersion
         self.httpStatusClass = httpStatusClass
+        self.providerFailureClass = providerFailureClass
     }
 
     /// A window failed per-window validation for the reason carried by `category`.
@@ -67,12 +85,18 @@ public struct DiagnosticEvent: Codable, Hashable, Sendable {
         DiagnosticEvent(.unknownProduct, at: timestamp)
     }
 
-    public static func duplicateWindow(product: ProductID, at timestamp: Date) -> DiagnosticEvent {
-        DiagnosticEvent(.duplicateWindow, at: timestamp, product: product)
+    public static func duplicateWindow(
+        accountID: AccountID, product: ProductID, at timestamp: Date
+    ) -> DiagnosticEvent {
+        DiagnosticEvent(.duplicateWindow, at: timestamp, product: product, accountID: accountID)
     }
 
-    public static func ambiguousHomeSlot(_ slot: HomeSlot, at timestamp: Date) -> DiagnosticEvent {
-        DiagnosticEvent(.ambiguousHomeSlot, at: timestamp, product: slot.product, slot: slot)
+    public static func ambiguousAccountWindow(
+        _ window: AccountWindow, product: ProductID, at timestamp: Date
+    ) -> DiagnosticEvent {
+        DiagnosticEvent(
+            .ambiguousAccountWindow, at: timestamp, product: product,
+            accountID: window.accountID)
     }
 
     public static func invalidHeartbeat(at timestamp: Date) -> DiagnosticEvent {
@@ -111,5 +135,14 @@ public struct DiagnosticEvent: Codable, Hashable, Sendable {
     ) -> DiagnosticEvent {
         DiagnosticEvent(
             .relayFailure, at: timestamp, transportStatus: status, httpStatusClass: httpStatusClass)
+    }
+
+    public static func providerFailure(
+        _ failure: ProviderFailureClass, accountID: AccountID, product: ProductID,
+        at timestamp: Date
+    ) -> DiagnosticEvent {
+        DiagnosticEvent(
+            .providerFailure, at: timestamp, product: product, accountID: accountID,
+            providerFailureClass: failure)
     }
 }

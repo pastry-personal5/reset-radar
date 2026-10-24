@@ -26,7 +26,7 @@ public enum PresentationPolicy {
     public static let clockSkewTolerance: TimeInterval = 300
 
     public static func derive(
-        window: AllowanceWindow, source: ProductSource?, now: Date
+        window: AllowanceWindow, source: AccountSource?, now: Date
     ) -> Presentation {
         let state = state(window: window, source: source, now: now)
         var candidates: [Date] = []
@@ -47,7 +47,7 @@ public enum PresentationPolicy {
     }
 
     private static func state(
-        window: AllowanceWindow, source: ProductSource?, now: Date
+        window: AllowanceWindow, source: AccountSource?, now: Date
     ) -> PresentationState {
         guard let observation = window.observation else { return .unavailable }
         let resetPassed = window.resetsAt.map { $0 <= now } ?? false

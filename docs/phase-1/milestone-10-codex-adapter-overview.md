@@ -89,8 +89,11 @@ composition into the Mac collector.
   Swift format and strict lint, import enforcement, the macOS scheme, 26 relay Vitest tests, 31
   relay Node tests, relay typecheck, and the Wrangler dry run. The Swift/Xcode checks were rerun
   successfully with cache and CoreSimulator access after their sandbox-only first attempt.
-- [ ] Task 1 makes the Codex calibration independently runnable, passes every offline test and
-  installed-schema preflight, and retains the runbook's privacy and cleanup boundaries.
+- [x] Task 1 makes the Codex calibration independently runnable, passes every offline test and
+  installed-schema preflight, and retains the runbook's privacy and cleanup boundaries. Evidence:
+  the Codex-only preparation, preflight, verifier, calibration projection, cleanup, and synthetic
+  tests pass against public Codex 0.164.0 schemas without starting app-server or reading an
+  account; delegated shell/Node validation and the installed-schema checks passed on 2026-10-24.
 
 ## In scope
 

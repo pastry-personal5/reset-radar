@@ -10,29 +10,6 @@ public enum SourceKind: String, Codable, CaseIterable, Hashable, Sendable {
     case claudeCodeStatusLine
 }
 
-/// Stable key for Home cells, widget configuration, intents, and notification opt-in.
-public enum HomeSlot: String, Codable, CaseIterable, Hashable, Sendable {
-    case codexFiveHour
-    case codexWeekly
-    case claudeCodeFiveHour
-    case claudeCodeWeekly
-
-    public var product: ProductID {
-        switch self {
-        case .codexFiveHour, .codexWeekly: .codex
-        case .claudeCodeFiveHour, .claudeCodeWeekly: .claudeCode
-        }
-    }
-
-    /// The exact window duration this slot resolves to; no other duration is ever inferred.
-    public var durationMinutes: Int {
-        switch self {
-        case .codexFiveHour, .claudeCodeFiveHour: 300
-        case .codexWeekly, .claudeCodeWeekly: 10_080
-        }
-    }
-}
-
 /// Fixed-length opaque bytes, written on the wire as lowercase hexadecimal.
 public protocol ByteIdentifier: Codable, Hashable, Sendable {
     static var byteCount: Int { get }
@@ -94,6 +71,39 @@ public struct AccountScope: ByteIdentifier {
     }
 }
 
+/// Random opaque 128-bit Reset Radar identifier for one configured account row.
+public struct AccountID: ByteIdentifier {
+    public static let byteCount = 16
+    public let data: Data
+    public init?(data: Data) {
+        guard data.count == Self.byteCount else { return nil }
+        self.data = data
+    }
+}
+
+/// Stable key for one standard window within a configured account.
+public struct AccountWindow: Codable, Hashable, Sendable {
+    public enum StandardWindow: String, Codable, CaseIterable, Hashable, Sendable {
+        case fiveHour
+        case weekly
+
+        public var durationMinutes: Int {
+            switch self {
+            case .fiveHour: 300
+            case .weekly: 10_080
+            }
+        }
+    }
+
+    public let accountID: AccountID
+    public let window: StandardWindow
+
+    public init(accountID: AccountID, window: StandardWindow) {
+        self.accountID = accountID
+        self.window = window
+    }
+}
+
 /// Random 256-bit identifier for one Mac/relay relationship.
 public struct PublisherID: ByteIdentifier {
     public static let byteCount = 32
@@ -136,12 +146,17 @@ public struct InstallationID: ByteIdentifier {
 
 /// One concrete provider window. Never an array position; changes with the account scope.
 public struct WindowID: Codable, Hashable, Sendable {
+    public let accountID: AccountID
     public let product: ProductID
     public let scope: AccountScope?
     public let limitID: String
     public let durationMinutes: Int?
 
-    public init(product: ProductID, scope: AccountScope?, limitID: String, durationMinutes: Int?) {
+    public init(
+        accountID: AccountID, product: ProductID, scope: AccountScope?, limitID: String,
+        durationMinutes: Int?
+    ) {
+        self.accountID = accountID
         self.product = product
         self.scope = scope
         self.limitID = limitID

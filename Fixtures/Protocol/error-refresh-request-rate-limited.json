@@ -1,0 +1,5 @@
+{
+  "status": 429,
+  "code": "requestRateLimited",
+  "body": "{\"code\":\"requestRateLimited\",\"protocolVersion\":2}"
+}

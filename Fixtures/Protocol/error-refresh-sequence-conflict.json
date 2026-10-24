@@ -1,0 +1,5 @@
+{
+  "status": 409,
+  "code": "sequenceConflict",
+  "body": "{\"code\":\"sequenceConflict\",\"protocolVersion\":2}"
+}

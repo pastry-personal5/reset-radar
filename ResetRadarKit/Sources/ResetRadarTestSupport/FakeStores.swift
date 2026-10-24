@@ -67,6 +67,29 @@ public final class FakeSnapshotStore: LocalSnapshotCommitting, @unchecked Sendab
     }
 }
 
+public actor FakeAccountCatalogStore: AccountCatalogStore {
+    private var catalog: AccountCatalog
+
+    public init(accounts: [AccountMetadata]) {
+        // Static test setup owns only valid account records.
+        catalog = try! AccountCatalog(validating: accounts)  // swiftlint:disable:this force_try
+    }
+
+    public func loadCatalog() async throws -> AccountCatalog { catalog }
+
+    public func setAlias(
+        accountID: AccountID, alias: AccountAlias?
+    ) async throws -> AccountCatalog {
+        guard let index = catalog.accounts.firstIndex(where: { $0.id == accountID }) else {
+            return catalog
+        }
+        var accounts = catalog.accounts
+        accounts[index] = accounts[index].replacingAlias(alias)
+        catalog = try AccountCatalog(validating: accounts)
+        return catalog
+    }
+}
+
 /// The reader's `ReaderStore` and its `SnapshotStore` facade share one atomic box, so two
 /// use-case instances over one fake behave like two processes over one bundle.
 public final class FakeReaderStore: ReaderStore, @unchecked Sendable {

@@ -1,6 +1,6 @@
 {
   "method": "DELETE",
-  "path": "/v1/refresh-requests/56565656565656565656565656565656",
+  "path": "/v2/refresh-requests/56565656565656565656565656565656",
   "authority": "write",
   "requestBody": "",
   "status": 204,

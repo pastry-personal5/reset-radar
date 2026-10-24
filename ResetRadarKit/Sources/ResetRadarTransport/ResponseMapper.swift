@@ -16,6 +16,15 @@ enum RelayOperation {
     case destroyRelay
 }
 
+extension RelayOperation {
+    var isRefresh: Bool {
+        switch self {
+        case .postRefreshRequest, .listRefreshRequests, .deleteRefreshRequest: true
+        default: false
+        }
+    }
+}
+
 enum RelayMappedResult {
     case outcome(RelayOutcome)
     case refreshRequests([PendingRefreshRequest])
@@ -115,19 +124,22 @@ enum ResponseMapper {
     private static func mapRefresh(_ response: RelayResponseContext) -> RelayMappedResult {
         switch (response.operation, response.status) {
         case (.postRefreshRequest, 202):
-            guard let body = decode(ExpiryBody.self, response.body), body.protocolVersion == 1
+            guard let body = decode(ExpiryBody.self, response.body), body.protocolVersion == 2
             else { return .outcome(.protocolFailure) }
             return .outcome(.refreshAccepted(expiresAt: body.expiresAt))
         case (.listRefreshRequests, 200):
             guard let body = decode(RefreshListBody.self, response.body),
-                body.protocolVersion == 1, body.requests.count <= 3,
+                body.protocolVersion == 2, body.requests.count <= 3,
                 body.requests.map({ "\($0.readerID.hex)/\($0.requestID.hex)" })
-                    .lexicographicallyPrecedesOrEqualsSorted()
+                    .lexicographicallyPrecedesOrEqualsSorted(),
+                body.requests.allSatisfy(\.hasValidTarget)
             else { return .outcome(.protocolFailure) }
             return .refreshRequests(
-                body.requests.map {
-                    PendingRefreshRequest(
-                        id: $0.requestID, readerID: $0.readerID, expiresAt: $0.expiresAt)
+                body.requests.compactMap {
+                    guard let target = $0.targetValue else { return nil }
+                    return PendingRefreshRequest(
+                        id: $0.requestID, readerID: $0.readerID, target: target,
+                        expiresAt: $0.expiresAt)
                 })
         case (.deleteRefreshRequest, 204):
             return response.body.isEmpty ? .outcome(.deleted) : .outcome(.protocolFailure)
@@ -141,7 +153,9 @@ enum ResponseMapper {
     }
 
     private static func mapError(_ response: RelayResponseContext) -> RelayOutcome {
-        guard let body = decode(ErrorBody.self, response.body), body.protocolVersion == 1
+        let expectedVersion = response.operation.isRefresh ? 2 : 1
+        guard let body = decode(ErrorBody.self, response.body),
+            body.protocolVersion == expectedVersion
         else { return .protocolFailure }
         switch response.status {
         case 400: return body.code == "badRequest" ? .badRequest : .protocolFailure
@@ -233,9 +247,21 @@ private struct RefreshListBody: Codable {
 }
 
 private struct RefreshWire: Codable {
+    let accountID: AccountID?
     let expiresAt: Date
     let readerID: ReaderID
     let requestID: RequestID
+    let target: String
+
+    var targetValue: ManualRefreshTarget? {
+        switch (target, accountID) {
+        case ("account", .some(let accountID)): .account(accountID)
+        case ("allCodex", .none): .allCodex
+        default: nil
+        }
+    }
+
+    var hasValidTarget: Bool { targetValue != nil }
 }
 
 private struct ReaderListBody: Codable {

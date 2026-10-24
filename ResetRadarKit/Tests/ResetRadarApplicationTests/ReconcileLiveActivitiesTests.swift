@@ -21,17 +21,17 @@ import Testing
         #expect(controller.starts.isEmpty && controller.running.isEmpty)
     }
 
-    @Test func startIsForFiveHourSlotsOnlyAndAtMostOnePerSlot() async {
+    @Test func startIsForFiveHourAccountWindowsOnlyAndAtMostOnePerWindow() async {
         let use = make()
-        #expect(await use.start(slot: .codexFiveHour) == .started)
-        #expect(await use.start(slot: .codexFiveHour) == .alreadyRunning)
-        #expect(await use.start(slot: .codexWeekly) == .unavailable)
-        #expect(controller.starts == [.codexFiveHour])
+        #expect(await use.start(accountWindow: codexFiveHour) == .started)
+        #expect(await use.start(accountWindow: codexFiveHour) == .alreadyRunning)
+        #expect(await use.start(accountWindow: codexWeekly) == .unavailable)
+        #expect(controller.starts == [codexFiveHour])
     }
 
     @Test func disabledActivitiesNeverStart() async {
         controller.setEnabled(false)
-        #expect(await make().start(slot: .codexFiveHour) == .unavailable)
+        #expect(await make().start(accountWindow: codexFiveHour) == .unavailable)
     }
 
     @Test(arguments: [
@@ -39,50 +39,50 @@ import Testing
     ])
     func theStaleDateIsTheEarlierOfExpiryAndReset(reset: Double, expected: Double) async throws {
         try await store.commitLocal(fullSnapshot(fiveHourReset: reset))
-        _ = await make().start(slot: .codexFiveHour)
-        #expect(controller.running[.codexFiveHour]?.staleDate == at(expected))
+        _ = await make().start(accountWindow: codexFiveHour)
+        #expect(controller.running[codexFiveHour]?.staleDate == at(expected))
     }
 
     @Test func aRunUpdatesContentFromTheCommittedSnapshot() async throws {
         let use = make()
-        _ = await use.start(slot: .codexFiveHour)
+        _ = await use.start(accountWindow: codexFiveHour)
         try await store.commitLocal(fullSnapshot(fiveHourReset: 3_000))
         await use.run()
-        #expect(controller.updates == [.codexFiveHour])
-        #expect(controller.running[.codexFiveHour]?.content.resetsAt == at(3_000))
+        #expect(controller.updates == [codexFiveHour])
+        #expect(controller.running[codexFiveHour]?.content.resetsAt == at(3_000))
     }
 
     @Test func anActivityEndsWithImmediateDismissalWhenItsResetHasPassed() async {
         let use = make()
-        _ = await use.start(slot: .codexFiveHour)
+        _ = await use.start(accountWindow: codexFiveHour)
         clock.set(at(3_600))
         await use.run()
-        #expect(controller.ends == [.codexFiveHour] && controller.running.isEmpty)
+        #expect(controller.ends == [codexFiveHour] && controller.running.isEmpty)
     }
 
     @Test func anActivityEndsWhenItsSlotResolvesToAnotherWindow() async throws {
         let use = make()
-        _ = await use.start(slot: .codexFiveHour)
+        _ = await use.start(accountWindow: codexFiveHour)
         try await store.commitLocal(fullSnapshot(codexScope: scopeB))
         await use.run()
-        #expect(controller.ends == [.codexFiveHour])
+        #expect(controller.ends == [codexFiveHour])
     }
 
     @Test func anActivityEndsWhenTheObservationIsGone() async throws {
         let use = make()
-        _ = await use.start(slot: .codexFiveHour)
+        _ = await use.start(accountWindow: codexFiveHour)
         try await store.clear()
         await use.run()
-        #expect(controller.ends == [.codexFiveHour])
+        #expect(controller.ends == [codexFiveHour])
     }
 
     @Test func aUserStoppedActivityIsNotRecreatedOrEnded() async {
         let use = make()
-        _ = await use.start(slot: .codexFiveHour)
-        controller.userStops(.codexFiveHour)
+        _ = await use.start(accountWindow: codexFiveHour)
+        controller.userStops(codexFiveHour)
         await use.run()
         #expect(controller.ends.isEmpty && controller.running.isEmpty)
-        #expect(controller.starts == [.codexFiveHour])
+        #expect(controller.starts == [codexFiveHour])
     }
 
     @Test func forgettingTheMacEndsEveryActivity() async {
@@ -93,18 +93,18 @@ import Testing
                 keyVersion: 1, registrationExpiresAt: epoch)
         }
         let use = make(reader: reader)
-        _ = await use.start(slot: .codexFiveHour)
-        _ = await use.start(slot: .claudeCodeFiveHour)
+        _ = await use.start(accountWindow: codexFiveHour)
+        _ = await use.start(accountWindow: claudeFiveHour)
         reader.seed { $0.pairing = nil }
         await use.run()
-        #expect(Set(controller.ends) == [.codexFiveHour, .claudeCodeFiveHour])
+        #expect(Set(controller.ends) == [codexFiveHour, claudeFiveHour])
     }
 
     @Test func disablingActivitiesEndsThem() async {
         let use = make()
-        _ = await use.start(slot: .codexFiveHour)
+        _ = await use.start(accountWindow: codexFiveHour)
         controller.setEnabled(false)
         await use.run()
-        #expect(controller.ends == [.codexFiveHour])
+        #expect(controller.ends == [codexFiveHour])
     }
 }

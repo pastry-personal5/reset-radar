@@ -15,10 +15,10 @@ public actor SetNotificationOptIn {
         self.reconcile = reconcile
     }
 
-    public func set(_ slot: HomeSlot, enabled: Bool) async -> OptInOutcome {
-        await preferences.setNotificationOptIn(slot, enabled: enabled)
+    public func set(_ accountWindow: AccountWindow, enabled: Bool) async -> OptInOutcome {
+        await preferences.setNotificationOptIn(accountWindow, enabled: enabled)
         guard enabled else {
-            await scheduler.cancel(slot: slot)
+            await scheduler.cancel(accountWindow: accountWindow)
             return .disabled
         }
         var authorization = await scheduler.authorization()

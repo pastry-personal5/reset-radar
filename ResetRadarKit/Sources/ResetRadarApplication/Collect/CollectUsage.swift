@@ -12,17 +12,20 @@ public actor CollectUsage {
     private let snapshots: any LocalSnapshotCommitting
     private let diagnostics: any DiagnosticsSink
     private let clock: any AppClock
+    private let catalogStore: any AccountCatalogStore
     private let publisherID: PublisherID
     private let heartbeatSeconds: Int
     private var gate = SerialGate()
 
     public init(
         snapshots: any LocalSnapshotCommitting, diagnostics: any DiagnosticsSink,
-        clock: any AppClock, publisherID: PublisherID, heartbeatSeconds: Int
+        clock: any AppClock, catalogStore: any AccountCatalogStore, publisherID: PublisherID,
+        heartbeatSeconds: Int
     ) {
         self.snapshots = snapshots
         self.diagnostics = diagnostics
         self.clock = clock
+        self.catalogStore = catalogStore
         self.publisherID = publisherID
         self.heartbeatSeconds = heartbeatSeconds
     }
@@ -44,14 +47,15 @@ public actor CollectUsage {
         defer { release() }
         let now = clock.now
         let reduced = try SnapshotReducer.reduce(
-            previous: try await snapshots.load(), reports: [], publisherID: publisherID,
-            heartbeatSeconds: heartbeatSeconds, now: now)
+            previous: try await snapshots.load(), reports: [],
+            context: try await context(now: now))
         let base = reduced.snapshot
         let results = ManualRefreshResults.retained(base.manualRefreshResults + added, now: now)
         try await snapshots.commitLocal(
             try UsageSnapshot(
                 publisherID: base.publisherID, generatedAt: now,
-                heartbeatSeconds: base.heartbeatSeconds, sources: base.sources,
+                heartbeatSeconds: base.heartbeatSeconds, accounts: base.accounts,
+                sources: base.sources,
                 windows: base.windows, diagnostics: base.diagnostics,
                 manualRefreshResults: results))
     }
@@ -71,10 +75,17 @@ public actor CollectUsage {
         defer { release() }
         let previous = try await snapshots.load()
         let reduced = try SnapshotReducer.reduce(
-            previous: previous, reports: reports, publisherID: publisherID,
-            heartbeatSeconds: heartbeatSeconds, now: clock.now)
+            previous: previous, reports: reports, context: try await context(now: clock.now))
         try await snapshots.commitLocal(reduced.snapshot)
         for event in reduced.snapshot.diagnostics { await diagnostics.record(event) }
         return CollectResult(snapshot: reduced.snapshot, change: reduced.change)
+    }
+
+    private func context(now: Date) async throws -> SnapshotAssemblyContext {
+        let catalog = try await catalogStore.loadCatalog()
+        return SnapshotAssemblyContext(
+            accounts: catalog.accounts, publisherID: publisherID,
+            heartbeatSeconds: heartbeatSeconds,
+            now: now)
     }
 }

@@ -1,0 +1,5 @@
+{
+  "status": 404,
+  "code": "unknownRoute",
+  "body": "{\"code\":\"unknownRoute\",\"protocolVersion\":2}"
+}

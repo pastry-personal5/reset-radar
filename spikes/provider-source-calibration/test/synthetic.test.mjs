@@ -49,6 +49,7 @@ test("Codex report is sanitized for unique and compatibility-only buckets", asyn
         "DO_NOT_PERSIST_LIMIT_ID_SENTINEL",
         "DO_NOT_PERSIST_LIMIT_NAME_SENTINEL",
         "DO_NOT_PERSIST_BUCKET_KEY_SENTINEL",
+        "DO_NOT_PERSIST_ACCOUNT_ID_SENTINEL",
         "1999999999",
         "2000000000",
       ]) {
@@ -62,7 +63,12 @@ test("Codex report is sanitized for unique and compatibility-only buckets", asyn
       assert.equal(read.bounds.withinFrameBound, true);
       assert.equal(read.bounds.withinStringBound, true);
       assert.equal(read.bounds.withinDepthBound, true);
+      assert.equal(read.bounds.withinBucketEntryBound, true);
       assert.equal(read.bounds.withinWindowBound, true);
+      assert.equal(read.accountIdentifierClassification, "present-string");
+      const accountRead = report.events.find((event) => event.kind === "account-read");
+      assert.equal(accountRead.accountKind, "chatgpt");
+      assert.equal(accountRead.requiresOpenaiAuth, false);
     }
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -136,23 +142,41 @@ test("report verifier accepts a complete sanitized observation", async () => {
       kind: "rate-limit-read",
       reason: index === 0 ? "initial" : "scheduled-poll",
       latencyMs: 12 + index,
+      accountIdentifierClassification: "present-string",
       defaultBucket: { status: "unique", candidateCount: 1, basis: ["complete-snapshot-equality"] },
       bounds: {
         frameBytes: 512,
-        maxStringLength: 20,
+        maxStringBytes: 20,
         maxDepth: 5,
-        windowCount: 4,
+        bucketEntryCount: 2,
+        candidateWindowCount: 4,
         withinFrameBound: true,
         withinStringBound: true,
         withinDepthBound: true,
+        withinBucketEntryBound: true,
         withinWindowBound: true,
       },
     }));
     const codexReport = JSON.stringify({
-      formatVersion: 1,
+      formatVersion: 2,
       startedAt: new Date(base).toISOString(),
       limits: {},
-      events: [...reads, { at: new Date(base + 1_000).toISOString(), kind: "rate-limit-update-notification" }],
+      events: [
+        {
+          at: new Date(base).toISOString(),
+          kind: "account-read",
+          latencyMs: 10,
+          frameBytes: 256,
+          topLevelKeys: ["account", "requiresOpenaiAuth"],
+          accountType: "string",
+          accountKind: "chatgpt",
+          requiresOpenaiAuthType: "boolean",
+          requiresOpenaiAuth: false,
+          bounds: { withinFrameBound: true, withinStringBound: true, withinDepthBound: true },
+        },
+        ...reads,
+        { at: new Date(base + 1_000).toISOString(), kind: "rate-limit-update-notification" },
+      ],
       failures: [],
       stderrBytesDiscarded: 0,
       stdinClosedAt: new Date(base + 31 * 60_000).toISOString(),
@@ -203,6 +227,7 @@ test("report verifier accepts a complete sanitized observation", async () => {
 
     const result = await execute(process.execPath, [
       path.join(spikeRoot, "verify-reports.mjs"),
+      "--mode", "combined",
       "--root", root,
     ]);
     assert.equal(result.code, 0, result.stderr);
@@ -213,6 +238,68 @@ test("report verifier accepts a complete sanitized observation", async () => {
     assert.equal(summary.codex.profiles.every((profile) => profile.currentDataWindowTechnicalChecks === "pass"), true);
     assert.equal(summary.claudeCode.currentDataWindowTechnicalChecks, "pass");
     assert.equal(summary.privacyShapeChecks, "pass");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Codex-only verifier does not require or inspect Claude reports", async () => {
+  const root = await mkdtemp(path.join("/private/tmp", "reset-radar-source-calibration.test."));
+  try {
+    const base = Date.parse("2026-01-01T00:00:00.000Z");
+    const reads = Array.from({ length: 7 }, (_, index) => ({
+      at: new Date(base + index * 5 * 60_000).toISOString(),
+      elapsedMs: index * 5 * 60_000,
+      kind: "rate-limit-read",
+      reason: index === 0 ? "initial" : "scheduled-poll",
+      latencyMs: 10,
+      accountIdentifierClassification: "present-string",
+      defaultBucket: { status: "compatibility-only", candidateCount: 0, basis: [] },
+      bounds: {
+        frameBytes: 100,
+        maxStringBytes: 10,
+        maxDepth: 4,
+        bucketEntryCount: 0,
+        candidateWindowCount: 2,
+        withinFrameBound: true,
+        withinStringBound: true,
+        withinDepthBound: true,
+        withinBucketEntryBound: true,
+        withinWindowBound: true,
+      },
+    }));
+    await writeFile(path.join(root, "codex-1-report.json"), JSON.stringify({
+      formatVersion: 2,
+      startedAt: new Date(base).toISOString(),
+      limits: {},
+      events: [{
+        at: new Date(base).toISOString(),
+        kind: "account-read",
+        latencyMs: 9,
+        frameBytes: 100,
+        topLevelKeys: ["account", "requiresOpenaiAuth"],
+        accountType: "string",
+        accountKind: "chatgpt",
+        requiresOpenaiAuthType: "boolean",
+        requiresOpenaiAuth: false,
+        bounds: { withinFrameBound: true, withinStringBound: true, withinDepthBound: true },
+      }, ...reads],
+      failures: [],
+      stderrBytesDiscarded: 0,
+      stdinClosedAt: new Date(base + 31 * 60_000).toISOString(),
+      exitedAfterStdinClose: true,
+      childExit: { code: 0, signal: null },
+      finishedAt: new Date(base + 31 * 60_000).toISOString(),
+    }), { mode: 0o600 });
+    const result = await execute(process.execPath, [
+      path.join(spikeRoot, "verify-reports.mjs"),
+      "--mode", "codex",
+      "--root", root,
+    ]);
+    assert.equal(result.code, 0, result.stderr);
+    const summary = JSON.parse(result.stdout);
+    assert.equal(summary.mode, "codex");
+    assert.equal(Object.hasOwn(summary, "claudeCode"), false);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

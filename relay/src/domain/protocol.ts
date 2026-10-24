@@ -1,9 +1,10 @@
 export const MAX_SEQUENCE = 9_007_199_254_740_991;
 export const SNAPSHOT_LIMIT = 64 * 1024;
-export const REFRESH_LIMIT = 128;
+export const REFRESH_LIMIT = 192;
 export const REGISTRATION_LIMIT = 256;
 export const RESPONSE_LIMIT = 4 * 1024;
 export const PROTOCOL_VERSION = 1;
+export const REFRESH_PROTOCOL_VERSION = 2;
 
 export type ErrorCode =
   | "awaitingFirstPublish"
@@ -33,10 +34,9 @@ export type Envelope = {
   tag: string;
 };
 
-export type RefreshRequestBody = {
-  protocolVersion: 1;
-  requestID: string;
-};
+export type RefreshRequestBody =
+  | { accountID: string; protocolVersion: 2; requestID: string; target: "account" }
+  | { protocolVersion: 2; requestID: string; target: "allCodex" };
 
 export type RegistrationBody = {
   protocolVersion: 1;
@@ -61,13 +61,17 @@ export function canonicalJSON(value: unknown): string {
     `${JSON.stringify(key)}:${canonicalJSON(record[key])}`).join(",")}}`;
 }
 
-export function errorBody(code: ErrorCode): string {
-  return canonicalJSON({ code, protocolVersion: PROTOCOL_VERSION });
+export function errorBody(
+  code: ErrorCode,
+  protocolVersion: typeof PROTOCOL_VERSION | typeof REFRESH_PROTOCOL_VERSION = PROTOCOL_VERSION,
+): string {
+  return canonicalJSON({ code, protocolVersion });
 }
 
 export function parseCanonicalObject(
   text: string,
   keys: readonly string[],
+  protocolVersion: number = PROTOCOL_VERSION,
 ): { value: ObjectRecord } | { failure: ProtocolFailure } {
   let value: unknown;
   try {
@@ -88,7 +92,7 @@ export function parseCanonicalObject(
   ) {
     return { failure: "badRequest" };
   }
-  if (record.protocolVersion !== PROTOCOL_VERSION) {
+  if (record.protocolVersion !== protocolVersion) {
     return { failure: "unsupportedVersion" };
   }
   return { value: record };
@@ -140,11 +144,29 @@ export function parseRegistration(
 export function parseRefreshRequest(
   text: string,
 ): { value: RefreshRequestBody } | { failure: ProtocolFailure } {
-  const parsed = parseCanonicalObject(text, ["protocolVersion", "requestID"]);
+  let untyped: unknown;
+  try {
+    untyped = JSON.parse(text);
+  } catch {
+    return { failure: "badRequest" };
+  }
+  if (untyped === null || Array.isArray(untyped) || typeof untyped !== "object") {
+    return { failure: "badRequest" };
+  }
+  const record = untyped as ObjectRecord;
+  const keys = record.target === "account"
+    ? ["accountID", "protocolVersion", "requestID", "target"]
+    : ["protocolVersion", "requestID", "target"];
+  const parsed = parseCanonicalObject(text, keys, REFRESH_PROTOCOL_VERSION);
   if ("failure" in parsed) {
     return parsed;
   }
   if (!isReaderOrRequestID(parsed.value.requestID)) {
+    return { failure: "badRequest" };
+  }
+  if (parsed.value.target === "account") {
+    if (!isReaderOrRequestID(parsed.value.accountID)) return { failure: "badRequest" };
+  } else if (parsed.value.target !== "allCodex" || "accountID" in parsed.value) {
     return { failure: "badRequest" };
   }
   return { value: parsed.value as RefreshRequestBody };

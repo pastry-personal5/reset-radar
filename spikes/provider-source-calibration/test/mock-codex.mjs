@@ -17,8 +17,20 @@ for await (const line of lines) {
   const message = JSON.parse(line);
   if (message.method === "initialize") {
     process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id: message.id, result: { serverInfo: { name: "synthetic" } } })}\n`);
+  } else if (message.method === "account/read") {
+    process.stdout.write(`${JSON.stringify({
+      jsonrpc: "2.0",
+      id: message.id,
+      result: {
+        account: { type: "chatgpt" },
+        requiresOpenaiAuth: false,
+      },
+    })}\n`);
   } else if (message.method === "account/rateLimits/read") {
-    const result = { rateLimits: compatibility };
+    const result = {
+      accountId: "DO_NOT_PERSIST_ACCOUNT_ID_SENTINEL",
+      rateLimits: compatibility,
+    };
     if (!compatibilityOnly) {
       result.rateLimitsByLimitId = { DO_NOT_PERSIST_BUCKET_KEY_SENTINEL: compatibility };
     }

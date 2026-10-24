@@ -1,9 +1,9 @@
 {
   "method": "POST",
-  "path": "/v1/refresh-requests",
+  "path": "/v2/refresh-requests",
   "authority": "read",
-  "requestBody": "{\"protocolVersion\":1,\"requestID\":\"56565656565656565656565656565656\"}",
+  "requestBody": "{\"protocolVersion\":2,\"requestID\":\"56565656565656565656565656565656\",\"target\":\"allCodex\"}",
   "status": 202,
-  "responseBody": "{\"expiresAt\":\"2023-11-14T22:18:20.000Z\",\"protocolVersion\":1}",
+  "responseBody": "{\"expiresAt\":\"2023-11-14T22:18:20.000Z\",\"protocolVersion\":2}",
   "etag": null
 }

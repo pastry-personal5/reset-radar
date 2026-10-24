@@ -3,20 +3,36 @@
 set -euo pipefail
 umask 077
 
-if (( $# != 2 )) || [[ "$1" != --confirm-delete-calibration-sessions ]]; then
-  print -u2 -- "usage: zsh cleanup.zsh --confirm-delete-calibration-sessions SESSION_FILE"
+if (( $# == 3 )) && [[ "$1" == --mode && "$2" == codex ]]; then
+  requested_mode=codex
+  session_file="${3:A}"
+elif (( $# == 4 )) && [[ "$1" == --mode && "$2" == combined \
+    && "$3" == --confirm-delete-calibration-sessions ]]; then
+  requested_mode=combined
+  session_file="${4:A}"
+else
+  print -u2 -- "usage: zsh cleanup.zsh --mode codex SESSION_FILE"
+  print -u2 -- "   or: zsh cleanup.zsh --mode combined --confirm-delete-calibration-sessions SESSION_FILE"
   exit 2
 fi
-session_file="${2:A}"
 if [[ "$session_file" != /private/tmp/reset-radar-source-calibration.*/session.zsh || ! -f "$session_file" ]]; then
   print -u2 -- "Refusing an unexpected session file."
   exit 1
 fi
 source "$session_file"
-if [[ "$source_calibration_root" != /private/tmp/reset-radar-source-calibration.* ]]; then
+if [[ "$source_calibration_root" != /private/tmp/reset-radar-source-calibration.* \
+    || "$source_calibration_mode" != "$requested_mode" ]]; then
   print -u2 -- "Refusing an unexpected cleanup root."
   exit 1
 fi
+repo_status_after="$(
+  git -C "$source_calibration_repo_root" status --porcelain=v1 -z --untracked-files=all \
+    | shasum -a 256 | awk '{print $1}'
+)"
+[[ "$repo_status_after" == "$source_calibration_repo_status_before" ]]
+[[ "$(git -C "$source_calibration_repo_root" rev-parse HEAD)" == "$source_calibration_revision" ]]
+
+if [[ "$source_calibration_mode" == combined ]]; then
 if ! print -r -- "$source_calibration_claude_session_a" \
     | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' \
   || ! print -r -- "$source_calibration_claude_session_b" \
@@ -37,12 +53,6 @@ else
   settings_after='absent'
 fi
 [[ "$settings_after" == "$source_calibration_settings_before" ]]
-
-repo_status_after="$(
-  git -C "$source_calibration_repo_root" status --porcelain=v1 -z --untracked-files=all \
-    | shasum -a 256 | awk '{print $1}'
-)"
-[[ "$repo_status_after" == "$source_calibration_repo_status_before" ]]
 
 if [[ "$source_calibration_history_state" == present ]]; then
   [[ -f "$source_calibration_claude_history" ]]
@@ -82,9 +92,10 @@ if rg -l -F \
   print -u2 -- "A calibration session UUID remains under ~/.claude; inspect privately."
   exit 1
 fi
+fi
 
 find "$source_calibration_root" -type f -exec chmod 600 {} +
 rm -rf -- "$source_calibration_root"
 [[ ! -e "$source_calibration_root" ]]
-print -- "Calibration session data, history additions, and disposable files removed: PASS"
+print -- "$source_calibration_mode calibration disposable files removed and repository unchanged: PASS"
 

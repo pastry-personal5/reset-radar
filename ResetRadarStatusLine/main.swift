@@ -1,5 +1,3 @@
-import ResetRadarDomain
 import ResetRadarProviderAdapters
 
-// The status-line helper is implemented by the provider adapters design.
-print(ResetRadarProviderAdaptersModule.name)
+// The Claude Code status-line helper is implemented by P1-M11.

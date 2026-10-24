@@ -22,16 +22,23 @@ public enum TransportStatus: String, Codable, CaseIterable, Hashable, Sendable {
     case secretsUnavailable
 }
 
-public struct ProductSource: Codable, Hashable, Sendable {
+public struct AccountSource: Codable, Hashable, Sendable {
+    public let accountID: AccountID
     public let product: ProductID
     public let kind: SourceKind
     public let version: String
     public let state: SourceState
+    public let providerScope: AccountScope?
 
-    public init(product: ProductID, kind: SourceKind, version: String, state: SourceState) {
+    public init(
+        accountID: AccountID, product: ProductID, kind: SourceKind, version: String,
+        state: SourceState, providerScope: AccountScope? = nil
+    ) {
+        self.accountID = accountID
         self.product = product
         self.kind = kind
         self.version = version
         self.state = state
+        self.providerScope = providerScope
     }
 }

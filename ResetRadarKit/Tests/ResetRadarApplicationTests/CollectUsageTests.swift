@@ -15,8 +15,11 @@ import Testing
 
         init() {
             collector = CollectUsage(
-                snapshots: store, diagnostics: sink, clock: clock, publisherID: publisher,
-                heartbeatSeconds: 300)
+                snapshots: store, diagnostics: sink, clock: clock,
+                catalogStore: FakeAccountCatalogStore(accounts: [
+                    AccountMetadata(id: codexAccountID, product: .codex, number: 1),
+                    AccountMetadata(id: claudeAccountID, product: .claudeCode, number: 2),
+                ]), publisherID: publisher, heartbeatSeconds: 300)
         }
     }
 
@@ -59,7 +62,8 @@ import Testing
     @Test func anInvalidHeartbeatConfigurationFailsTheIngest() async {
         let rig = Rig()
         let bad = CollectUsage(
-            snapshots: rig.store, diagnostics: rig.sink, clock: rig.clock, publisherID: publisher,
+            snapshots: rig.store, diagnostics: rig.sink, clock: rig.clock,
+            catalogStore: FakeAccountCatalogStore(accounts: []), publisherID: publisher,
             heartbeatSeconds: 0)
         await #expect(throws: UsageSnapshotError.invalidHeartbeat) {
             try await bad.ingest(report(windows: [window()]))

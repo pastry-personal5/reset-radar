@@ -82,23 +82,23 @@ export async function runRemoteFaultCases(originInput, secrets, fetchImplementat
   const baselineSequence = initialEnvelope.sequence;
 
   const requestID = randomIdentifier();
-  parseExpiryResponse((await call("/v1/refresh-requests", { body: canonicalJSON({ protocolVersion: 1, requestID }), expectedStatus: 202, label: "mid-request revocation setup", method: "POST", token: secrets.readTokens[0] })).text);
+  parseExpiryResponse((await call("/v2/refresh-requests", { body: canonicalJSON({ protocolVersion: 2, requestID, target: "allCodex" }), expectedStatus: 202, label: "mid-request revocation setup", method: "POST", token: secrets.readTokens[0] })).text, 2);
   await call(`/v1/readers/${readerIDs[0]}`, { expectedStatus: 204, label: "mid-request revocation", method: "DELETE", token: secrets.adminToken });
   await callError("/v1/snapshot", { expectedStatus: 401, label: "revoked read", token: secrets.readTokens[0] }, "unauthorized");
-  const afterRevocation = parseRefreshList((await call("/v1/refresh-requests", { expectedStatus: 200, label: "revoked request cleanup", token: secrets.writeToken })).text);
+  const afterRevocation = parseRefreshList((await call("/v2/refresh-requests", { expectedStatus: 200, label: "revoked request cleanup", token: secrets.writeToken })).text);
   if (afterRevocation.some((request) => request.requestID === requestID)) throw new HarnessFailure("Reader revocation left its request live.");
 
   await wait(61_000);
   const offlineRequestID = randomIdentifier();
-  parseExpiryResponse((await call("/v1/refresh-requests", { body: canonicalJSON({ protocolVersion: 1, requestID: offlineRequestID }), expectedStatus: 202, label: "offline Mac request", method: "POST", token: secrets.readTokens[1] })).text);
+  parseExpiryResponse((await call("/v2/refresh-requests", { body: canonicalJSON({ protocolVersion: 2, requestID: offlineRequestID, target: "allCodex" }), expectedStatus: 202, label: "offline Mac request", method: "POST", token: secrets.readTokens[1] })).text, 2);
   await wait(61_000);
-  const afterExpiry = parseRefreshList((await call("/v1/refresh-requests", { expectedStatus: 200, label: "request expiry", token: secrets.writeToken })).text);
+  const afterExpiry = parseRefreshList((await call("/v2/refresh-requests", { expectedStatus: 200, label: "request expiry", token: secrets.writeToken })).text);
   if (afterExpiry.some((request) => request.requestID === offlineRequestID)) throw new HarnessFailure("Expired offline-Mac request remained live.");
 
   const sourceFailureID = randomIdentifier();
-  parseExpiryResponse((await call("/v1/refresh-requests", { body: canonicalJSON({ protocolVersion: 1, requestID: sourceFailureID }), expectedStatus: 202, label: "source failure request", method: "POST", token: secrets.readTokens[2] })).text);
+  parseExpiryResponse((await call("/v2/refresh-requests", { body: canonicalJSON({ protocolVersion: 2, requestID: sourceFailureID, target: "allCodex" }), expectedStatus: 202, label: "source failure request", method: "POST", token: secrets.readTokens[2] })).text, 2);
   await wait(61_000);
-  const afterSourceFailure = parseRefreshList((await call("/v1/refresh-requests", { expectedStatus: 200, label: "source failure expiry", token: secrets.writeToken })).text);
+  const afterSourceFailure = parseRefreshList((await call("/v2/refresh-requests", { expectedStatus: 200, label: "source failure expiry", token: secrets.writeToken })).text);
   if (afterSourceFailure.some((request) => request.requestID === sourceFailureID)) throw new HarnessFailure("Source failure request did not expire.");
 
   await callError("/v1/snapshot", { body: initialRead.text, expectedStatus: 409, label: "publication failure", method: "PUT", token: secrets.writeToken }, "sequenceConflict");

@@ -4,7 +4,7 @@ import ResetRadarDomain
 
 public final class FakePreferenceStore: PreferenceStore, @unchecked Sendable {
     private struct State {
-        var optIn: [HomeSlot: Bool] = [:]
+        var optIn: [AccountWindow: Bool] = [:]
         var complication = false
     }
 
@@ -12,12 +12,12 @@ public final class FakePreferenceStore: PreferenceStore, @unchecked Sendable {
 
     public init() {}
 
-    public func notificationOptIn(_ slot: HomeSlot) async -> Bool? {
-        state.withLock { $0.optIn[slot] }
+    public func notificationOptIn(_ accountWindow: AccountWindow) async -> Bool? {
+        state.withLock { $0.optIn[accountWindow] }
     }
 
-    public func setNotificationOptIn(_ slot: HomeSlot, enabled: Bool) async {
-        state.withLock { $0.optIn[slot] = enabled }
+    public func setNotificationOptIn(_ accountWindow: AccountWindow, enabled: Bool) async {
+        state.withLock { $0.optIn[accountWindow] = enabled }
     }
 
     public func complicationEnabled() async -> Bool { state.withLock { $0.complication } }
@@ -64,10 +64,10 @@ public final class FakeNotificationScheduler: NotificationScheduler, @unchecked 
     private struct State {
         var authorization: NotificationAuthorization = .authorized
         var grantOnRequest: NotificationAuthorization = .authorized
-        var requests: [HomeSlot: ResetRequest] = [:]
+        var requests: [AccountWindow: ResetRequest] = [:]
         var authorizationRequests = 0
         var scheduled: [ResetRequest] = []
-        var cancelled: [HomeSlot] = []
+        var cancelled: [AccountWindow] = []
         var scheduleFailure = false
     }
 
@@ -79,8 +79,8 @@ public final class FakeNotificationScheduler: NotificationScheduler, @unchecked 
 
     public var authorizationRequests: Int { state.withLock { $0.authorizationRequests } }
     public var scheduled: [ResetRequest] { state.withLock { $0.scheduled } }
-    public var cancelled: [HomeSlot] { state.withLock { $0.cancelled } }
-    public var current: [HomeSlot: ResetRequest] { state.withLock { $0.requests } }
+    public var cancelled: [AccountWindow] { state.withLock { $0.cancelled } }
+    public var current: [AccountWindow: ResetRequest] { state.withLock { $0.requests } }
 
     public func setAuthorization(
         _ value: NotificationAuthorization, grantOnRequest: NotificationAuthorization? = nil
@@ -112,15 +112,15 @@ public final class FakeNotificationScheduler: NotificationScheduler, @unchecked 
     public func schedule(_ request: ResetRequest) async throws {
         try state.withLock { state in
             if state.scheduleFailure { throw FakeStoreError.injected }
-            state.requests[request.slot] = request
+            state.requests[request.accountWindow] = request
             state.scheduled.append(request)
         }
     }
 
-    public func cancel(slot: HomeSlot) async {
+    public func cancel(accountWindow: AccountWindow) async {
         state.withLock { state in
-            state.requests[slot] = nil
-            state.cancelled.append(slot)
+            state.requests[accountWindow] = nil
+            state.cancelled.append(accountWindow)
         }
     }
 }
@@ -133,57 +133,69 @@ public final class FakeLiveActivityController: LiveActivityController, @unchecke
 
     private struct State {
         var enabled = true
-        var running: [HomeSlot: Entry] = [:]
-        var starts: [HomeSlot] = []
-        var updates: [HomeSlot] = []
-        var ends: [HomeSlot] = []
+        var running: [AccountWindow: Entry] = [:]
+        var starts: [AccountWindow] = []
+        var updates: [AccountWindow] = []
+        var ends: [AccountWindow] = []
     }
 
     private let state = Locked(State())
 
     public init() {}
 
-    public var starts: [HomeSlot] { state.withLock { $0.starts } }
-    public var updates: [HomeSlot] { state.withLock { $0.updates } }
-    public var ends: [HomeSlot] { state.withLock { $0.ends } }
-    public var running: [HomeSlot: Entry] { state.withLock { $0.running } }
+    public var starts: [AccountWindow] { state.withLock { $0.starts } }
+    public var updates: [AccountWindow] { state.withLock { $0.updates } }
+    public var ends: [AccountWindow] { state.withLock { $0.ends } }
+    public var running: [AccountWindow: Entry] { state.withLock { $0.running } }
 
     public func setEnabled(_ enabled: Bool) { state.withLock { $0.enabled = enabled } }
 
     /// Simulates a running activity the app did not start in this process.
-    public func seed(_ slot: HomeSlot, content: ActivityContent, staleDate: Date) {
-        state.withLock { $0.running[slot] = Entry(content: content, staleDate: staleDate) }
+    public func seed(
+        _ accountWindow: AccountWindow, content: ActivityContent, staleDate: Date
+    ) {
+        state.withLock {
+            $0.running[accountWindow] = Entry(content: content, staleDate: staleDate)
+        }
     }
 
     /// Simulates the user stopping an activity from the Lock Screen.
-    public func userStops(_ slot: HomeSlot) { state.withLock { $0.running[slot] = nil } }
+    public func userStops(_ accountWindow: AccountWindow) {
+        state.withLock { $0.running[accountWindow] = nil }
+    }
 
     public func areActivitiesEnabled() async -> Bool { state.withLock { $0.enabled } }
 
     public func list() async -> [RunningActivity] {
         state.withLock { state in
-            state.running.map { RunningActivity(slot: $0.key, windowID: $0.value.content.windowID) }
+            state.running.map {
+                RunningActivity(accountWindow: $0.key, windowID: $0.value.content.windowID)
+            }
         }
     }
 
-    public func start(slot: HomeSlot, content: ActivityContent, staleDate: Date) async throws {
+    public func start(
+        accountWindow: AccountWindow, content: ActivityContent, staleDate: Date
+    ) async throws {
         state.withLock { state in
-            state.running[slot] = Entry(content: content, staleDate: staleDate)
-            state.starts.append(slot)
+            state.running[accountWindow] = Entry(content: content, staleDate: staleDate)
+            state.starts.append(accountWindow)
         }
     }
 
-    public func update(slot: HomeSlot, content: ActivityContent, staleDate: Date) async {
+    public func update(
+        accountWindow: AccountWindow, content: ActivityContent, staleDate: Date
+    ) async {
         state.withLock { state in
-            state.running[slot] = Entry(content: content, staleDate: staleDate)
-            state.updates.append(slot)
+            state.running[accountWindow] = Entry(content: content, staleDate: staleDate)
+            state.updates.append(accountWindow)
         }
     }
 
-    public func end(slot: HomeSlot) async {
+    public func end(accountWindow: AccountWindow) async {
         state.withLock { state in
-            state.running[slot] = nil
-            state.ends.append(slot)
+            state.running[accountWindow] = nil
+            state.ends.append(accountWindow)
         }
     }
 }

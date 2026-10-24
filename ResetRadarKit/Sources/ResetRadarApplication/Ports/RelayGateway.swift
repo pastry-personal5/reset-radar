@@ -8,7 +8,8 @@ public protocol RelayGateway: Sendable {
     func getSnapshot(endpoint: URL, readToken: SecretValue, etag: String?) async -> RelayOutcome
     func activateReader(endpoint: URL, readToken: SecretValue) async -> RelayOutcome
     func postRefreshRequest(
-        _ id: RequestID, endpoint: URL, readToken: SecretValue
+        _ id: RequestID, target: ManualRefreshTarget, endpoint: URL,
+        readToken: SecretValue
     ) async -> RelayOutcome
     func listRefreshRequests(
         endpoint: URL, writeToken: SecretValue

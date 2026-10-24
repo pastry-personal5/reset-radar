@@ -6,7 +6,7 @@ public enum RelayCall: Sendable, Equatable {
     case putSnapshot(Data)
     case getSnapshot(etag: String?)
     case activateReader
-    case postRefreshRequest(RequestID)
+    case postRefreshRequest(RequestID, ManualRefreshTarget)
     case listRefreshRequests
     case deleteRefreshRequest(RequestID)
     case registerReader(ReaderID, digest: Data)
@@ -149,9 +149,9 @@ public final class FakeRelayGateway: RelayGateway, @unchecked Sendable {
     }
 
     public func postRefreshRequest(
-        _ id: RequestID, endpoint: URL, readToken: SecretValue
+        _ id: RequestID, target: ManualRefreshTarget, endpoint: URL, readToken: SecretValue
     ) async -> RelayOutcome {
-        await enter(.postRefreshRequest(id), readToken)
+        await enter(.postRefreshRequest(id, target), readToken)
         return pop(\.post, fallbackPost)
     }
 

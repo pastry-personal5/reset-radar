@@ -154,7 +154,8 @@ public actor PublishSnapshot {
         return
             (try? UsageSnapshot(
                 publisherID: publisherID, generatedAt: snapshot.generatedAt,
-                heartbeatSeconds: snapshot.heartbeatSeconds, sources: snapshot.sources,
+                heartbeatSeconds: snapshot.heartbeatSeconds, accounts: snapshot.accounts,
+                sources: snapshot.sources,
                 windows: snapshot.windows, diagnostics: snapshot.diagnostics,
                 manualRefreshResults: snapshot.manualRefreshResults)) ?? snapshot
     }

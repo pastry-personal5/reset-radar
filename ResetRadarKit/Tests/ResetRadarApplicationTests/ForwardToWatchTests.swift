@@ -8,9 +8,13 @@ import Testing
 @Suite struct ForwardToWatchTests {
     let rig = WatchForwardRig()
 
-    @Test func theWatchCopyDropsManualRefreshResults() async {
-        let result = ManualRefreshResult(
-            readerID: readerB, requestID: requestID(1), completedAt: epoch, outcome: .codexRead)
+    @Test func theWatchCopyDropsManualRefreshResults() async throws {
+        let result = try ManualRefreshResult(
+            readerID: readerB, requestID: requestID(1), completedAt: epoch,
+            target: .allCodex,
+            accountResults: [
+                ManualRefreshAccountResult(accountID: codexAccountID, outcome: .codexRead)
+            ])
         await rig.makeForward().send(after: rig.event(results: [result]))
         let sent = rig.link.contexts.first?.snapshot
         #expect(sent != nil && sent?.manualRefreshResults.isEmpty == true)

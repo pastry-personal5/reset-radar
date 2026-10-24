@@ -16,12 +16,17 @@ final class ManualRig: @unchecked Sendable {
     var clock: FakeAppClock { base.clock }
 
     init() {
-        codex = FakeUsageSource(product: .codex, clock: base.clock)
-        claude = FakeUsageSource(product: .claudeCode, clock: base.clock)
+        codex = FakeUsageSource(
+            accountID: codexAccountID, product: .codex, clock: base.clock)
+        claude = FakeUsageSource(
+            accountID: claudeAccountID, product: .claudeCode, clock: base.clock)
         publishing = base.makePublisher()
         collector = CollectUsage(
-            snapshots: store, diagnostics: base.sink, clock: base.clock, publisherID: publisher,
-            heartbeatSeconds: 300)
+            snapshots: store, diagnostics: base.sink, clock: base.clock,
+            catalogStore: FakeAccountCatalogStore(accounts: [
+                AccountMetadata(id: codexAccountID, product: .codex, number: 1),
+                AccountMetadata(id: claudeAccountID, product: .claudeCode, number: 2),
+            ]), publisherID: publisher, heartbeatSeconds: 300)
     }
 
     func makeHandler() -> HandleManualRefreshRequests {
@@ -32,10 +37,12 @@ final class ManualRig: @unchecked Sendable {
     }
 
     func request(
-        _ id: UInt8, reader: ReaderID = readerA, expires: TimeInterval = 60
+        _ id: UInt8, reader: ReaderID = readerA, target: ManualRefreshTarget = .allCodex,
+        expires: TimeInterval = 60
     ) -> PendingRefreshRequest {
         PendingRefreshRequest(
-            id: requestID(id), readerID: reader, expiresAt: clock.now.addingTimeInterval(expires))
+            id: requestID(id), readerID: reader, target: target,
+            expiresAt: clock.now.addingTimeInterval(expires))
     }
 
     func receipt(
@@ -97,7 +104,52 @@ final class ManualRig: @unchecked Sendable {
         rig.codex.queueReceipts(rig.receipt(0, 1, succeeded: false))
         let outcome = await rig.makeHandler().handle(pending: [rig.request(1)])
         #expect(outcome == .handled(count: 1))
-        #expect(rig.store.current?.manualRefreshResults.map(\.outcome) == [.sourceUnavailable])
+        #expect(
+            rig.store.current?.manualRefreshResults.flatMap(\.accountResults).map(\.outcome)
+                == [.sourceUnavailable])
+    }
+
+    @Test func aStaleOrNonCodexAccountTargetIsUnavailableWithoutLaunchingASource() async {
+        let staleID = AccountID(data: bytes(16, 0xEE))!
+        for (offset, accountID) in [staleID, claudeAccountID].enumerated() {
+            let other = ManualRig()
+            let request = other.request(
+                UInt8(offset + 1), target: .account(accountID))
+            #expect(await other.makeHandler().handle(pending: [request]) == .handled(count: 1))
+            #expect(other.codex.refreshCount == 0)
+            #expect(other.claude.refreshCount == 0)
+            #expect(
+                other.store.current?.manualRefreshResults
+                    .flatMap(\.accountResults).map(\.outcome) == [.accountUnavailable])
+        }
+    }
+
+    @Test func allCodexPublishesPerAccountPartialResults() async {
+        let second = FakeUsageSource(
+            accountID: otherCodexAccountID, product: .codex, clock: rig.clock)
+        rig.codex.queueReceipts(
+            ReadReceipt(
+                startedAt: epoch, finishedAt: at(1), succeeded: true,
+                report: report(windows: [window()])))
+        second.queueReceipts(
+            ReadReceipt(startedAt: epoch, finishedAt: at(1), succeeded: false))
+        let collector = CollectUsage(
+            snapshots: rig.store, diagnostics: rig.base.sink, clock: rig.clock,
+            catalogStore: FakeAccountCatalogStore(accounts: [
+                AccountMetadata(id: codexAccountID, product: .codex, number: 1),
+                AccountMetadata(id: otherCodexAccountID, product: .codex, number: 2),
+                AccountMetadata(id: claudeAccountID, product: .claudeCode, number: 3),
+            ]), publisherID: publisher, heartbeatSeconds: 300)
+        let handler = HandleManualRefreshRequests(
+            publisher: rig.base.store, snapshots: rig.store, collector: collector,
+            sources: [rig.codex, second, rig.claude], publishing: rig.publishing,
+            secrets: rig.base.secrets, relay: rig.base.relay, clock: rig.clock)
+
+        #expect(await handler.handle(pending: [rig.request(1)]) == .handled(count: 1))
+        let results = rig.store.current?.manualRefreshResults.first?.accountResults
+        #expect(results?.map(\.accountID) == [codexAccountID, otherCodexAccountID])
+        #expect(results?.map(\.outcome) == [.codexRead, .sourceUnavailable])
+        #expect(rig.store.current?.windows.contains { $0.id == window().id } == true)
     }
 
     @Test func aSuccessfulReadIsPublishedEvenWhenThePercentageIsUnchanged() async {
@@ -105,7 +157,9 @@ final class ManualRig: @unchecked Sendable {
         let before = rig.base.relay.calls(.putSnapshot).count
         _ = await rig.makeHandler().handle(pending: [rig.request(1)])
         #expect(rig.base.relay.calls(.putSnapshot).count == before + 1)
-        #expect(rig.store.current?.manualRefreshResults.map(\.outcome) == [.codexRead])
+        #expect(
+            rig.store.current?.manualRefreshResults.flatMap(\.accountResults).map(\.outcome)
+                == [.codexRead])
     }
 
     @Test func acknowledgementWaitsForPublicationAndARepeatPollDoesNotReadAgain() async {
