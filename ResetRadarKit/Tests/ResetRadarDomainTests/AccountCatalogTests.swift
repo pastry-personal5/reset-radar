@@ -25,6 +25,16 @@ struct AccountCatalogTests {
         }
     }
 
+    @Test("label uniqueness compares exact scalars, not canonical equivalents")
+    func exactLabels() throws {
+        let composed = metadata(
+            byte: 1, product: .codex, number: 1, alias: try AccountAlias(validating: "\u{e9}"))
+        let decomposed = metadata(
+            byte: 2, product: .claudeCode, number: 2,
+            alias: try AccountAlias(validating: "e\u{301}"))
+        _ = try AccountCatalog(validating: [composed, decomposed])
+    }
+
     @Test("catalog enforces identity, numbering, labels, and product caps")
     func invariants() throws {
         let first = metadata(byte: 1, product: .codex, number: 1)

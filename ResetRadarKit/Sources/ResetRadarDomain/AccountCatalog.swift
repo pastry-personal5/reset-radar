@@ -92,7 +92,8 @@ public struct AccountCatalog: Codable, Hashable, Sendable {
         guard accounts.allSatisfy({ $0.number > 0 }) else { throw .invalidNumber }
         guard Set(accounts.map(\.id)).count == accounts.count else { throw .duplicateID }
         guard Set(accounts.map(\.number)).count == accounts.count else { throw .duplicateNumber }
-        guard Set(accounts.map(\.effectiveDisplayLabel)).count == accounts.count else {
+        guard Set(accounts.map { Array($0.effectiveDisplayLabel.utf8) }).count == accounts.count
+        else {
             throw .duplicateDisplayLabel
         }
         guard accounts.count(where: { $0.product == .codex }) <= Self.maximumCodexAccounts else {

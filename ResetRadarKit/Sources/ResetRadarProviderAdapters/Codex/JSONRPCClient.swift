@@ -213,6 +213,7 @@ public actor JSONRPCClient {
     }
 
     private func resolve(id: Int64, result: Result<JSONValue, any Error>) async {
+        if cancelledIDs.remove(id) != nil { return }  // the server's late answer to a cancel
         guard let request = pending.removeValue(forKey: id), request.generation == generation else {
             await failSession(.protocolViolation)
             return
@@ -221,8 +222,11 @@ public actor JSONRPCClient {
         request.continuation.resume(with: result)
     }
 
+    private var cancelledIDs: Set<Int64> = []
+
     private func cancel(id: Int64) {
         guard let request = pending.removeValue(forKey: id) else { return }
+        cancelledIDs.insert(id)
         timeoutTasks.removeValue(forKey: id)?.cancel()
         request.continuation.resume(throwing: JSONRPCClientError.requestCancelled)
     }

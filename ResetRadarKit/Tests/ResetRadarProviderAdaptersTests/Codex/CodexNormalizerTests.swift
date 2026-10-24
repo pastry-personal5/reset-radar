@@ -176,6 +176,16 @@ struct CodexNormalizerTests {
         let reachedResult = try await normalizer().normalize(reached, observedAt: observedAt)
         #expect(reachedResult.snapshot.windows.first?.providerLimitState == .reached)
 
+        let unrecognized = try await decode(
+            response(
+                compatibility: bucket(
+                    id: "codex", reached: "a_future_reached_kind",
+                    primary: window(used: 20, duration: 300)),
+                ordinaryAllowed: true))
+        let unrecognizedResult = try await normalizer().normalize(
+            unrecognized, observedAt: observedAt)
+        #expect(unrecognizedResult.snapshot.windows.first?.providerLimitState == .unknown)
+
         let disallowed = try await decode(
             response(
                 compatibility: bucket(

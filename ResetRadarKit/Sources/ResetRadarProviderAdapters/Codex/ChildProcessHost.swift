@@ -117,7 +117,13 @@ public final class ChildProcessSession: JSONRPCTransport, @unchecked Sendable {
             }
             return process.isRunning
         }
-        if shouldTerminate { process.terminate() }
+        guard shouldTerminate else { return }
+        process.terminate()
+        let child = process
+        Task.detached {
+            try? await Task.sleep(for: .seconds(2))
+            if child.isRunning { kill(child.processIdentifier, SIGKILL) }
+        }
     }
 
     public func stop(grace: Duration = .seconds(5)) async {
@@ -140,7 +146,11 @@ public final class ChildProcessSession: JSONRPCTransport, @unchecked Sendable {
                 self?.stdoutContinuation.finish()
                 return
             }
-            self?.stdoutContinuation.yield(data)
+            guard let self else { return }
+            // A consumer that stops reading must not grow memory without bound: fail closed.
+            if case .dropped = self.stdoutContinuation.yield(data) {
+                Task { await self.terminate() }
+            }
         }
         standardError.readabilityHandler = { handle in
             if handle.availableData.isEmpty { handle.readabilityHandler = nil }
@@ -149,7 +159,6 @@ public final class ChildProcessSession: JSONRPCTransport, @unchecked Sendable {
             guard let self else { return }
             self.exitContinuation.yield(process.terminationStatus)
             self.exitContinuation.finish()
-            self.stdoutContinuation.finish()
         }
     }
 }
@@ -196,7 +205,7 @@ public struct ChildProcessHost: Sendable {
         process.standardOutput = output
         process.standardError = standardErrorPipe
 
-        let stdout = AsyncStream<Data>.makeStream()
+        let stdout = AsyncStream<Data>.makeStream(bufferingPolicy: .bufferingOldest(64))
         let exits = AsyncStream<Int32>.makeStream()
         let session = ChildProcessSession(
             process: process,

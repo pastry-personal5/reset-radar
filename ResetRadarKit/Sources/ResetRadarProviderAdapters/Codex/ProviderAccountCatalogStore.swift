@@ -10,6 +10,7 @@ public enum ProviderAccountCatalogStoreError: Error, Equatable, Sendable {
     case incompatibleConfiguration
     case accountNotFound
     case accountAlreadyExists
+    case labelConflict
 }
 
 public struct CodexStoredConfiguration: Codable, Equatable, Sendable {
@@ -133,7 +134,8 @@ public actor ProviderAccountCatalogStore: AccountCatalogStore {
             index.accounts.append(
                 StoredAccountEntry(metadata: metadata, configurationRevision: revision))
             guard index.catalog != nil else {
-                throw ProviderAccountCatalogStoreError.incompatibleCatalog
+                // The prior catalog was valid, so the new default label repeats an alias.
+                throw ProviderAccountCatalogStoreError.labelConflict
             }
             try files.write(
                 try encode(configuration), named: configurationFileName(for: id))
@@ -226,6 +228,10 @@ public actor ProviderAccountCatalogStore: AccountCatalogStore {
                 try files.remove(named: fileName)
             } catch ProviderAccountCatalogStoreError.accountNotFound {
                 previousData = nil
+            } catch {
+                // A corrupt, oversized, or unsafe launch file must not make the row permanent.
+                previousData = nil
+                try? files.remove(named: fileName)
             }
             index.accounts.remove(at: offset)
             guard index.catalog != nil else {

@@ -48,11 +48,15 @@ public actor ConfigureSources {
         guard previewed[preview.revision] == preview else {
             throw ConfigureSourcesError.previewRequired
         }
-        guard await configurator.inspect(accountID: preview.intent.accountID) != .unsafe else {
-            throw ConfigureSourcesError.unsafeExistingConfiguration
+        previewed[preview.revision] = nil  // claimed before any await: a double apply is stale
+        do {
+            guard await configurator.inspect(accountID: preview.intent.accountID) != .unsafe
+            else { throw ConfigureSourcesError.unsafeExistingConfiguration }
+            try await configurator.apply(preview)
+        } catch {
+            previewed[preview.revision] = preview
+            throw error
         }
-        try await configurator.apply(preview)
-        previewed[preview.revision] = nil
     }
 
     public func remove(

@@ -68,19 +68,32 @@ struct CodexCommandRunnerTests {
         }
     }
 
-    @Test("runner bounds both output streams without returning their contents")
+    @Test("runner bounds standard output without returning it")
     func outputBound() async throws {
         try await withDirectory { directory in
             let fixture = try executable(
-                named: "fixture",
-                script: "#!/bin/sh\nprintf '01234567890'\nprintf 'abcdefghijk' >&2\n",
-                in: directory)
+                named: "fixture", script: "#!/bin/sh\nprintf '01234567890'\n", in: directory)
             let command = try CodexCommand(
                 executableURL: fixture, arguments: [], environment: [:],
                 workingDirectoryURL: directory, timeout: .seconds(5), maximumOutputBytes: 10)
             await #expect(throws: CodexCommandError.outputTooLarge) {
                 try await FoundationCodexCommandRunner(clock: FakeAppClock()).run(command)
             }
+        }
+    }
+
+    @Test("runner drains and discards noisy standard error without failing the command")
+    func standardErrorFlood() async throws {
+        try await withDirectory { directory in
+            let fixture = try executable(
+                named: "fixture",
+                script: "#!/bin/sh\nhead -c 200000 /dev/zero >&2\nprintf 'ok'\n",
+                in: directory)
+            let command = try CodexCommand(
+                executableURL: fixture, arguments: [], environment: ["PATH": "/usr/bin:/bin"],
+                workingDirectoryURL: directory, timeout: .seconds(10), maximumOutputBytes: 10)
+            let result = try await FoundationCodexCommandRunner(clock: FakeAppClock()).run(command)
+            #expect(String(data: result.standardOutput, encoding: .utf8) == "ok")
         }
     }
 

@@ -58,4 +58,10 @@ import Testing
             status: .offline, httpStatusClass: nil, at: at(3))
         #expect(failure.category == .relayFailure && failure.transportStatus == .offline)
     }
+
+    @Test func anUnrecognizedProviderFailureClassDecodesToUnknown() throws {
+        let value = try JSONDecoder().decode(
+            ProviderFailureClass.self, from: Data("\"aFutureClass\"".utf8))
+        #expect(value == .unknown)
+    }
 }

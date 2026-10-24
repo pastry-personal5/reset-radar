@@ -188,6 +188,18 @@ public actor CodexConfigurator: SourceConfigurator {
         guard preview.product == .codex,
             let prepared = pending[preview.revision], prepared.preview == preview
         else { throw CodexConfiguratorError.stalePreview }
+        pending[preview.revision] = nil  // claimed: a concurrent apply sees a stale preview
+        do {
+            try await applyPrepared(prepared, preview: preview)
+        } catch {
+            pending[preview.revision] = prepared
+            throw error
+        }
+    }
+
+    private func applyPrepared(
+        _ prepared: PendingPreview, preview: ConfigurationPreview
+    ) async throws {
         try await validate(intent: preview.intent)
         let executable: CodexValidatedExecutable
         do {
@@ -219,7 +231,6 @@ public actor CodexConfigurator: SourceConfigurator {
                 id: accountID, revision: preview.revision, executable: executable,
                 environment: prepared.option.environment)
         }
-        pending[preview.revision] = nil
     }
 
     public func remove(accountID: AccountID) async throws {

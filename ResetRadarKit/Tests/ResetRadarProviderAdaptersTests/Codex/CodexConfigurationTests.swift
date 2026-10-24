@@ -5,7 +5,7 @@ import ResetRadarProviderAdapters
 import ResetRadarTestSupport
 import Testing
 
-private final class ConfigurationCommandRunner: CodexCommandRunning, @unchecked Sendable {
+final class ConfigurationCommandRunner: CodexCommandRunning, @unchecked Sendable {
     private let commandsState = Locked<[CodexCommand]>([])
     var commands: [CodexCommand] { commandsState.snapshot }
 
@@ -16,7 +16,7 @@ private final class ConfigurationCommandRunner: CodexCommandRunning, @unchecked 
     }
 }
 
-private final class SequenceAccountIDGenerator: CodexAccountIDGenerating, @unchecked Sendable {
+final class SequenceAccountIDGenerator: CodexAccountIDGenerating, @unchecked Sendable {
     private let values: Locked<[AccountID]>
 
     init(_ values: [AccountID]) {
@@ -225,24 +225,24 @@ struct CodexConfigurationTests {
         }
     }
 
-    private func validation(of executable: URL) throws -> CodexValidatedExecutable {
+    func validation(of executable: URL) throws -> CodexValidatedExecutable {
         try CodexExecutableValidator().validate(
             invocationPath: executable.path,
             pathEnvironment: executable.deletingLastPathComponent().path)
     }
 
-    private func environment(_ path: String) -> [String: String] {
+    func environment(_ path: String) -> [String: String] {
         [
             "HOME": "/private/tmp/reset-radar-home", "USER": "owner",
             "LANG": "en_US.UTF-8", "PATH": path,
         ]
     }
 
-    private func accountID(_ byte: UInt8) -> AccountID {
+    func accountID(_ byte: UInt8) -> AccountID {
         AccountID(data: Data(repeating: byte, count: AccountID.byteCount))!
     }
 
-    private func withConfigurationDirectory(
+    func withConfigurationDirectory(
         _ body: (URL, URL) async throws -> Void
     ) async throws {
         let parent = FileManager.default.temporaryDirectory.appending(

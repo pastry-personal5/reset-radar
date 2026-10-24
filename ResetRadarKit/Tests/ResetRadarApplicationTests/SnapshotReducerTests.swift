@@ -61,6 +61,17 @@ import Testing
         #expect(defaults.map(\.limitID) == ["new"])
     }
 
+    @Test func aStateOnlyReportWithANewScopeEvictsPriorScopeWindows() throws {
+        let first = try reduce(nil, [report(windows: [window(scope: scopeA)])])
+        let failure = SourceSnapshot(
+            source: AccountSource(
+                accountID: codexAccountID, product: .codex, kind: .codexAppServer, version: "1.0",
+                state: .sourceOffline, providerScope: scopeB),
+            windows: [], isCompleteReport: false)
+        let result = try reduce(first.snapshot, [failure], now: 30)
+        #expect(result.snapshot.windows.isEmpty)
+    }
+
     @Test func aCodexAccountScopeChangeIsATransitionAndDropsPriorWindows() throws {
         let first = try reduce(nil, [report(windows: [window(scope: scopeA)])])
         let switched = report(windows: [window(scope: scopeB)])

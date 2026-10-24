@@ -97,6 +97,22 @@ struct CodexAppServerSourceSchedulingTests: CodexSourceTestHarness {
         await rig.source.stop()
     }
 
+    @Test("observedAt is the response arrival time, not the end of async scoping")
+    func observedAtIsResponseArrival() async throws {
+        let scoper = GatedAccountScoper()
+        let rig = makeRig(scoper: scoper)
+        var updates = rig.source.updates.makeAsyncIterator()
+        scoper.hold()
+        let start = Task { try await rig.source.start() }
+        for _ in 0..<5_000 where scoper.entered < 1 { await Task.yield() }
+        rig.clock.advance(by: 10)
+        scoper.release()
+        try await start.value
+        let report = try #require(await updates.next())
+        #expect(report.windows.first?.observation?.observedAt == origin)
+        await rig.source.stop()
+    }
+
     @Test("configuration change replaces the session generation before reading")
     func configurationChange() async throws {
         let rig = makeRig()

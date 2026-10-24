@@ -34,11 +34,13 @@ public struct CodexDecodedBucket: Equatable, Sendable {
     public let embeddedLimitID: String?
     public let label: String?
     public let reached: Bool
+    public let reachedUnrecognized: Bool
     public let primary: CodexWindowCandidate?
     public let secondary: CodexWindowCandidate?
 
     func matchesWithoutIdentity(_ other: CodexDecodedBucket) -> Bool {
-        label == other.label && reached == other.reached && primary == other.primary
+        label == other.label && reached == other.reached
+            && reachedUnrecognized == other.reachedUnrecognized && primary == other.primary
             && secondary == other.secondary
     }
 }
@@ -103,16 +105,19 @@ public enum RateLimitDecoder {
         let embeddedLimitID = try optionalNonemptyString(object["limitId"])
         let label = try optionalString(object["limitName"])
         let reached: Bool
+        var unrecognized = false
         switch object["rateLimitReachedType"] {
         case nil, .null?:
             reached = false
         case .string(let value)?:
             reached = Self.reachedValues.contains(value)
+            unrecognized = !reached
         default:
             throw .incompatibleResponse
         }
         return CodexDecodedBucket(
             embeddedLimitID: embeddedLimitID, label: label, reached: reached,
+            reachedUnrecognized: unrecognized,
             primary: try decodeCandidate(object["primary"]),
             secondary: try decodeCandidate(object["secondary"]))
     }

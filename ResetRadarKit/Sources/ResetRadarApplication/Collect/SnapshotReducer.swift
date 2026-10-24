@@ -39,6 +39,13 @@ public enum SnapshotReducer {
         }
         for report in reports {
             merge(report.source, into: &sources)
+            if let scope = report.source.providerScope {
+                // A state-only report that proves a new provider scope still evicts the prior
+                // scope's windows, even when the collector restarted and lost its in-memory scope.
+                windows.removeAll {
+                    $0.accountID == report.source.accountID && $0.scope != nil && $0.scope != scope
+                }
+            }
             if report.clearsWindows {
                 windows.removeAll { $0.accountID == report.source.accountID }
             }

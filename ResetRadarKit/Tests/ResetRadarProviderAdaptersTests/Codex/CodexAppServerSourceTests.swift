@@ -150,6 +150,27 @@ struct CodexAppServerSourceTests: CodexSourceTestHarness {
         await rig.source.stop()
     }
 
+    @Test("a generic rate-limit error rechecks status and an incompatible account does not retry")
+    func incompatibleRecheck() async throws {
+        let session = FakeCodexRPCSession(
+            statuses: [
+                .success(FakeCodexRPCSession.authenticated),
+                .success(
+                    .object([
+                        "account": .object(["type": .string("apiKey")]),
+                        "requiresOpenaiAuth": .boolean(false),
+                    ])),
+            ],
+            rateLimits: [.failure(.remoteError(code: -32_000))])
+        let rig = makeRig(session: session)
+        var updates = rig.source.updates.makeAsyncIterator()
+        try await rig.source.start()
+        let report = try #require(await updates.next())
+        #expect(report.source.state == .incompatible)
+        #expect(rig.diagnostics.recorded.last?.providerFailureClass == .incompatible)
+        await rig.source.stop()
+    }
+
     @Test("a known provider-scope change clears prior windows even when normalization fails")
     func scopeChangeWithStateOnlyFailure() async throws {
         let changedInvalidLimits = JSONValue.object([

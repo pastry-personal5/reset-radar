@@ -175,12 +175,13 @@ extension CodexAppServerSource {
         }
         let value = try await requestRateLimits(from: client, generation: expectedGeneration)
         try requireCurrent(expectedGeneration)
+        let observedAt = clock.now  // when the complete response arrived, before async scoping
         let decoded = try await RateLimitDecoder.decodeRateLimits(value, scoper: scoper)
         try requireCurrent(expectedGeneration)
         providerScope = decoded.accountScope
         let normalized = try await CodexNormalizer(
             accountID: accountID, sourceVersion: sourceVersion
-        ).normalize(decoded, observedAt: clock.now)
+        ).normalize(decoded, observedAt: observedAt)
         try requireCurrent(expectedGeneration)
         return await publish(normalized, generation: expectedGeneration, startedAt: startedAt)
     }
@@ -276,10 +277,11 @@ extension CodexAppServerSource {
             } catch let statusError as JSONRPCClientError {
                 throw CodexSourceFailure(statusError)
             }
-            if RateLimitDecoder.decodeAccountStatus(status) == .signedOut {
-                throw CodexSourceFailure.signedOut
+            switch RateLimitDecoder.decodeAccountStatus(status) {
+            case .signedOut: throw CodexSourceFailure.signedOut
+            case .incompatible: throw CodexSourceFailure.incompatible
+            case .authenticated: throw CodexSourceFailure(error)
             }
-            throw CodexSourceFailure(error)
         }
     }
 

@@ -74,6 +74,7 @@ public struct CodexNormalizer: Sendable {
                             sourceVersion: sourceVersion, fractionDigits: 0),
                         providerLimitState: state(
                             reached: selection.bucket.reached,
+                            reachedUnrecognized: selection.bucket.reachedUnrecognized,
                             ordinaryUsageAllowed: response.ordinaryUsageAllowed))
                     let window: AllowanceWindow
                     do {
@@ -124,9 +125,10 @@ public struct CodexNormalizer: Sendable {
     }
 
     private func state(
-        reached: Bool, ordinaryUsageAllowed: Bool?
+        reached: Bool, reachedUnrecognized: Bool, ordinaryUsageAllowed: Bool?
     ) -> ProviderLimitState {
         if reached { return .reached }
+        if reachedUnrecognized { return .unknown }
         switch ordinaryUsageAllowed {
         case true: return ProviderLimitState.ordinaryUsageAllowed
         case false: return ProviderLimitState.ordinaryUsageDisallowed

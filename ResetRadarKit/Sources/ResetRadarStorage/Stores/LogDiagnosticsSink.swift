@@ -31,7 +31,9 @@ public final class LogDiagnosticsSink: DiagnosticsSink {
         let product = event.product?.rawValue ?? "none"
         let transport = event.transportStatus?.rawValue ?? "none"
         let httpClass = event.httpStatusClass ?? 0
+        let failureClass = event.providerFailureClass?.rawValue ?? "none"
         Self.logger.info("diagnostic category=\(category, privacy: .public)")
+        Self.logger.info("diagnostic failure=\(failureClass, privacy: .public)")
         Self.logger.info("diagnostic product=\(product, privacy: .public)")
         Self.logger.info(
             "diagnostic transport=\(transport, privacy: .public) http=\(httpClass)"

@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import ResetRadarApplication
 
@@ -53,7 +54,6 @@ private final class CommandCapture: @unchecked Sendable {
     private let lock = NSLock()
     private let maximumBytes: Int
     private var standardOutput = Data()
-    private var standardErrorBytes = 0
     private var exceeded = false
 
     init(maximumBytes: Int) {
@@ -68,18 +68,6 @@ private final class CommandCapture: @unchecked Sendable {
                 return false
             }
             standardOutput.append(data)
-            return true
-        }
-    }
-
-    func discardStandardError(_ data: Data) -> Bool {
-        lock.withLock {
-            guard !exceeded else { return false }
-            guard standardErrorBytes + data.count <= maximumBytes else {
-                exceeded = true
-                return false
-            }
-            standardErrorBytes += data.count
             return true
         }
     }
@@ -139,9 +127,8 @@ public struct FoundationCodexCommandRunner: CodexCommandRunning, Sendable {
         }
         clearHandlers(output: configured.output, standardError: configured.standardError)
         _ = capture.appendStandardOutput(
-            configured.output.fileHandleForReading.readDataToEndOfFile())
-        _ = capture.discardStandardError(
-            configured.standardError.fileHandleForReading.readDataToEndOfFile())
+            Self.drainAvailable(
+                configured.output.fileHandleForReading, limit: command.maximumOutputBytes))
         return CodexCommandResult(standardOutput: try capture.result.get(), exitStatus: status)
     }
 
@@ -165,10 +152,8 @@ public struct FoundationCodexCommandRunner: CodexCommandRunning, Sendable {
             }
         }
         standardError.fileHandleForReading.readabilityHandler = { handle in
-            guard capture.discardStandardError(handle.availableData) else {
-                if process.isRunning { process.terminate() }
-                return
-            }
+            // Diagnostics text is never kept or counted: only drain so the child cannot block.
+            if handle.availableData.isEmpty { handle.readabilityHandler = nil }
         }
         let termination = AsyncStream<Int32>.makeStream()
         process.terminationHandler = { process in
@@ -178,6 +163,20 @@ public struct FoundationCodexCommandRunner: CodexCommandRunning, Sendable {
         return ConfiguredCommand(
             process: process, output: output, standardError: standardError,
             termination: termination.stream)
+    }
+
+    /// Reads what is already buffered without blocking, so a grandchild that keeps the pipe open
+    /// cannot hang the caller and the result stays within the output cap.
+    private static func drainAvailable(_ handle: FileHandle, limit: Int) -> Data {
+        let descriptor = handle.fileDescriptor
+        _ = fcntl(descriptor, F_SETFL, fcntl(descriptor, F_GETFL) | O_NONBLOCK)
+        var collected = Data()
+        // A failed read here is EAGAIN (nothing buffered) or EOF: both end the drain.
+        while collected.count <= limit {
+            guard let chunk = try? handle.read(upToCount: 4_096), !chunk.isEmpty else { break }
+            collected.append(chunk)
+        }
+        return collected
     }
 
     private func clearHandlers(output: Pipe, standardError: Pipe) {

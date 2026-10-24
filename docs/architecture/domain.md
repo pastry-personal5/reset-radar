@@ -165,7 +165,7 @@ Other records:
 | `WatchEraseReceipt` | Schema version, iPhone installation ID, and the delivery revision of a cleared payload durably committed on the Watch. It contains no usage or relay secret. A receipt confirms cache erasure and a complication reload request, not immediate removal of an already rendered complication frame. |
 | `PairingPackage` | Schema version, relay endpoint, `ReaderID`, read token, content key, publisher ID, key version, minimum acceptable sequence, and relay-assigned registration expiry. Encoding is defined in [Transport](transport.md#pairing-package-codec). |
 | `EnvelopeHeader` | Protocol version, envelope version, publisher ID, sequence, and key version: the authenticated outer metadata of a relay envelope. |
-| `DiagnosticEvent` | Category, state enums, durations, sequence ranges, versions, HTTP status class, and timestamps. Its initializers accept no free-form strings, so redaction holds by construction. |
+| `DiagnosticEvent` | Category, optional random `AccountID`, optional enum-backed provider failure class (unknown values decode to `unknown`), state enums, durations, sequence ranges, versions, HTTP status class, and timestamps. Its initializers accept no free-form strings, so redaction holds by construction. |
 
 ## Account catalog and Home resolution
 

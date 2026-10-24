@@ -1,6 +1,6 @@
 import Foundation
 
-public enum ProviderFailureClass: String, Codable, CaseIterable, Hashable, Sendable {
+public enum ProviderFailureClass: String, TolerantEnum, CaseIterable, Hashable {
     case notInstalled
     case signedOut
     case incompatible
@@ -11,6 +11,7 @@ public enum ProviderFailureClass: String, Codable, CaseIterable, Hashable, Senda
     case accountScope
     case duplicateProviderScope
     case temporarilyUnavailable
+    case unknown
 }
 
 /// A redacted compatibility or validation event.
