@@ -85,8 +85,9 @@ configurator built here.
 - [x] M10 Checkpoint A's shared contracts are implemented on `main` and the M11 plan is rebased
   on them. Evidence: commits `18f5723` to `b8d64bd`, the 2026-10-25 refresh under
   [Plan review](#plan-review), and the narrowed decisions 1 and 6 below.
-- [ ] The owner answers the remaining open [implementation decisions] (9 and 10; 1 through 8 and 11 are answered)(#implementation-decisions), and the
+- [x] The owner answers all [implementation decisions](#implementation-decisions), and the
   answers are recorded in [changelog.md](changelog.md) and the binding docs they affect.
+  Evidence: the three 2026-10-25 Owner/Claude changelog entries.
 - [ ] Record the implementation branch, starting commit, and complete worktree state. Preserve
   the pre-existing M9 and M10 planning edits as separate work.
 - [ ] The `test_runner` passes the complete gate on the recorded baseline before production
@@ -258,7 +259,7 @@ it lands first and is explicitly referenced from the M11 implementation record.
    it cannot prove no higher-precedence override exists. Supporting an owner-selected custom user
    root requires an explicit persisted configuration path and M12/M13 UI, so it must be approved
    rather than inferred from the Mac app's sparse environment.
-9. **Source failure, lifecycle, and diagnostics contract.** Recommend an exhaustive mapping before
+9. **Source failure, lifecycle, and diagnostics contract.** *Owner-approved 2026-10-25: recommendation below.* Recommend an exhaustive mapping before
    code: not configured, helper absent/mismatched, or no first usable observation to `unavailable`;
    malformed schema/record, legitimate bound violation, or conflicting merge tie to
    `incompatible`; and permission, watcher, or temporary filesystem failure to `sourceOffline`.
@@ -269,11 +270,13 @@ it lands first and is explicitly referenced from the M11 implementation record.
    is terminal, finishes the stream once, and fences every late callback. The table must also name
    safe `AccountSource.version` provenance before the first valid record and add only enum-backed,
    string-free provider diagnostic factories.
-10. **Helper failure and exit behavior.** Recommend a quiet success when no composed command exists,
-    even if recording fails, so Reset Radar cannot break Claude Code's otherwise-empty status line.
-    Once a composed child launches, preserve its stdout, stderr, and exit status regardless of
-    recorder success. A compose-record, trust, launch, or pipe failure before the child can run is
-    quiet but nonzero; cancellation terminates and reaps only that child and leaves no orphan.
+10. **Helper failure and exit behavior.** *Owner-decided 2026-10-25: stricter than the recommended
+    quiet success when no command is composed.* A Reset Radar recording failure exits nonzero
+    without output even when no composed command exists, so Claude Code can surface the failure;
+    staleness in the source remains the owner-visible signal. Once a composed child launches,
+    preserve its stdout, stderr, and exit status regardless of recorder success. A compose-record,
+    trust, launch, or pipe failure before the child can run is quiet but nonzero; cancellation
+    terminates and reaps only that child and leaves no orphan.
 11. **Claude Code account row lifecycle.** *Owner-approved 2026-10-25: recommendation below.* The catalog allows one Claude Code row, but
     `ProviderAccountCatalogStore` can add, replace, load, and remove only Codex rows, and
     `ConfigureSources.remove`/`restore` are separate confirmed actions. Recommend: a verified

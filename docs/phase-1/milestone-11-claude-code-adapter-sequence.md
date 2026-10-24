@@ -172,8 +172,8 @@ to child stdin with backpressure, and offers the same chunks to `BoundedStatusCa
 closes child stdin; an abandoned over-bound capture is never decoded or recorded. A normal
 invocation follows the approved exit decision:
 
-- with no approved original command, drains input, writes no output, and exits successfully even
-  when Reset Radar recording fails;
+- with no approved original command, drains input and writes no output; it exits successfully
+  when recording succeeds and nonzero, still without output, when Reset Radar recording fails;
 - with a compose record, launches only the stored resolved executable directly, sends the exact
   same complete input bytes to stdin even when Reset Radar's capture overflows, streams its stdout/
   stderr to the matching helper streams, and preserves its exit status; and

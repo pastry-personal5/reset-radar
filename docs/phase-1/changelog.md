@@ -6,6 +6,13 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Owner/Claude — Answered P1-M11 decisions 9 and 10, completing the interview.
+  The source-state table and retry model follow the recommendation (setup failures wait for a
+  configuration change; watcher recovery uses the one/two/five/fifteen-minute ladder). The owner
+  chose a nonzero, output-free helper exit on any recording failure, including when no existing
+  command is composed, instead of the recommended quiet success. All M11 implementation decisions
+  are now answered; the implementation branch, baseline, and Task 1 remain.
+
 - 2026-10-25 — Owner/Claude — Answered P1-M11 decisions 2, 4, 5, and 7. Bounds, never-observed
   pruning (eight days after last invocation), and freshest-per-kind mixed-version merging follow
   the recommendations. The owner chose a stricter executable trust test than recommended: only a
