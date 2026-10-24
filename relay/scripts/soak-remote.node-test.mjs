@@ -2,15 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  enqueueFollowUpReads,
+  FOLLOW_UP_READ_COUNT,
   MAX_SLOT_LAG_MS,
   MANUAL_REQUEST_SPACING_MS,
   manualRequestWaitMilliseconds,
   observedElapsedMilliseconds,
   parseManualRequestResponse,
+  runFollowUpReadsForSlot,
   runManualRequestRound,
+  sampleCompletionTarget,
   sampleSlotDelayMilliseconds,
   validateSoakAccounting,
 } from "./soak-remote.mjs";
+import { SAMPLE_SECONDS, sampleWorkload, SLOT_SECONDS } from "./harness-core.mjs";
 
 const expiry = '{"expiresAt":"2023-11-14T22:18:20.000Z","protocolVersion":1}';
 
@@ -46,7 +51,7 @@ test("manual request spacing is measured from the prior accepted response", () =
   assert.throws(() => manualRequestWaitMilliseconds(70_001, Number.POSITIVE_INFINITY), /invalid/);
 });
 
-test("manual round posts every reader before any bounded follow-up read", async () => {
+test("manual round returns every accepted reader before follow-up scheduling", async () => {
   const calls = [];
   const readTokens = ["reader-1", "reader-2", "reader-3"];
   const readyAt = [0, 0, 0];
@@ -54,9 +59,7 @@ test("manual round posts every reader before any bounded follow-up read", async 
   const pending = await runManualRequestRound({
     measured: async (category, path, options) => {
       calls.push({ category, options, path });
-      return category === "manualRequests"
-        ? { status: 202, text: expiry }
-        : { status: 200, text: "snapshot" };
+      return { status: 202, text: expiry };
     },
     now: () => 1_000,
     readTokens,
@@ -69,14 +72,79 @@ test("manual round posts every reader before any bounded follow-up read", async 
     "manualRequests", "manualRequests", "manualRequests",
   ]);
   assert.deepEqual(calls.slice(0, 3).map((call) => call.options.token), readTokens);
-  assert.equal(calls.slice(3).every((call) => call.category === "followUpReads"), true);
-  assert.equal(calls.length, 33);
+  assert.equal(calls.length, 3);
   assert.deepEqual(readyAt, [61_001, 61_001, 61_001]);
   assert.deepEqual(pending, [
-    { requestID: "00000000000000000000000000000001" },
-    { requestID: "00000000000000000000000000000002" },
-    { requestID: "00000000000000000000000000000003" },
+    { requestID: "00000000000000000000000000000001", token: "reader-1" },
+    { requestID: "00000000000000000000000000000002", token: "reader-2" },
+    { requestID: "00000000000000000000000000000003", token: "reader-3" },
   ]);
+});
+
+test("follow-up schedule spreads each reader across ten slots and includes the sample tail", () => {
+  const schedule = new Map();
+  const accepted = [
+    { requestID: "1".repeat(32), token: "reader-1" },
+    { requestID: "2".repeat(32), token: "reader-2" },
+    { requestID: "3".repeat(32), token: "reader-3" },
+  ];
+  const planned = sampleWorkload();
+  const finalManualSlot = planned.slots - ((planned.slots - 1) % 12);
+  let finalFollowUpSlot = 0;
+  for (let slot = 1; slot <= planned.slots; slot += 1) {
+    if ((slot - 1) % 12 === 0) {
+      finalFollowUpSlot = enqueueFollowUpReads(schedule, slot, accepted);
+    }
+  }
+
+  assert.equal(FOLLOW_UP_READ_COUNT, 10);
+  assert.equal([...schedule.values()].reduce((total, tokens) => total + tokens.length, 0), planned.followUpReads);
+  assert.equal(finalFollowUpSlot, finalManualSlot + FOLLOW_UP_READ_COUNT - 1);
+  assert.ok(finalFollowUpSlot > planned.slots);
+  assert.ok((finalFollowUpSlot - 1) * SLOT_SECONDS * 1000 > SAMPLE_SECONDS * 1000);
+  assert.ok((finalFollowUpSlot - 1) * SLOT_SECONDS * 1000 <= SAMPLE_SECONDS * 1000 + MAX_SLOT_LAG_MS);
+  assert.equal(sampleCompletionTarget(0, finalFollowUpSlot), 1_802_850);
+  assert.throws(() => sampleCompletionTarget(0, Number.NaN), /completion schedule was invalid/);
+  for (let offset = 0; offset < FOLLOW_UP_READ_COUNT; offset += 1) {
+    assert.deepEqual(schedule.get(finalManualSlot + offset), ["reader-1", "reader-2", "reader-3"]);
+  }
+
+  const snapshot = structuredClone(schedule);
+  assert.throws(
+    () => enqueueFollowUpReads(schedule, finalManualSlot + 1, accepted),
+    /overlapped an existing slot/,
+  );
+  assert.deepEqual(schedule, snapshot);
+});
+
+test("due follow-up reads dispatch concurrently and settle together", async () => {
+  const schedule = new Map([[7, ["reader-1", "reader-2", "reader-3"]]]);
+  const controls = [];
+  const round = runFollowUpReadsForSlot({
+    measured: async (category, path, options) => {
+      assert.equal(category, "followUpReads");
+      assert.equal(path, "/v1/snapshot");
+      return new Promise((resolve, reject) => { controls.push({ options, reject, resolve }); });
+    },
+    schedule,
+    slot: 7,
+  });
+  let settled = false;
+  const observed = round.then(
+    (value) => { settled = true; return value; },
+    (error) => { settled = true; throw error; },
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(controls.map((control) => control.options.token), ["reader-1", "reader-2", "reader-3"]);
+  controls[0].reject(new Error("private failure"));
+  await new Promise((resolve) => setImmediate(resolve));
+  const settledEarly = settled;
+  controls[1].resolve({ status: 200, text: "snapshot" });
+  controls[2].resolve({ status: 200, text: "snapshot" });
+  await assert.rejects(observed, /Follow-up read round failed/);
+  assert.equal(settledEarly, false);
+  assert.equal(schedule.has(7), false);
+  assert.equal(await runFollowUpReadsForSlot({ measured: async () => {}, schedule, slot: 8 }), 0);
 });
 
 test("manual round settles every concurrent submission before surfacing failure", async () => {

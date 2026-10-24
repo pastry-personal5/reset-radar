@@ -29,6 +29,7 @@ import {
 } from "./harness-core.mjs";
 
 const delay = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
+export const FOLLOW_UP_READ_COUNT = 10;
 export const MANUAL_REQUEST_SPACING_MS = 60_001;
 export const MAX_SLOT_LAG_MS = SLOT_SECONDS * 1000;
 
@@ -54,6 +55,16 @@ export function observedElapsedMilliseconds(startedAt, completedAt) {
     throw new HarnessFailure("Observed sample duration was invalid.");
   }
   return Math.round(completedAt - startedAt);
+}
+
+export function sampleCompletionTarget(startedAt, finalFollowUpSlot) {
+  if (!Number.isFinite(startedAt) || startedAt < 0 ||
+      !Number.isSafeInteger(finalFollowUpSlot) || finalFollowUpSlot < 0) {
+    throw new HarnessFailure("Sample completion schedule was invalid.");
+  }
+  const deadline = startedAt + SAMPLE_SECONDS * 1000;
+  if (finalFollowUpSlot === 0) return deadline;
+  return Math.max(deadline, startedAt + (finalFollowUpSlot - 1) * SLOT_SECONDS * 1000);
 }
 
 export function validateSoakAccounting(planned, counts, latencies, responseBytes) {
@@ -129,18 +140,56 @@ export async function runManualRequestRound({
     if (rejection.reason instanceof HarnessFailure) throw rejection.reason;
     throw new HarnessFailure("Manual request round failed.");
   }
-  const accepted = settled.map((result) => result.value);
-  for (const item of accepted) {
-    for (let followUp = 0; followUp < 10; followUp += 1) {
-      await measured("followUpReads", "/v1/snapshot", {
-        bodyLimit: SNAPSHOT_BODY_LIMIT,
-        expectedStatus: 200,
-        label: "follow-up read",
-        token: item.token,
-      });
-    }
+  return settled.map((result) => result.value);
+}
+
+export function enqueueFollowUpReads(schedule, startSlot, accepted) {
+  if (!(schedule instanceof Map) || !Number.isSafeInteger(startSlot) || startSlot < 1 ||
+      !Array.isArray(accepted) || accepted.length !== 3 ||
+      accepted.some((item) => item === null || typeof item !== "object" ||
+        !/^[0-9a-f]{32}$/.test(item.requestID) || typeof item.token !== "string" || item.token.length === 0) ||
+      new Set(accepted.map((item) => item.requestID)).size !== accepted.length ||
+      new Set(accepted.map((item) => item.token)).size !== accepted.length) {
+    throw new HarnessFailure("Follow-up read schedule is invalid.");
   }
-  return accepted.map(({ requestID }) => ({ requestID }));
+  const slots = Array.from({ length: FOLLOW_UP_READ_COUNT }, (_value, offset) => startSlot + offset);
+  if (slots.some((slot) => schedule.has(slot))) {
+    throw new HarnessFailure("Follow-up read schedule overlapped an existing slot.");
+  }
+  const tokens = accepted.map((item) => item.token);
+  for (const slot of slots) schedule.set(slot, [...tokens]);
+  return slots.at(-1);
+}
+
+export async function runFollowUpReadsForSlot({ measured, schedule, slot }) {
+  if (typeof measured !== "function" || !(schedule instanceof Map) ||
+      !Number.isSafeInteger(slot) || slot < 1) {
+    throw new HarnessFailure("Follow-up read schedule is invalid.");
+  }
+  const tokens = schedule.get(slot);
+  if (tokens === undefined) return 0;
+  if (!Array.isArray(tokens) || tokens.length !== 3 ||
+      tokens.some((token) => typeof token !== "string" || token.length === 0) ||
+      new Set(tokens).size !== tokens.length) {
+    throw new HarnessFailure("Follow-up read schedule is invalid.");
+  }
+  const settled = await Promise.allSettled(tokens.map((token) => measured(
+    "followUpReads",
+    "/v1/snapshot",
+    {
+      bodyLimit: SNAPSHOT_BODY_LIMIT,
+      expectedStatus: 200,
+      label: "follow-up read",
+      token,
+    },
+  )));
+  schedule.delete(slot);
+  const rejection = settled.find((result) => result.status === "rejected");
+  if (rejection !== undefined) {
+    if (rejection.reason instanceof HarnessFailure) throw rejection.reason;
+    throw new HarnessFailure("Follow-up read round failed.");
+  }
+  return settled.length;
 }
 
 export async function runSoak(originInput, secrets, fetchImplementation = fetch) {
@@ -154,6 +203,8 @@ export async function runSoak(originInput, secrets, fetchImplementation = fetch)
   const key = validateSecretSet(secrets);
   const readerIDs = secrets.readTokens.map(() => randomIdentifier());
   const manualRequestReadyAt = secrets.readTokens.map(() => 0);
+  const followUpSchedule = new Map();
+  let finalFollowUpSlot = 0;
   let pending = [];
   let liveRequestIDs = new Set();
 
@@ -181,6 +232,15 @@ export async function runSoak(originInput, secrets, fetchImplementation = fetch)
     parsePublicationResponse(response.text, sequence);
   };
 
+  const waitForSlot = async (slot) => {
+    const target = startedAt + (slot - 1) * SLOT_SECONDS * 1000;
+    let remaining = sampleSlotDelayMilliseconds(target, performance.now());
+    while (remaining > 0) {
+      await delay(remaining);
+      remaining = sampleSlotDelayMilliseconds(target, performance.now());
+    }
+  };
+
   for (let index = 0; index < 3; index += 1) {
     parseExpiryResponse((await measured("setupRequests", `/v1/readers/${readerIDs[index]}`, { body: canonicalJSON({ protocolVersion: 1, tokenDigest: digest(secrets.readTokens[index]) }), expectedStatus: 200, label: "soak reader registration", method: "PUT", token: secrets.adminToken })).text);
     parseActivationResponse((await measured("setupRequests", "/v1/readers/activate", { expectedStatus: 200, label: "soak reader activation", method: "POST", token: secrets.readTokens[index] })).text);
@@ -189,20 +249,21 @@ export async function runSoak(originInput, secrets, fetchImplementation = fetch)
 
   const startedAt = performance.now();
   for (let slot = 1; slot <= planned.slots; slot += 1) {
-    const target = startedAt + (slot - 1) * SLOT_SECONDS * 1000;
-    let remaining = sampleSlotDelayMilliseconds(target, performance.now());
-    while (remaining > 0) {
-      await delay(remaining);
-      remaining = sampleSlotDelayMilliseconds(target, performance.now());
-    }
+    await waitForSlot(slot);
 
     if ((slot - 1) % 12 === 0) {
-      pending.push(...await runManualRequestRound({
+      const accepted = await runManualRequestRound({
         measured,
         readTokens: secrets.readTokens,
         readyAt: manualRequestReadyAt,
-      }));
+      });
+      pending.push(...accepted.map(({ requestID }) => ({ requestID })));
+      finalFollowUpSlot = Math.max(
+        finalFollowUpSlot,
+        enqueueFollowUpReads(followUpSchedule, slot, accepted),
+      );
     }
+    await runFollowUpReadsForSlot({ measured, schedule: followUpSchedule, slot });
     if ((slot - 1) % 3 === 0) {
       const listed = parseRefreshList((await measured("requestListPolls", "/v1/refresh-requests", {
         expectedStatus: 200,
@@ -224,11 +285,16 @@ export async function runSoak(originInput, secrets, fetchImplementation = fetch)
     }
     if ((slot - 1) % 60 === 0) await publish("heartbeatPublications");
   }
-  const deadline = startedAt + SAMPLE_SECONDS * 1000;
-  let remaining = sampleSlotDelayMilliseconds(deadline, performance.now());
+  for (let slot = planned.slots + 1; slot <= finalFollowUpSlot; slot += 1) {
+    await waitForSlot(slot);
+    await runFollowUpReadsForSlot({ measured, schedule: followUpSchedule, slot });
+  }
+  if (followUpSchedule.size !== 0) throw new HarnessFailure("Follow-up read schedule did not drain.");
+  const completionTarget = sampleCompletionTarget(startedAt, finalFollowUpSlot);
+  let remaining = sampleSlotDelayMilliseconds(completionTarget, performance.now());
   while (remaining > 0) {
     await delay(remaining);
-    remaining = sampleSlotDelayMilliseconds(deadline, performance.now());
+    remaining = sampleSlotDelayMilliseconds(completionTarget, performance.now());
   }
   const elapsedMilliseconds = observedElapsedMilliseconds(startedAt, performance.now());
 
