@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { validateDeployment } from "./check-deploy-config.mjs";
 import { digestsFromTokens, parseDigests, provisionSecrets } from "./provision-secrets.mjs";
+import { reviewedWranglerOperation, runWranglerRemote } from "./wrangler-remote.mjs";
 import contract from "../deployment-contract.json" with { type: "json" };
 import packageManifest from "../package.json" with { type: "json" };
 
@@ -116,5 +117,96 @@ test("hidden synthetic tokens derive the protocol fixture digests", () => {
       "ERERERERERERERERERERERERERERERERERERERERERE",
     ),
     /distinct/,
+  );
+});
+
+function successfulWranglerMock(output = "private origin and Cloudflare identifiers") {
+  let invocation;
+  let stdin = "";
+  const spawnMock = (executable, arguments_, options) => {
+    invocation = { arguments_, executable, options };
+    const child = new EventEmitter();
+    child.stdin = new PassThrough();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.stdin.on("data", (chunk) => { stdin += chunk; });
+    child.stdin.on("finish", () => {
+      child.stdout.end(output);
+      child.stderr.end(output);
+      queueMicrotask(() => child.emit("close", 0));
+    });
+    return child;
+  };
+  return { get invocation() { return invocation; }, get stdin() { return stdin; }, spawnMock };
+}
+
+test("remote Wrangler operations use reviewed arguments and suppress all output", async () => {
+  const cases = [
+    ["deploy", ["deploy"], "", false],
+    ["rollback", ["rollback", "--yes"], "", false],
+    ["delete", ["delete"], "y\n", true],
+  ];
+  for (const [name, arguments_, expectedInput, approvedDeletion] of cases) {
+    const mock = successfulWranglerMock();
+    const result = await runWranglerRemote(name, {
+      approvedDeletion,
+      spawnImplementation: mock.spawnMock,
+    });
+    assert.deepEqual(mock.invocation.arguments_, arguments_);
+    assert.equal(mock.invocation.options.env.WRANGLER_SEND_METRICS, "false");
+    assert.equal(mock.invocation.options.shell, false);
+    assert.deepEqual(mock.invocation.options.stdio, ["pipe", "pipe", "pipe"]);
+    assert.equal(mock.stdin, expectedInput);
+    assert.deepEqual(result, { operation: name, passed: true });
+    assert.doesNotMatch(JSON.stringify(result), /private|workers\.dev|version/i);
+  }
+});
+
+test("remote Wrangler operations pin timeouts and require deletion approval", async () => {
+  assert.deepEqual(reviewedWranglerOperation("deploy"), {
+    arguments: ["deploy"], input: "", timeoutMs: 5 * 60 * 1000,
+  });
+  assert.deepEqual(reviewedWranglerOperation("rollback"), {
+    arguments: ["rollback", "--yes"], input: "", timeoutMs: 2 * 60 * 1000,
+  });
+  assert.deepEqual(reviewedWranglerOperation("delete"), {
+    arguments: ["delete"], input: "y\n", timeoutMs: 2 * 60 * 1000,
+  });
+  assert.throws(() => reviewedWranglerOperation("versions"), /Unreviewed/);
+  await assert.rejects(() => runWranglerRemote("delete"), /not approved/);
+});
+
+test("remote Wrangler failures bound and suppress private output", async () => {
+  const privateOutput = "private-origin.workers.dev private-version-id";
+  const failureMock = successfulWranglerMock(privateOutput);
+  failureMock.spawnMock = (executable, arguments_, options) => {
+    const child = new EventEmitter();
+    child.stdin = new PassThrough();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.stdin.on("finish", () => {
+      child.stderr.end(privateOutput);
+      queueMicrotask(() => child.emit("close", 1));
+    });
+    return child;
+  };
+  await assert.rejects(
+    () => runWranglerRemote("deploy", { spawnImplementation: failureMock.spawnMock }),
+    (error) => error.message === "Remote Wrangler deploy failed; output suppressed." &&
+      !error.message.includes(privateOutput),
+  );
+
+  const oversizedMock = () => {
+    const child = new EventEmitter();
+    child.stdin = new PassThrough();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.kill = () => { queueMicrotask(() => child.emit("close", 1)); };
+    child.stdin.on("finish", () => { child.stdout.end("x".repeat(65 * 1024)); });
+    return child;
+  };
+  await assert.rejects(
+    () => runWranglerRemote("deploy", { spawnImplementation: oversizedMock }),
+    /output suppressed/,
   );
 });

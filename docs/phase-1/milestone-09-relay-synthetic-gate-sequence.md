@@ -23,6 +23,7 @@ Node tests assert, with no network:
 
 - `check:deploy-config` rejects every unapproved top-level key, Preview/Version URLs, observability, a route or custom domain, an extra binding, a non-SQLite object, a missing or extra required secret, a changed entry point or compatibility date, and an unpinned direct dependency;
 - `secrets:provision` derives the exact fixture digests from distinct canonical tokens entered through hidden prompts, retains the two-digest standard-input interface for the future Mac path, and sends both together to a bounded mocked process boundary without exposing tokens or digests in arguments, output, an environment value, or a file;
+- deployment, default-prior-version rollback, and confirmed isolated-Worker deletion run through bounded wrappers that suppress Wrangler output and expose only fixed redacted summaries; and
 - every remote script rejects a non-`workers.dev`, non-HTTPS, credential-bearing, port-bearing, path-bearing, query-bearing, or fragment-bearing origin and any extra or secret-shaped argument;
 - redirects, timeouts, invalid media types, malformed or oversized bodies, unexpected status/body pairs, and failing body streams remain bounded and redact tokens, digests, content keys, reader IDs, request IDs, publisher IDs, ciphertext, raw URLs, and Cloudflare identifiers from success and failure output;
 - the stateful synthetic reader commits only fully authenticated, newer, compatible snapshots and retains its prior cache through every planned fault; and

@@ -13,7 +13,7 @@ Never send provider data, credentials, account identifiers, prompts, project pat
 - Workers Logs, traces, Logpush, a custom domain, Version URL, or an unapproved binding is enabled;
 - a required request, CPU, Durable Object duration, row, or storage metric is unavailable after deployment without enabling observability;
 - a command requests a raw secret in an argument, environment value, file, or visible prompt;
-- output exposes a token, digest, content key, ciphertext, raw origin, account ID, Worker/version ID, reader/request/publisher ID, or Ray ID; or
+- a reviewed wrapper emits raw Wrangler output or otherwise exposes a token, digest, content key, ciphertext, raw origin, account ID, Worker/version ID, reader/request/publisher ID, or Ray ID; or
 - any command differs from the checked-in package scripts below.
 
 Only the canonical non-secret `https://…workers.dev` origin may be a command argument. Keep terminal recording, screen sharing, shell tracing, Universal Clipboard, and Handoff off throughout. Do not paste private command output into repository evidence.
@@ -88,6 +88,8 @@ Deploy only through the reviewed script:
 npm --prefix relay run deploy:remote
 ```
 
+The command must end with only `Remote Wrangler deploy completed with output suppressed.` after the safe deployment-configuration message. Any raw Wrangler output is a stop condition.
+
 Privately verify that the active deployment is the candidate just created, `workers.dev` is the only route, Version URLs are disabled, the only binding is `RELAY`, storage is SQLite, and only `ADMIN_TOKEN_DIGEST` and `WRITE_TOKEN_DIGEST` exist as secrets. Confirm logs, traces, and Logpush remain disabled.
 
 Confirm the dashboard exposes request count, Worker CPU, Durable Object duration, rows read and written, and storage without enabling a paid or observability feature. If any required metric is missing, run teardown immediately. Recheck Workers Free and US$0 billing.
@@ -155,7 +157,7 @@ The Durable Object Worker has no Version URL. On this isolated synthetic Worker:
 5. Privately verify the prior version is active, rerun `smoke:remote`, and confirm storage remains coherent.
 6. Recheck observability, resources, usage, and billing after each deployment mutation.
 
-Never put a version identifier in a script argument or repository evidence.
+The rollback wrapper accepts Wrangler's default prior deployment with `--yes`, suppresses its bounded output, and must emit only its fixed redacted summary. Never put a version identifier in a script argument or repository evidence.
 
 ## 9. Teardown
 
@@ -167,6 +169,8 @@ npm --prefix relay run teardown:worker
 ```
 
 `destroy:remote` performs authenticated destruction twice, proves the mailbox and snapshot are empty with synthetic probes, removes the probe, proves the reader list is empty, and deletes the verification schema once more. `teardown:worker` invokes the reviewed Wrangler deletion flow; approve only deletion of the isolated M9 Worker.
+
+`teardown:worker` requires typing `DELETE` at its fixed local prompt, supplies the Wrangler confirmation through standard input, suppresses bounded Wrangler output, and emits only its fixed redacted summary.
 
 In the dashboard, confirm the Worker, active deployments, secrets, route, and removable Durable Object resources are gone. Cloudflare may retain provider-managed point-in-time recovery data for its documented period; do not claim immediate physical erasure. Confirm Workers Free and US$0 billing, then delete exactly the six temporary password-manager items and clear the pasteboard.
 
