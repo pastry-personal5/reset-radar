@@ -56,7 +56,7 @@ Only after the soak completes, date and record the published platform limit resp
 
 Run the reviewed fault command for wall-clock pending-reader and request expiry, synthetic Mac awake/asleep/offline refresh, revocation mid-request, source and publication failure, token replacement, destroy and re-pair, rate and quota failure, relay outage, wrong key, altered tag, malformed ciphertext, replay, clock skew, and unsupported version. Its stateful synthetic reader must show its cache sequence before and after each failure and emit only redacted pass/fail output.
 
-For cellular evidence, publish on Mac Wi-Fi, disconnect the Mac, disable iPhone Wi-Fi, and use the approved artifact to fetch, bound, authenticate, decrypt, validate, and commit one synthetic envelope while recording only byte counts and pass/fail. Then use the owner-approved release-smoke order, privately verify which version is active, run the finite smoke at each required point, roll back, and verify coherent storage. Recheck billing and observability after each deployment mutation.
+The owner waived the physical cellular evidence step on 2026-10-24 before preparation or Scriptable installation; record the waiver without claiming a cellular pass. Then use the owner-approved release-smoke order, privately verify which version is active, run the finite smoke at each required point, roll back, and verify coherent storage. Recheck billing and observability after each deployment mutation.
 
 ## Task 7: Teardown, evidence, and verdict
 

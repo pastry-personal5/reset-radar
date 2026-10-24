@@ -132,7 +132,9 @@ npm --prefix relay run fault:remote -- https://REPLACE.workers.dev
 
 It uses hidden prompts, resets to synthetic state, and checks client cache retention for malformed JSON/ciphertext, wrong key, altered tag, replay, clock skew, incompatible version, rate limit, quota failure, and outage. Remote cases cover revocation mid-request, an offline/sleeping synthetic Mac and wall-clock request expiry, source failure, publication failure, reader-token replacement, and destroy-and-re-pair recovery. Record only the redacted case counts, before/after cache sequence, and pass/fail result.
 
-## 7. Cellular check
+## 7. Cellular check — owner-waived
+
+The owner waived this physical check on 2026-10-24 before preparation or Scriptable installation and accepted that M9 will contain no cellular fetch, decryption, or commit evidence. Skip to [release and rollback](#8-release-and-rollback). The procedure below remains available only for an optional future evidence run; do not mark it as performed unless it actually runs.
 
 Install Scriptable temporarily on the iPhone. Import the unchanged checked-in `relay/scripts/cellular-scriptable.js` as a new script named `Reset Radar M9`; the file contains only code and a public protocol self-test vector. Do not place the origin, a token, or the content key in the script, its name, a file, or a Shortcut. Scriptable's documented secure alert fields hide the private inputs, and its WebView supplies the WebCrypto context after the script blocks WebView resource requests. The embedded public-vector self-test must pass before the input alert appears.
 
@@ -150,7 +152,7 @@ Record those displayed aggregate values only. Reconnect the Mac, delete the `Res
 
 The Durable Object Worker has no Version URL. On this isolated synthetic Worker:
 
-1. Run `npm --prefix relay run deploy:remote` for the compatible candidate.
+1. Run `npm --prefix relay run deploy:remote` for the compatible candidate. This second code deployment is mandatory even when the deployment from step 3 is still active: on a newly created Worker, it ensures the default prior rollback target is another post-lifecycle version rather than the secret-provisioning version from before the Durable Object `exports` reconciliation.
 2. Privately verify in the dashboard that it is the active 100% deployment.
 3. Immediately run `smoke:remote`; on failure, run `npm --prefix relay run release:rollback` and then teardown.
 4. On success, run `npm --prefix relay run release:rollback` for the planned rollback exercise.
@@ -182,7 +184,7 @@ Give the agent only redacted aggregate evidence:
 - smoke and fault final summaries;
 - 30-minute planned/observed counts, response bytes, p50/p95 values, and dashboard aggregates;
 - official quota-document date and regression pass;
-- cellular request/response byte counts and pass/fail;
+- the owner cellular-evidence waiver and acknowledgement that no cellular pass was measured;
 - promotion, active-version verification, rollback, and storage-coherence pass/fail without IDs; and
 - teardown, recovery-retention acknowledgement, and final US$0 billing pass/fail.
 
