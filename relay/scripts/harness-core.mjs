@@ -90,6 +90,10 @@ export function digest(value) {
 export function strongETag(text) {
   return `"${createHash("sha256").update(text, "utf8").digest("hex")}"`;
 }
+export function validateSnapshotReadETag(text, observedETag, expectedETag) {
+  if (observedETag !== expectedETag) throw new HarnessFailure("Snapshot read ETag header was transformed.");
+  if (strongETag(text) !== expectedETag) throw new HarnessFailure("Snapshot read body changed under its strong ETag.");
+}
 export function randomIdentifier(bytes = 16) { return randomBytes(bytes).toString("hex"); }
 
 export async function readHidden(label) {

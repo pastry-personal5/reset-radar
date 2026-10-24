@@ -23,6 +23,7 @@ import {
   StatefulSyntheticReader,
   strongETag,
   validateSecretSet,
+  validateSnapshotReadETag,
   withPasteboardCleared,
 } from "./harness-core.mjs";
 
@@ -83,9 +84,7 @@ export async function runFiniteSmoke(originInput, secrets, fetchImplementation =
   const etag = publication.headers.get("ETag");
   if (etag !== strongETag(firstText)) throw new HarnessFailure("Snapshot publication lacked the expected strong ETag.");
   const read = await call("/v1/snapshot", { bodyLimit: SNAPSHOT_BODY_LIMIT, expectedStatus: 200, label: "snapshot read", token: secrets.readTokens[0] });
-  if (read.headers.get("ETag") !== etag || strongETag(read.text) !== etag) {
-    throw new HarnessFailure("Snapshot read changed the strong ETag.");
-  }
+  validateSnapshotReadETag(read.text, read.headers.get("ETag"), etag);
   const reader = new StatefulSyntheticReader({ key, publisherID });
   reader.commit(read.text);
   await call("/v1/snapshot", { expectedStatus: 304, headers: { "If-None-Match": etag }, label: "conditional read", token: secrets.readTokens[0] });

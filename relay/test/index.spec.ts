@@ -127,7 +127,7 @@ describe("Relay Worker v1", () => {
     const beforePublish = await request(getSnapshot.path, getSnapshot.method, tokens.reader);
     expect(beforePublish.status).toBe(errorAwaitingFirstPublish.status);
     expect(await beforePublish.text()).toBe(errorAwaitingFirstPublish.body);
-    expect(beforePublish.headers.get("Cache-Control")).toBe("no-store");
+    expect(beforePublish.headers.get("Cache-Control")).toBe("no-store, no-transform");
     const pending = JSON.parse(await (await request(listReaders.path, listReaders.method, tokens.admin)).text()) as {
       readers: Array<{ activated: boolean; readerID: string }>;
     };
@@ -142,7 +142,7 @@ describe("Relay Worker v1", () => {
     expect(read.status).toBe(getSnapshot.status);
     expect(await read.text()).toBe(getSnapshot.responseBody);
     expect(read.headers.get("ETag")).toBe(getSnapshot.etag);
-    expect(read.headers.get("Cache-Control")).toBe("no-store");
+    expect(read.headers.get("Cache-Control")).toBe("no-store, no-transform");
 
     const conditional = await request(getSnapshot.path, getSnapshot.method, tokens.reader, undefined, {
       "If-None-Match": envelope.etag,
@@ -150,6 +150,7 @@ describe("Relay Worker v1", () => {
     expect(conditional.status).toBe(304);
     expect(await conditional.text()).toBe("");
     expect(conditional.headers.get("ETag")).toBe(envelope.etag);
+    expect(conditional.headers.get("Cache-Control")).toBe("no-store, no-transform");
 
     const activation = await request(activate.path, activate.method, tokens.reader);
     expect(activation.status).toBe(activate.status);
@@ -179,7 +180,7 @@ describe("Relay Worker v1", () => {
   it("does not materialize storage for an invalid reader token", async () => {
     const invalidRead = await request(getSnapshot.path, getSnapshot.method, tokens.wrong);
     expect(invalidRead.status).toBe(errorUnauthorized.status);
-    expect(invalidRead.headers.get("Cache-Control")).toBe("no-store");
+    expect(invalidRead.headers.get("Cache-Control")).toBe("no-store, no-transform");
 
     const tables = await objectStorage((state) => state.storage.sql.exec(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('relay_schema', 'relay_state', 'readers', 'refresh_requests')",

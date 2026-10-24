@@ -38,7 +38,7 @@ type StoredReader = {
 type StoredSnapshot = { envelope: string; etag: string; last_sequence: number; publisher_id: string };
 type StoredRefreshRequest = { accepted_at: number; expires_at: number; reader_id: string; request_id: string };
 type BodyResult = { text: string } | { error: "badRequest" | "payloadTooLarge" };
-type ResponseOptions = { bodyLimit?: number; etag?: string; noStore?: boolean };
+type ResponseOptions = { bodyLimit?: number; etag?: string; noStore?: boolean; noTransform?: boolean };
 
 function success(status: number, body?: string, options: ResponseOptions = {}): Response {
   if (body !== undefined && new TextEncoder().encode(body).byteLength > (options.bodyLimit ?? RESPONSE_LIMIT)) {
@@ -47,13 +47,13 @@ function success(status: number, body?: string, options: ResponseOptions = {}): 
   const headers = new Headers();
   if (body !== undefined) headers.set("Content-Type", "application/json");
   if (options.etag !== undefined) headers.set("ETag", options.etag);
-  if (options.noStore) headers.set("Cache-Control", "no-store");
+  if (options.noStore) headers.set("Cache-Control", options.noTransform ? "no-store, no-transform" : "no-store");
   return new Response(body, { headers, status });
 }
 
 function failure(code: ErrorCode, options: ResponseOptions = {}): Response {
   const headers = new Headers({ "Content-Type": "application/json" });
-  if (options.noStore) headers.set("Cache-Control", "no-store");
+  if (options.noStore) headers.set("Cache-Control", options.noTransform ? "no-store, no-transform" : "no-store");
   return new Response(errorBody(code), { headers, status: statusFor(code) });
 }
 
@@ -161,7 +161,10 @@ export class RelayObject extends DurableObject {
             url.pathname === "/v1/readers/activate" || url.pathname === "/v1/refresh-requests"
           ))
         )) {
-          return failure("unauthorized", { noStore: url.pathname === "/v1/snapshot" });
+          return failure("unauthorized", {
+            noStore: url.pathname === "/v1/snapshot",
+            noTransform: url.pathname === "/v1/snapshot",
+          });
         }
       }
       if (url.search !== "") return failure("unknownRoute");
@@ -259,10 +262,10 @@ export class RelayObject extends DurableObject {
   private async getSnapshot(request: Request): Promise<Response> {
     const reader = await this.authenticatedReader(request);
     if (reader === undefined || !this.readerIsUsable(reader, this.clock.now())) {
-      return failure("unauthorized", { noStore: true });
+      return failure("unauthorized", { noStore: true, noTransform: true });
     }
     const empty = await requestHasNoBody(request);
-    if ("error" in empty) return failure(empty.error, { noStore: true });
+    if ("error" in empty) return failure(empty.error, { noStore: true, noTransform: true });
     const result = this.ctx.storage.transactionSync(() => {
       const current = this.one<StoredReader>("SELECT reader_id, token_digest, activated, pending_expires_at, last_accepted_at, last_accepted_id, last_completed_id FROM readers WHERE reader_id = ?", reader.reader_id);
       if (
@@ -275,13 +278,16 @@ export class RelayObject extends DurableObject {
       const stored = this.one<StoredSnapshot>("SELECT publisher_id, last_sequence, envelope, etag FROM relay_state WHERE id = 1");
       return stored === undefined ? { code: "awaitingFirstPublish" as const } : { code: "ok" as const, stored };
     });
-    if (result.code !== "ok") return failure(result.code, { noStore: true });
+    if (result.code !== "ok") return failure(result.code, { noStore: true, noTransform: true });
     const snapshot = result.stored;
-    if (request.headers.get("If-None-Match") === snapshot.etag) return success(304, undefined, { etag: snapshot.etag, noStore: true });
+    if (request.headers.get("If-None-Match") === snapshot.etag) {
+      return success(304, undefined, { etag: snapshot.etag, noStore: true, noTransform: true });
+    }
     return success(200, snapshot.envelope, {
       bodyLimit: SNAPSHOT_LIMIT,
       etag: snapshot.etag,
       noStore: true,
+      noTransform: true,
     });
   }
 

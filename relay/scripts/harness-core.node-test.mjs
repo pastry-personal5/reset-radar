@@ -22,8 +22,10 @@ import {
   sampleWorkload,
   StatefulSyntheticReader,
   SLOT_SECONDS,
+  strongETag,
   totalWorkload,
   validateSecretSet,
+  validateSnapshotReadETag,
   withPasteboardCleared,
 } from "./harness-core.mjs";
 import { runClientFaultCases } from "./fault-remote.mjs";
@@ -136,6 +138,20 @@ test("unexpected status reports only safe numeric status metadata", async () => 
       assert.equal(error.message.includes("must-not-escape"), false);
       return true;
     },
+  );
+});
+
+test("snapshot ETag validation distinguishes header transformation from body mutation", () => {
+  const body = '{"protocolVersion":1}';
+  const etag = strongETag(body);
+  assert.doesNotThrow(() => validateSnapshotReadETag(body, etag, etag));
+  assert.throws(
+    () => validateSnapshotReadETag(body, `W/${etag}`, etag),
+    /ETag header was transformed/,
+  );
+  assert.throws(
+    () => validateSnapshotReadETag(`${body} `, etag, etag),
+    /body changed under its strong ETag/,
   );
 });
 
