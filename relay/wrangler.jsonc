@@ -9,6 +9,12 @@
   "observability": {
     "enabled": false
   },
+  "secrets": {
+    "required": [
+      "ADMIN_TOKEN_DIGEST",
+      "WRITE_TOKEN_DIGEST"
+    ]
+  },
   "durable_objects": {
     "bindings": [
       {

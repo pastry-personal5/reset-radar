@@ -30,7 +30,7 @@ This file is the overall plan. Each milestone gets its own overview file when it
 | P1-M6 Storage | M4, M5 | Storage | none |
 | P1-M7 Transport crypto and protocol | M4, M5 | Transport | none |
 | P1-M8 Relay implementation | M7 fixtures | `relay/` | none |
-| P1-M9 Relay synthetic-data gate | M7, M8 | Relay, Transport | Cloudflare deployment, 24-hour measurement, billing check |
+| P1-M9 Relay synthetic-data gate | M7, M8 | Relay, Transport | Cloudflare deployment, 30-minute measurement, billing check |
 | P1-M10 Codex adapter | M5 | ProviderAdapters | signed-in schema smoke test, profile selection |
 | P1-M11 Claude Code adapter | M5 | ProviderAdapters | signed-in status-line calibration |
 | P1-M12 Mac collector app | M6, M7, M10, M11 | Mac root | Keychain checks, eight-day re-read, timer drift |
@@ -45,7 +45,7 @@ M6, M7 and M8 can proceed in parallel after M5; M10 and M11 can run in parallel 
 
 Start these as early as their milestone allows so elapsed time does not block the end of the phase:
 
-- Relay 24-hour latency and capacity measurement, begun in P1-M9.
+- Relay 30-minute latency and capacity sample, begun in P1-M9, with checked-in 24-hour Free-limit accounting.
 - Mac Keychain re-read eight days after signing, begun at the first signed build in P1-M12.
 - Mac timer drift and iOS background-task intervals over 24 hours, begun in P1-M12 and P1-M15.
 - Sideloadly seven-day refresh, begun at the first installable iOS build in P1-M14.
@@ -110,17 +110,19 @@ Goal: Worker and SQLite Durable Object with ciphertext-only storage, reader toke
 Plan: [overview](milestone-08-relay-implementation-overview.md), [sequencing](milestone-08-relay-implementation-sequence.md), [relay](../architecture/relay.md)
 
 ### P1-M9: Relay synthetic-data gate
-Status: Planned
+Status: Active
 Goal: Owner-run Cloudflare spike on synthetic data covering the conformance criteria and a US$0 billing check; real usage stays blocked until it passes.
 Plan: [overview](milestone-09-relay-synthetic-gate-overview.md), [sequencing](milestone-09-relay-synthetic-gate-sequence.md), [relay](../architecture/relay.md)
 
 ### P1-M10: Codex adapter
 Status: Planned
 Goal: Codex app-server client, schema validation, current-data window, and explicit profile isolation, with source calibration.
+Plan: [overview](milestone-10-codex-adapter-overview.md), [sequencing](milestone-10-codex-adapter-sequence.md), [ProviderAdapters](../architecture/provider-adapters.md)
 
 ### P1-M11: Claude Code adapter
 Status: Planned
 Goal: Claude Code status-line parser and guided installer that never replaces an unsafe or unprovable command, with source calibration.
+Plan: [overview](milestone-11-claude-code-adapter-overview.md), [sequencing](milestone-11-claude-code-adapter-sequence.md), [ProviderAdapters](../architecture/provider-adapters.md)
 
 ### P1-M12: Mac collector app
 Status: Planned

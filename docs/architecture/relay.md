@@ -106,9 +106,10 @@ Worker error bodies have exactly `{"code":"<code>","protocolVersion":1}` and are
 | `413` | `payloadTooLarge` | `payloadTooLarge` |
 | `422` | `unsupportedVersion` | `unsupportedVersion` |
 | `429` | `requestRateLimited` on refresh POST | `requestRateLimited` |
-| `429` | `quotaLimited` | `quotaLimited` |
+| `429` | `quotaLimited` synthetic boundary | `quotaLimited` |
+| Recognized platform 4xx/5xx | Structured Cloudflare Error 1027 | `quotaLimited` |
 
-The Worker can use a `500` or `503` error code `relayUnavailable`; the Swift client maps any bounded `5xx` to `offline`. Network or TLS failure is also `offline`. A `3xx` is `protocolFailure` and is never followed. Other status/code/operation combinations, absent required bodies, and malformed JSON are `protocolFailure`. Cloudflare may generate a Free-limit response before Worker code runs; [deployed relay conformance](../architecture.md#relay-conformance) records its actual bounded form and adds that distinct mapping before real usage can flow. An unrecognized bounded platform `429` is `protocolFailure` and retains the cache until that evidence exists.
+The Worker can use a `500` or `503` error code `relayUnavailable`; the Swift client maps any bounded `5xx` to `offline`. Network or TLS failure is also `offline`. A `3xx` is `protocolFailure` and is never followed. Other status/code/operation combinations, absent required bodies, and malformed JSON are `protocolFailure`. Cloudflare may generate a Free-limit response before Worker code runs. The client requests `application/json` and bounds the body to 4 KiB; a 4xx or 5xx structured response maps to `quotaLimited` only when `cloudflare_error` is `true`, `error_category` is `rate_limit`, `error_code` is `1027`, and the body status matches the HTTP status. Any altered or unrecognized bounded platform response fails closed and retains the cache.
 
 The `400 badRequest` row also covers conflicting reader registration, reuse of an expired last-accepted refresh ID, and a refresh ID already live for another reader. These outcomes reveal no reader or request details and leave state unchanged. The last-accepted replay guard is bounded: after a different ID is accepted, an older expired ID is no longer retained unless it is also the last completed ID.
 
@@ -131,7 +132,7 @@ The `400 badRequest` row also covers conflicting reader registration, reuse of a
 | `429` or platform quota error | Worker quota code or manual-request rate limit; Cloudflare-generated quota form requires deployed conformance | The reader keeps its valid cache. A manual-request `429` reports that another request is pending or recently accepted; a recognized quota response sets `quotaLimited` and backs off. |
 | `5xx`, network, or TLS failure | Worker, Durable Object, or connectivity failure | `offline`; back off with jitter. |
 
-Error bodies are generic, at most 4 KiB, and never reveal whether a token, publisher, or reader exists. Snapshot responses stay within the 64 KiB upload limit. Other successful response bodies are at most 4 KiB. The relay never intentionally redirects. Relay conformance records the exact response Cloudflare returns at the Free daily limit; platform-generated quota responses may need a separately bounded client mapping.
+Error bodies are generic, at most 4 KiB, and never reveal whether a token, publisher, or reader exists. Snapshot responses stay within the 64 KiB upload limit. Other successful response bodies are at most 4 KiB. The relay never intentionally redirects. The platform-generated Free-limit mapping is pinned by the synthetic structured-response fixture and rechecked against current Cloudflare documentation during relay conformance.
 
 ### Authentication
 
@@ -158,7 +159,7 @@ There is no product history. An expired pending reader is unauthorized immediate
 - **No idle work.** No WebSockets or alarms, so the object idles between requests.
 - **Manual refresh bounds.** A reader can cause at most one accepted request per 60 seconds. The Mac polls the request list every 15 seconds while collecting, and the reader polls the snapshot every five seconds for no more than 45 seconds. The Mac independently limits remote-forced Codex reads to one per 30 seconds. Rejected or unauthenticated requests cannot trigger a source read. The Free-tier capacity calculation includes even repeated manual actions at these limits.
 - **Pinned build.** A compatibility date and a tested Wrangler version.
-- **Releases.** Immutable versions, smoke-tested on a version URL with synthetic ciphertext, then promoted. Rollback never assumes a storage rollback.
+- **Releases.** Immutable versions. Because Cloudflare does not generate Version URLs for Durable Object Workers, the isolated synthetic M9 Worker promotes a candidate to 100%, privately verifies the active version, immediately smoke-tests it with synthetic ciphertext, and rolls back on failure. Rollback never assumes a storage rollback.
 - **Scripts.** `npm test` runs Workers Vitest; `npm run typecheck` runs `tsc --noEmit`. A provisioning script reads the write and administration digests from standard input and writes them as Worker secrets without echoing them.
 
 ## Tests

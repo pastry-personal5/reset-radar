@@ -1,0 +1,6 @@
+{
+  "sourceCheckedAt": "2026-10-24",
+  "status": 429,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"cloudflare_error\":true,\"error_category\":\"rate_limit\",\"error_code\":1027,\"status\":429}"
+}

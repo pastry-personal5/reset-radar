@@ -2,6 +2,8 @@ import { env, reset, runInDurableObject, SELF } from "cloudflare:test";
 import { afterEach, describe, expect, it } from "vitest";
 
 import worker, { type RelayObject } from "../src/index";
+import { canonicalJSON } from "../src/domain/protocol";
+import { runFiniteSmoke } from "../scripts/smoke-remote.mjs";
 
 import envelope from "../../Fixtures/Protocol/envelope.json";
 import errorAwaitingFirstPublish from "../../Fixtures/Protocol/error-awaiting-first-publish.json";
@@ -39,6 +41,7 @@ const digests = {
   reader: "4c07be22f86c52fd94ac9b44b023583c4fd5180d193ff28491d2885653c2c81e",
   readerTwo: "bb391415c05e39d77ca17381d3be3f7d0cd5e5332e5a579311adaa0aa62106e9",
   readerThree: "84126d0dd850199be29021aadbaee68cb9199047b1cb7ec9894ddb1e3562783c",
+  wrong: "deb0e38ced1e41de6f92e70e80c418d2d356afaaa99e26f5939dbc7d3ef4772a",
 };
 
 const readerOneID = "45454545454545454545454545454545";
@@ -84,6 +87,37 @@ async function objectStorage<T>(callback: (state: DurableObjectState) => T | Pro
 }
 
 describe("Relay Worker v1", () => {
+  it("canonicalizes nested response objects recursively", () => {
+    expect(canonicalJSON({ values: [{ z: 1, a: 2 }] })).toBe('{"values":[{"a":2,"z":1}]}');
+  });
+
+  it("treats destruction of fresh state as idempotent without creating a schema", async () => {
+    const destroyed = await request(destroyRelay.path, destroyRelay.method, tokens.admin);
+    expect(destroyed.status).toBe(204);
+    expect(await destroyed.text()).toBe("");
+    const tables = await objectStorage((state) => state.storage.sql.exec(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '_cf_%'",
+    ).toArray());
+    expect(tables).toEqual([]);
+  });
+
+  it("runs the M9 finite smoke through the shipped Worker", async () => {
+    await setClock(registrationStart);
+    const result = await runFiniteSmoke(
+      "https://relay.synthetic.workers.dev",
+      {
+        adminToken: tokens.admin,
+        contentKey: "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s",
+        readTokens: [tokens.reader, tokens.readerTwo, tokens.readerThree],
+        writeToken: tokens.writer,
+      },
+      (input, init) => SELF.fetch(input, init),
+      async (milliseconds) => { await setClock(registrationStart + milliseconds); },
+    );
+    await setClock(registrationStart);
+    expect(result).toEqual({ operations: 10, passed: true });
+  });
+
   it("consumes the snapshot, reader, and activation fixtures byte-for-byte", async () => {
     await setClock(registrationStart);
     const registration = await request(registerReader.path, registerReader.method, tokens.admin, registerReader.requestBody);
@@ -379,37 +413,37 @@ describe("Relay Worker v1", () => {
     ]);
     expect(concurrentPublications.map((response) => response.status).sort()).toEqual([200, 409]);
 
-    const registrations = await Promise.all([
-      register(readerOneID, digests.reader),
-      register(readerTwoID, digests.readerTwo),
-      register(readerThreeID, digests.readerThree),
-      register("48484848484848484848484848484848", "352302489bc2fcf025cf00cda8308033f97ac87712ce90b4d7cd72c58e4c3af9"),
-    ]);
+    const candidates = [
+      { digest: digests.reader, id: readerOneID, token: tokens.reader },
+      { digest: digests.readerTwo, id: readerTwoID, token: tokens.readerTwo },
+      { digest: digests.readerThree, id: readerThreeID, token: tokens.readerThree },
+      { digest: digests.wrong, id: "48484848484848484848484848484848", token: tokens.wrong },
+    ];
+    const registrations = await Promise.all(candidates.map((candidate) =>
+      register(candidate.id, candidate.digest)));
     expect(registrations.filter((response) => response.status === 200)).toHaveLength(3);
     expect(registrations.filter((response) => response.status === 409)).toHaveLength(1);
+    const winners = candidates.filter((_candidate, index) => registrations[index]?.status === 200);
 
-    expect((await activateReader(tokens.reader)).status).toBe(200);
-    expect((await activateReader(tokens.readerTwo)).status).toBe(200);
-    expect((await activateReader(tokens.readerThree)).status).toBe(200);
+    for (const winner of winners) expect((await activateReader(winner.token)).status).toBe(200);
     const requestIDs = [
       "56565656565656565656565656565656",
       "57575757575757575757575757575757",
       "58585858585858585858585858585858",
     ];
-    const mailbox = await Promise.all([
-      request(postRefresh.path, postRefresh.method, tokens.reader, JSON.stringify({ protocolVersion: 1, requestID: requestIDs[0] })),
-      request(postRefresh.path, postRefresh.method, tokens.readerTwo, JSON.stringify({ protocolVersion: 1, requestID: requestIDs[1] })),
-      request(postRefresh.path, postRefresh.method, tokens.readerThree, JSON.stringify({ protocolVersion: 1, requestID: requestIDs[2] })),
-    ]);
+    const mailbox = await Promise.all(winners.map((winner, index) =>
+      request(postRefresh.path, postRefresh.method, winner.token,
+        JSON.stringify({ protocolVersion: 1, requestID: requestIDs[index] }))));
     expect(mailbox.map((response) => response.status)).toEqual([202, 202, 202]);
     const listed = JSON.parse(await (await request(listRefresh.path, listRefresh.method, tokens.writer)).text()) as {
       requests: Array<{ readerID: string; requestID: string }>;
     };
-    expect(listed.requests.map(({ readerID, requestID }) => ({ readerID, requestID }))).toEqual([
-      { readerID: readerOneID, requestID: requestIDs[0] },
-      { readerID: readerTwoID, requestID: requestIDs[1] },
-      { readerID: readerThreeID, requestID: requestIDs[2] },
-    ]);
+    const expectedRequests = winners.map((winner, index) => ({
+      readerID: winner.id,
+      requestID: requestIDs[index],
+    })).sort((left, right) => left.readerID.localeCompare(right.readerID));
+    expect(listed.requests.map(({ readerID, requestID }) => ({ readerID, requestID })))
+      .toEqual(expectedRequests);
   });
 
   it("implements the activated-reader refresh mailbox and completed-ID replay guard", async () => {

@@ -1,0 +1,15 @@
+{
+  "compatibilityDate": "2026-10-20",
+  "dependencies": {
+    "@cloudflare/vitest-plugin": "1.4.5",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11",
+    "wrangler": "4.151.2"
+  },
+  "entryPoint": "src/index.ts",
+  "requiredSecrets": [
+    "ADMIN_TOKEN_DIGEST",
+    "WRITE_TOKEN_DIGEST"
+  ],
+  "workerName": "reset-radar-relay"
+}

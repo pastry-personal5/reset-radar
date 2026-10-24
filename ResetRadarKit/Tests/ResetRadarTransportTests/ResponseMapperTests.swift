@@ -20,6 +20,11 @@ private struct ErrorFixture: Decodable {
     let status: Int
 }
 
+private struct PlatformErrorFixture: Decodable {
+    let body: String
+    let status: Int
+}
+
 private struct ScenarioFixture: Decodable {
     let operation: String
     let status: Int
@@ -182,6 +187,20 @@ private func mappedSnapshot(status: Int, body: Data, etag: String?) -> RelayOutc
     ).outcome
 }
 
+private func platformQuotaBody(
+    cloudflareError: Bool = true,
+    category: String = "rate_limit",
+    code: Int = 1027,
+    status: Int = 429
+) throws -> Data {
+    try JSONSerialization.data(withJSONObject: [
+        "cloudflare_error": cloudflareError,
+        "error_category": category,
+        "error_code": code,
+        "status": status,
+    ])
+}
+
 @Test func malformedResponseAndUnexpectedStatusCannotBecomeSuccess() throws {
     let fixture = try JSONDecoder().decode(
         OperationFixture.self, from: fixtureData("operation-snapshot-get"))
@@ -201,6 +220,29 @@ private func mappedSnapshot(status: Int, body: Data, etag: String?) -> RelayOutc
             operation: .getSnapshot, status: 429, body: Data("quota".utf8), etag: nil,
             conditionalETag: nil, submittedEnvelope: nil))
     #expect(unexpectedQuota.outcome == .protocolFailure)
+}
+
+@Test func structuredCloudflareFreeLimitMapsNarrowlyToQuotaLimited() throws {
+    let url = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/Platform/cloudflare-free-limit.json")
+    let fixture = try JSONDecoder().decode(PlatformErrorFixture.self, from: Data(contentsOf: url))
+    #expect(
+        mappedSnapshot(status: fixture.status, body: Data(fixture.body.utf8), etag: nil)
+            == .quotaLimited)
+
+    for body in try [
+        platformQuotaBody(cloudflareError: false),
+        platformQuotaBody(category: "worker"),
+        platformQuotaBody(code: 1102),
+        platformQuotaBody(status: 500),
+    ] {
+        #expect(mappedSnapshot(status: 429, body: body, etag: nil) == .protocolFailure)
+    }
+    #expect(
+        mappedSnapshot(status: 500, body: try platformQuotaBody(status: 500), etag: nil)
+            == .quotaLimited)
 }
 
 @Test func conditionalReadAndTransportFailuresHaveDistinctOutcomes() throws {

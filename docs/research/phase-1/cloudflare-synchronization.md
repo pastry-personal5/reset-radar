@@ -24,7 +24,7 @@ This is an architecture recommendation, not proof from a deployed system. The sp
 
 ## 2. Zero-cost contract and hidden-fee audit
 
-`[documented]` Cloudflare gives accounts access to Workers Free by default. Under that plan, the selected Worker and SQLite-backed Durable Object have finite daily allowances rather than usage-priced overages. Cloudflare's Worker limit returns error 1027 after the account reaches 100,000 daily requests, and its storage pricing says operations fail when a Free allowance is exhausted. The limits reset at 00:00 UTC.
+`[documented]` Cloudflare gives accounts access to Workers Free by default. Under that plan, the selected Worker and SQLite-backed Durable Object have finite daily allowances rather than usage-priced overages. Cloudflare's Worker limit returns error 1027 after the account reaches 100,000 daily requests, and its storage pricing says operations fail when a Free allowance is exhausted. The limits reset at 00:00 UTC. As checked on 2026-10-24, Cloudflare also documents structured error negotiation on Free: an `Accept: application/json` client receives bounded machine-readable fields including stable `cloudflare_error`, `error_category`, `error_code`, and response `status`; Error 1027 belongs to `rate_limit`. Reset Radar matches only that narrow combination.
 
 The following configuration is the cost contract. Every row is required for the relay to qualify as a US$0 service:
 
@@ -161,7 +161,7 @@ Operational requirements:
 - rely only on the included aggregate request/error metrics for normal operation; temporary diagnostics must remain disabled unless their current price and privacy impact are re-approved;
 - use local development by default; if a remote test Worker or storage namespace is necessary, count it in the same account-wide Free budget and delete it after validation;
 - pin a Workers compatibility date and a tested Wrangler version;
-- deploy immutable versions, smoke-test a version URL with synthetic ciphertext, then promote it;
+- deploy immutable versions; for the isolated synthetic M9 Worker, promote a candidate to 100%, privately verify the active version, immediately smoke-test it with synthetic ciphertext, and roll back on failure because Durable Object Workers do not receive Version URLs;
 - keep a rollback runbook, while recognizing that Worker rollback does not roll storage back and may be blocked by incompatible storage migrations;
 - keep the account on Workers Free permanently while the US$0 requirement applies, and configure quota exhaustion to fail closed without usage charges;
 - keep Cloudflare API tokens scoped to only the required Worker, Durable Object, and deployment permissions and store them outside the repository;
@@ -209,12 +209,12 @@ Use synthetic fixtures only. Do not connect a real provider adapter or upload re
 - inspect account-wide usage to prove no unrelated Worker or storage workload invalidates the capacity calculation;
 - exercise token replacement and full destroy/re-pair recovery;
 - publish from Mac Wi-Fi, then read on an iPhone using cellular only after the Mac disconnects;
-- measure p50/p95 round-trip latency, CPU time, requests, rows read/written, and storage for at least 24 hours at the intended refresh schedule, including manual requests at the accepted per-reader rate limit and the reader's bounded follow-up reads;
+- measure p50/p95 round-trip latency, CPU time, requests, rows read/written, and storage for one uninterrupted 30-minute sample at the intended refresh schedule, including manual requests at the accepted per-reader rate limit and the reader's bounded follow-up reads; retain a checked-in 24-hour workload calculation for comparison with daily Free limits, while recognizing that the shortened run does not prove 24-hour stability;
 - simulate malformed ciphertext, wrong keys, replay, clock skew, rate limiting, quota exhaustion, Worker failure, and incompatible protocol versions;
 - deploy a compatible new version, smoke-test it, promote it, and roll back without corrupting stored state;
-- re-sign the iPhone app and embedded watch app through Sideloadly and confirm Keychain credentials, cached sequence, widgets, local notifications, watch installation, and watch state survive as intended.
+- separately in P1-M14 and later owning milestones, re-sign the installable iPhone app and embedded watch app through Sideloadly and confirm Keychain credentials, cached sequence, widgets, local notifications, watch installation, and watch state survive as intended. This installation criterion remains required for Phase 1, but it is not part of the P1-M9 relay-adoption gate because the installable clients do not exist yet.
 
-The spike passes only if Cloudflare never receives plaintext or a provider credential, stale state remains honest through every failure, the owner can repeat deployment and teardown from documentation, and the Cloudflare billing view remains US$0 with no paid subscription or add-on.
+The P1-M9 relay-adoption gate passes only if every relay criterion above passes: Cloudflare never receives plaintext or a provider credential, stale state remains honest through every relay failure, the owner can repeat deployment and teardown from documentation, and the Cloudflare billing view remains US$0 with no paid subscription or add-on. The separate installation criterion is closed by its owning milestones before Phase 1 closes.
 
 ## 11. Owner decisions and remaining validation
 
@@ -244,6 +244,7 @@ Checked 2026-10-19:
 - [Cloudflare: Web Crypto](https://developers.cloudflare.com/workers/runtime-apis/web-crypto/): SHA-256, HMAC, AES-GCM, and timing-safe comparison support.
 - [Cloudflare: rate-limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/): fixed windows and stable-identity key guidance.
 - [Cloudflare: Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/): invocation metadata, disabling logs, sampling, retention, and plan limits.
+- [Cloudflare: error responses](https://developers.cloudflare.com/fundamentals/reference/error-responses/): structured JSON content negotiation, stable platform error fields, and the Error 1027 rate-limit category.
 - [Cloudflare: Observability pricing](https://developers.cloudflare.com/observability/pricing/): the 2026-12-01 pricing change, Free ingestion allowance, and stop-ingestion behavior.
 - [Cloudflare: versions and deployments](https://developers.cloudflare.com/workers/versions-and-deployments/): immutable versions, promotion, version URLs, and rollback limits.
 - [Cloudflare: Durable Object data location](https://developers.cloudflare.com/durable-objects/reference/data-location/): jurisdiction scope and metadata caveats.

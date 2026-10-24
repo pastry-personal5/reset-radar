@@ -40,6 +40,7 @@ struct RelayResponseContext {
 enum ResponseMapper {
     static func map(_ response: RelayResponseContext) -> RelayMappedResult {
         let status = response.status
+        if mapPlatformQuota(response) { return .outcome(.quotaLimited) }
         if (500...599).contains(status) { return .outcome(.offline) }
         if (300...399).contains(status), status != 304 {
             return .outcome(.protocolFailure)
@@ -174,6 +175,14 @@ enum ResponseMapper {
         return .protocolFailure
     }
 
+    private static func mapPlatformQuota(_ response: RelayResponseContext) -> Bool {
+        guard (400...599).contains(response.status),
+            let body = try? JSONDecoder().decode(PlatformQuotaBody.self, from: response.body)
+        else { return false }
+        return body.cloudflareError && body.errorCategory == "rate_limit"
+            && body.errorCode == 1027 && body.status == response.status
+    }
+
     private static func decode<T: Codable>(_ type: T.Type, _ data: Data) -> T? {
         guard let value = try? WireCoding.decoder().decode(type, from: data),
             let encoded = try? WireCoding.encoder().encode(value), encoded == data
@@ -192,6 +201,20 @@ extension Array where Element: Comparable {
 private struct SequenceBody: Codable {
     let protocolVersion: Int
     let sequence: UInt64
+}
+
+private struct PlatformQuotaBody: Decodable {
+    let cloudflareError: Bool
+    let errorCategory: String
+    let errorCode: Int
+    let status: Int
+
+    enum CodingKeys: String, CodingKey {
+        case cloudflareError = "cloudflare_error"
+        case errorCategory = "error_category"
+        case errorCode = "error_code"
+        case status
+    }
 }
 
 private struct ActivationBody: Codable {

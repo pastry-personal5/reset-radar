@@ -49,7 +49,10 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 export function canonicalJSON(value: unknown): string {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJSON).join(",")}]`;
+  }
+  if (value === null || typeof value !== "object") {
     return JSON.stringify(value);
   }
 

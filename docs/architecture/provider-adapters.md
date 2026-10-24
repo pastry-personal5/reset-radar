@@ -49,7 +49,7 @@ flowchart TB
   end
   subgraph Setup["Setup"]
     SourceConfigurators["CodexConfigurator, ClaudeCodeConfigurator: SourceConfigurator"]
-    SettingsEditor["Claude Code settings editor (backup, preview, restore)"]
+    SettingsEditor["Claude Code settings editor (status-line restore record, preview, restore)"]
   end
   AccountScoperPort["AccountScoper (port)"]
   CodexAppServerSource --> CodexSchedule
@@ -84,7 +84,7 @@ It records the absolute path, plus the login shell's `PATH` and `CODEX_HOME` whe
 
 **Lifecycle.** `CodexAppServerSource` starts one long-lived `codex app-server --listen stdio://` child, completes the initialization handshake, and calls `account/rateLimits/read`. The child's standard error is drained and discarded in bounded chunks, never accumulated or logged. The source restarts the child when the resolved executable's version or modification time changes, so an upgraded Codex is never read through an old process. Closing standard input on quit or collector crash ends the child; source calibration confirms this.
 
-`BoundedRPCFrame` reads standard output incrementally. It rejects a declared or delivered JSON-RPC message over 1 MiB before allocating a full frame, caps a single string at 4 KiB, nesting at 32 levels, and decoded rate-limit windows at 128. A missing delimiter or length cannot grow a buffer without limit. An over-limit frame terminates that child, maps to a typed malformed/incompatible source outcome, preserves the last valid observation, and enters restart backoff. Raw bytes and rejected fields are never logged. Source calibration checks that legitimate installed-version responses fit these limits; a legitimate over-limit result returns the bound to review rather than silently truncating windows.
+`BoundedRPCFrame` reads newline-delimited standard output incrementally. It rejects an unterminated payload as soon as it exceeds 1 MiB and rejects a completed payload over 1 MiB before JSON decoding; the delimiter is not part of that count. Structural preflight caps a decoded object key or string value at 4 KiB of UTF-8, nesting at 32 levels, multi-bucket entries at 128, and decoded rate-limit windows at 128. A missing delimiter cannot grow a buffer without limit. An over-limit frame terminates that child, maps to a typed malformed/incompatible source outcome, preserves the last valid observation, and enters restart backoff. Raw bytes and rejected fields are never logged. Source calibration checks that legitimate installed-version responses fit these limits; a legitimate over-limit result returns the bound to review rather than silently truncating windows.
 
 **Reads.** `RateLimitDecoder` decodes both the compatibility bucket and `rateLimitsByLimitId`. `CodexNormalizer`:
 
@@ -168,7 +168,7 @@ Errors are typed as not-installed, signed-out, incompatible, timeout, process-ex
   - reached and permission state;
   - malformed percentage;
   - timeout and process exit;
-  - declared and delivered oversized JSON-RPC frames, missing framing, excessive nesting and window count, and bounded stderr draining;
+  - completed and unterminated oversized JSON-RPC payloads, missing framing, excessive nesting, bucket/window counts, duplicate keys, and bounded stderr draining;
   - discovery with a missing `node` and with an owner-chosen path; and
   - restart after the executable changes.
 - **Claude Code:**
@@ -185,6 +185,6 @@ Errors are typed as not-installed, signed-out, incompatible, timeout, process-ex
   - status-line-only restore that preserves unrelated settings edits;
   - helper-copy version mismatch;
   - atomic partial-write rejection; and
-  - settings backup and restore.
+  - status-line-only restore record and restore.
 
 Fixtures are synthetic; no real account data is checked in.

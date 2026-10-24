@@ -6,9 +6,18 @@
   "description": "Ciphertext-only Cloudflare relay for reset-radar.",
   "license": "Apache-2.0",
   "scripts": {
+    "cellular:prepare": "node scripts/cellular-prepare.mjs",
+    "check:deploy-config": "node scripts/check-deploy-config.mjs",
+    "deploy:remote": "npm run check:deploy-config && WRANGLER_SEND_METRICS=false wrangler deploy",
     "deploy:dry-run": "WRANGLER_SEND_METRICS=false wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "destroy:remote": "node scripts/destroy-remote.mjs",
+    "fault:remote": "node scripts/fault-remote.mjs",
     "secrets:provision": "node scripts/provision-secrets.mjs",
-    "test": "vitest run",
+    "smoke:remote": "node scripts/smoke-remote.mjs",
+    "soak:remote": "node scripts/soak-remote.mjs",
+    "release:rollback": "WRANGLER_SEND_METRICS=false wrangler rollback",
+    "teardown:worker": "WRANGLER_SEND_METRICS=false wrangler delete",
+    "test": "vitest run && node --test scripts/*.node-test.mjs",
     "typecheck": "wrangler types && tsc --noEmit && tsc --noEmit --project test/tsconfig.json"
   },
   "devDependencies": {

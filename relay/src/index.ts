@@ -146,6 +146,13 @@ export class RelayObject extends DurableObject {
       const schemaState = this.schemaState();
       if (schemaState === "unavailable") return failure("relayUnavailable");
       if (schemaState === "missing") {
+        if (
+          url.search === "" && request.method === "DELETE" && url.pathname === "/v1/relay" &&
+          this.isInternal(request, "admin")
+        ) {
+          const empty = await requestHasNoBody(request);
+          return "error" in empty ? failure(empty.error) : success(204);
+        }
         if (this.isInternal(request, "admin") || this.isInternal(request, "write")) {
           if (!this.ensureSchema()) return failure("relayUnavailable");
         } else if (url.search === "" && (
