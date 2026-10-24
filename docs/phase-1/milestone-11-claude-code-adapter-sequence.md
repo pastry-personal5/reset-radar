@@ -279,7 +279,7 @@ byte preservation outside the edited range, including large numeric lexemes, whi
 order, optional and unknown sibling members, unrelated nested values, and later unrelated
 edits; default versus relocated user roots, each provable precedence refusal, and disclosure when
 absence of an override cannot be proved; missing or safe existing commands; absolute quotes/spaces,
-unquoted `~/`, and quoted-tilde refusal; every refused syntax class; user/root ownership and every
+unquoted `~/`, and quoted-tilde refusal; every refused syntax class; user-only ownership, home-directory containment, root-owned and system-path refusal, and every
 ancestor mode; non-executable, wrong-owner, group/world-writable, symlink/replaced/content-changed
 files; exact/over executable identity bounds; helper mismatch; stale preview; settings changes to
 another safe or unsafe command; a

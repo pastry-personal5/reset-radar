@@ -6,6 +6,12 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Owner/Claude — Answered P1-M11 decisions 2, 4, 5, and 7. Bounds, never-observed
+  pruning (eight days after last invocation), and freshest-per-kind mixed-version merging follow
+  the recommendations. The owner chose a stricter executable trust test than recommended: only a
+  user-owned executable inside the home directory is composed, and system-installed or root-owned
+  executables are refused; ProviderAdapters architecture updated. Decisions 9 and 10 stay open.
+
 - 2026-10-25 — Owner/Claude — Answered P1-M11 decisions 1, 3, 8, and 11 as recommended: a
   status-line display-only preview plus typed restore conflict; CryptoKit for the 128-bit session
   key; automatic setup for the default `~/.claude/settings.json` only; and a Claude Code account row

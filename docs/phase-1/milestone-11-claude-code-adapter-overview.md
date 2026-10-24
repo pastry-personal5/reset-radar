@@ -85,7 +85,7 @@ configurator built here.
 - [x] M10 Checkpoint A's shared contracts are implemented on `main` and the M11 plan is rebased
   on them. Evidence: commits `18f5723` to `b8d64bd`, the 2026-10-25 refresh under
   [Plan review](#plan-review), and the narrowed decisions 1 and 6 below.
-- [ ] The owner answers the remaining open [implementation decisions] (2, 4, 5, 7, 9, 10; 1, 3, 6, 8, and 11 are answered)(#implementation-decisions), and the
+- [ ] The owner answers the remaining open [implementation decisions] (9 and 10; 1 through 8 and 11 are answered)(#implementation-decisions), and the
   answers are recorded in [changelog.md](changelog.md) and the binding docs they affect.
 - [ ] Record the implementation branch, starting commit, and complete worktree state. Preserve
   the pre-existing M9 and M10 planning edits as separate work.
@@ -205,7 +205,7 @@ it lands first and is explicitly referenced from the M11 implementation record.
    minimal object Reset Radar installed. Every other current value leaves both settings and restore
    record untouched and requests owner resolution. This is optimistic conflict detection, not an
    unimplementable promise of filesystem compare-and-swap against an arbitrary concurrent editor.
-2. **Resource bounds and composition validation.** Recommend the calibration harness's 1 MiB
+2. **Resource bounds and composition validation.** *Owner-approved as proposed 2026-10-25.* Recommend the calibration harness's 1 MiB
    Reset Radar capture ceiling; 4 KiB decoded-key and allowlisted-string ceilings; 128-byte ASCII
    grammars for the public version and unknown window kinds; 32-level nesting; duplicate-member
    rejection; 128 total `rate_limits` members before `spend_limit` or invalid entries are discarded;
@@ -223,11 +223,11 @@ it lands first and is explicitly referenced from the M11 implementation record.
    first 128 digest bits encoded as 32 lowercase hexadecimal characters and approval for
    ProviderAdapters to import Apple's CryptoKit. No raw or reversible session identifier is
    retained.
-4. **Records without an observation.** The eight-day rule covers a record with a newest
+4. **Records without an observation.** *Owner-approved as recommended 2026-10-25.* The eight-day rule covers a record with a newest
    observation but not a session that never receives `rate_limits`. Recommend storing a redacted
    last-invoked time and pruning such source-owned records eight days after that time; once any
    observation exists, prune only from its newest `observedAt` as the architecture already says.
-5. **Mixed installed versions.** Two open Claude Code sessions can outlive a CLI upgrade and
+5. **Mixed installed versions.** *Owner-approved as recommended 2026-10-25.* Two open Claude Code sessions can outlive a CLI upgrade and
    produce records with different public versions. Recommend continuing the per-kind freshest
    merge, retaining each window's actual `sourceVersion`, and setting `AccountSource.version` to
    the version on the newest selected observation. Idle invocation under a newer CLI version must
@@ -239,14 +239,15 @@ it lands first and is explicitly referenced from the M11 implementation record.
    `ResetRadarDomain`, `ResetRadarApplication`, and `ResetRadarTestSupport`. No `Package.swift`
    test-target change remains; only the CryptoKit decision above touches the production target's
    imports.
-7. **Trusted existing executable.** The architecture permits a user-owned executable or one in a
-   “trusted system location” but does not define that trust test. Recommend resolving the path
-   to a regular executable whose owner is the current user or root and whose resolved ancestor
-   chain is owned only by the current user or root and is not writable by group or other. Bind
-   preview and synthetic validation to device/inode, owner/mode, size/modification metadata, and a
-   streamed SHA-256 content digest; apply revalidates the same identity. Runtime revalidates path,
-   type, ownership, and modes but permits a later legitimate executable upgrade. Reject every
-   other owner/mode combination; do not trust a path prefix alone.
+7. **Trusted existing executable.** *Owner-decided 2026-10-25: owner-only files, a stricter
+   choice than the recommended user-or-root test.* Automatic composition accepts only a regular
+   executable owned by the current user whose resolved path is inside the owner's home directory
+   and whose resolved ancestor chain is owned only by the current user or root and is not writable
+   by group or other. A system-installed or root-owned executable is refused with setup explained
+   as unavailable. Bind preview and synthetic validation to device/inode, owner/mode,
+   size/modification metadata, and a streamed SHA-256 content digest; apply revalidates the same
+   identity. Runtime revalidates path, type, ownership, and modes but permits a later legitimate
+   executable upgrade. Do not trust a path prefix alone.
 8. **Settings scope and precedence.** *Owner-approved 2026-10-25: default user file only.* Claude Code can relocate its user root with
    `CLAUDE_CONFIG_DIR`, and managed, command-line, project-local, and shared-project values can all
    override user `statusLine`. Recommend first-version automatic setup for the default
