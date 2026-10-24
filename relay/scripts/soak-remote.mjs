@@ -30,9 +30,50 @@ import {
 
 const delay = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 export const MANUAL_REQUEST_SPACING_MS = 60_001;
+export const MAX_SLOT_LAG_MS = SLOT_SECONDS * 1000;
 
 export function manualRequestWaitMilliseconds(nextAllowedAt, now) {
+  if (!Number.isFinite(nextAllowedAt) || nextAllowedAt < 0 || !Number.isFinite(now) || now < 0) {
+    throw new HarnessFailure("Manual request schedule is invalid.");
+  }
   return Math.max(0, nextAllowedAt - now);
+}
+
+export function sampleSlotDelayMilliseconds(target, now) {
+  if (!Number.isFinite(target) || !Number.isFinite(now)) {
+    throw new HarnessFailure("Sample schedule timing was invalid.");
+  }
+  if (now - target > MAX_SLOT_LAG_MS) {
+    throw new HarnessFailure("Sample fell more than one slot behind schedule.");
+  }
+  return Math.max(0, target - now);
+}
+
+export function observedElapsedMilliseconds(startedAt, completedAt) {
+  if (!Number.isFinite(startedAt) || !Number.isFinite(completedAt) || completedAt < startedAt) {
+    throw new HarnessFailure("Observed sample duration was invalid.");
+  }
+  return Math.round(completedAt - startedAt);
+}
+
+export function validateSoakAccounting(planned, counts, latencies, responseBytes) {
+  const plannedKeys = Object.keys(planned).filter((key) => key !== "slots").sort();
+  const countKeys = Object.keys(counts).sort();
+  if (JSON.stringify(plannedKeys) !== JSON.stringify(countKeys) || plannedKeys.some((key) =>
+    !Number.isSafeInteger(planned[key]) || planned[key] < 0 || counts[key] !== planned[key])) {
+    throw new HarnessFailure("Observed operation counts did not reconcile with the checked-in workload.");
+  }
+  if (!(latencies instanceof Map) || JSON.stringify([...latencies.keys()].sort()) !== JSON.stringify(plannedKeys) ||
+      plannedKeys.some((key) => {
+        const values = latencies.get(key);
+        return !Array.isArray(values) || values.length !== counts[key] ||
+          values.some((value) => !Number.isFinite(value) || value < 0);
+      })) {
+    throw new HarnessFailure("Observed latency measurements were invalid.");
+  }
+  if (!Number.isSafeInteger(responseBytes) || responseBytes < 0) {
+    throw new HarnessFailure("Observed response bytes were invalid.");
+  }
 }
 
 export function parseManualRequestResponse(response) {
@@ -41,7 +82,7 @@ export function parseManualRequestResponse(response) {
     try {
       parseErrorResponse(response.text, "requestRateLimited");
     } catch {
-      throw new HarnessFailure("Non-relay HTTP 429 stopped the scheduled sample.");
+      throw new HarnessFailure("Unrecognized HTTP 429 stopped the scheduled sample.");
     }
     throw new HarnessFailure("Relay rate-limited a scheduled manual request.");
   }
@@ -56,13 +97,23 @@ export async function runManualRequestRound({
   requestIDFactory = randomIdentifier,
   wait = delay,
 }) {
-  if (!Array.isArray(readTokens) || !Array.isArray(readyAt) || readTokens.length !== readyAt.length) {
+  if (!Array.isArray(readTokens) || !Array.isArray(readyAt) || readTokens.length !== 3 || readyAt.length !== 3) {
     throw new HarnessFailure("Manual request schedule is invalid.");
   }
-  const accepted = await Promise.all(readTokens.map(async (token, index) => {
+  const preflightNow = now();
+  for (const nextAllowedAt of readyAt) manualRequestWaitMilliseconds(nextAllowedAt, preflightNow);
+  let requestIDs;
+  try { requestIDs = readTokens.map(() => requestIDFactory()); } catch {
+    throw new HarnessFailure("Manual request identifiers are invalid.");
+  }
+  if (requestIDs.some((requestID) => !/^[0-9a-f]{32}$/.test(requestID)) ||
+      new Set(requestIDs).size !== requestIDs.length) {
+    throw new HarnessFailure("Manual request identifiers are invalid.");
+  }
+  const settled = await Promise.allSettled(readTokens.map(async (token, index) => {
     const remaining = manualRequestWaitMilliseconds(readyAt[index] ?? 0, now());
     if (remaining > 0) await wait(remaining);
-    const requestID = requestIDFactory();
+    const requestID = requestIDs[index];
     const response = await measured("manualRequests", "/v1/refresh-requests", {
       body: canonicalJSON({ protocolVersion: 1, requestID }),
       label: "manual request",
@@ -73,6 +124,12 @@ export async function runManualRequestRound({
     readyAt[index] = now() + MANUAL_REQUEST_SPACING_MS;
     return { requestID, token };
   }));
+  const rejection = settled.find((result) => result.status === "rejected");
+  if (rejection !== undefined) {
+    if (rejection.reason instanceof HarnessFailure) throw rejection.reason;
+    throw new HarnessFailure("Manual request round failed.");
+  }
+  const accepted = settled.map((result) => result.value);
   for (const item of accepted) {
     for (let followUp = 0; followUp < 10; followUp += 1) {
       await measured("followUpReads", "/v1/snapshot", {
@@ -101,11 +158,18 @@ export async function runSoak(originInput, secrets, fetchImplementation = fetch)
   let liveRequestIDs = new Set();
 
   const measured = async (category, path, options) => {
+    if (!Object.hasOwn(counts, category)) throw new HarnessFailure("Unreviewed sample operation category.");
     const started = performance.now();
     const result = await relayRequest(fetchImplementation, origin, path, options);
+    const elapsed = performance.now() - started;
+    if (!Number.isFinite(elapsed) || elapsed < 0) throw new HarnessFailure("Sample latency measurement was invalid.");
     const values = latencies.get(category) ?? [];
-    values.push(performance.now() - started);
+    values.push(elapsed);
     latencies.set(category, values);
+    if (!Number.isSafeInteger(result.bytes) || result.bytes < 0 ||
+        !Number.isSafeInteger(responseBytes + result.bytes)) {
+      throw new HarnessFailure("Sample response byte measurement was invalid.");
+    }
     responseBytes += result.bytes;
     counts[category] += 1;
     return result;
@@ -126,7 +190,11 @@ export async function runSoak(originInput, secrets, fetchImplementation = fetch)
   const startedAt = performance.now();
   for (let slot = 1; slot <= planned.slots; slot += 1) {
     const target = startedAt + (slot - 1) * SLOT_SECONDS * 1000;
-    if (performance.now() < target) await delay(target - performance.now());
+    let remaining = sampleSlotDelayMilliseconds(target, performance.now());
+    while (remaining > 0) {
+      await delay(remaining);
+      remaining = sampleSlotDelayMilliseconds(target, performance.now());
+    }
 
     if ((slot - 1) % 12 === 0) {
       pending.push(...await runManualRequestRound({
@@ -156,14 +224,20 @@ export async function runSoak(originInput, secrets, fetchImplementation = fetch)
     }
     if ((slot - 1) % 60 === 0) await publish("heartbeatPublications");
   }
-  const remaining = startedAt + SAMPLE_SECONDS * 1000 - performance.now();
-  if (remaining > 0) await delay(remaining);
+  const deadline = startedAt + SAMPLE_SECONDS * 1000;
+  let remaining = sampleSlotDelayMilliseconds(deadline, performance.now());
+  while (remaining > 0) {
+    await delay(remaining);
+    remaining = sampleSlotDelayMilliseconds(deadline, performance.now());
+  }
+  const elapsedMilliseconds = observedElapsedMilliseconds(startedAt, performance.now());
 
-  if (JSON.stringify(counts) !== JSON.stringify(Object.fromEntries(Object.entries(planned).filter(([key]) => key !== "slots")))) throw new HarnessFailure("Observed operation counts did not reconcile with the checked-in workload.");
+  validateSoakAccounting(planned, counts, latencies, responseBytes);
   const perOperation = Object.fromEntries([...latencies].map(([name, values]) => [name, { p50Milliseconds: percentile(values, 0.5), p95Milliseconds: percentile(values, 0.95) }]));
   const all = [...latencies.values()].flat();
   return {
     durationSeconds: SAMPLE_SECONDS,
+    elapsedMilliseconds,
     observed: counts,
     overall: { p50Milliseconds: percentile(all, 0.5), p95Milliseconds: percentile(all, 0.95) },
     perOperation,
