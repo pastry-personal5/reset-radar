@@ -83,6 +83,20 @@ struct CodexAppServerSourceSchedulingTests: CodexSourceTestHarness {
         await rig.source.stop()
     }
 
+    @Test("a blocked source restarts when its executable becomes inspectable or changes")
+    func blockedSourceRestartsOnExecutableChange() async throws {
+        let inspector = ScriptedCodexRuntimeInspector([
+            .failure(.incompatible), .success(runtimeMetadata(version: "codex 0.165.0")),
+        ])
+        let rig = makeRig(runtimeInspector: inspector)
+        try await rig.source.start()
+        #expect(rig.session.rateLimitReads == 0)
+        let receipt = await rig.source.refresh()
+        #expect(receipt.performedSuccessfully)
+        #expect(rig.session.rateLimitReads == 1)
+        await rig.source.stop()
+    }
+
     @Test("configuration change replaces the session generation before reading")
     func configurationChange() async throws {
         let rig = makeRig()

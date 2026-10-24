@@ -107,8 +107,10 @@ public actor CodexConfigurator: SourceConfigurator {
             let state = try await store.configurationState(accountID: accountID)
             guard state == .configured, let accountID else { return state }
             let configuration = try await store.loadCodexConfiguration(accountID: accountID)
-            _ = try validator.revalidate(
-                configuration.executable,
+            // An upgrade or reinstall at the confirmed path is not drift: the runtime restarts the
+            // child on a metadata change, so only a missing or unsafe executable is incompatible.
+            _ = try validator.validate(
+                invocationPath: configuration.executable.invocationPath,
                 pathEnvironment: configuration.environment["PATH"] ?? "")
             return .configured
         } catch ProviderAccountCatalogStoreError.accountNotFound {

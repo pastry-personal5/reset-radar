@@ -67,7 +67,11 @@ public actor CodexAppServerSource: UsageSource {
         case .deferred(let retryAt, let sourceState):
             return .deferred(retryAt: retryAt, sourceState: sourceState)
         case .unavailable(let sourceState):
-            return .unavailable(sourceState: sourceState)
+            guard await executableChangedWhileBlocked() else {
+                return .unavailable(sourceState: sourceState)
+            }
+            await configurationChanged()
+            return await refresh()
         case .perform:
             let task = Task { [weak self] in
                 guard let self else {
@@ -203,6 +207,15 @@ extension CodexAppServerSource {
         }
         return ReadReceipt(
             startedAt: startedAt, finishedAt: clock.now, succeeded: true, report: report)
+    }
+
+    /// A blocked source arms no timer, so an executable that became inspectable or was upgraded is
+    /// noticed on the next explicit refresh and restarts the child.
+    private func executableChangedWhileBlocked() async -> Bool {
+        guard !terminallyStopped, schedule.started, let runtimeInspector,
+            let current = try? await runtimeInspector.inspect()
+        else { return false }
+        return current != runtimeMetadata
     }
 
     private func prepareGenerationForRead() -> UInt64 {

@@ -149,6 +149,21 @@ final class FakeCodexRuntimeInspector: CodexRuntimeInspecting, @unchecked Sendab
     }
 }
 
+final class ScriptedCodexRuntimeInspector: CodexRuntimeInspecting, @unchecked Sendable {
+    private let results: Locked<[Result<CodexRuntimeMetadata, CodexSourceFailure>]>
+
+    init(_ results: [Result<CodexRuntimeMetadata, CodexSourceFailure>]) {
+        self.results = Locked(results)
+    }
+
+    func inspect() async throws -> CodexRuntimeMetadata {
+        try results.withLock { results in
+            if results.count > 1 { return try results.removeFirst().get() }
+            return try results[0].get()
+        }
+    }
+}
+
 final class GatedAccountScoper: AccountScoper, @unchecked Sendable {
     private let inner = FakeAccountScoper()
     private let state = Locked((held: false, entered: 0))

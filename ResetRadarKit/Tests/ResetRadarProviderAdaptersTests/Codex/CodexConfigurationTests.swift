@@ -162,6 +162,33 @@ struct CodexConfigurationTests {
         }
     }
 
+    @Test("an upgraded but still safe executable stays configured")
+    func upgradeStaysConfigured() async throws {
+        try await withConfigurationDirectory { root, executable in
+            let runner = ConfigurationCommandRunner()
+            let store = ProviderAccountCatalogStore(directoryURL: root)
+            let id = accountID(0xE1)
+            _ = try await store.addCodexAccount(
+                id: id, revision: ConfigurationPreviewRevision(),
+                executable: try validation(of: executable),
+                environment: environment(executable.deletingLastPathComponent().path))
+            let context = CodexDiscoveryContext(
+                explicitExecutablePath: executable.path, loginShellURL: nil,
+                environment: environment(executable.deletingLastPathComponent().path),
+                workingDirectoryURL: root)
+            let configurator = CodexConfigurator(
+                contexts: FixedCodexDiscoveryContexts([context]),
+                locator: CodexExecutableLocator(runner: runner),
+                metadataReader: CodexExecutableMetadataReader(runner: runner), store: store)
+            try Data("upgraded-native".utf8).write(to: executable)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o700], ofItemAtPath: executable.path)
+            #expect(await configurator.inspect(accountID: id) == .configured)
+            try FileManager.default.removeItem(at: executable)
+            #expect(await configurator.inspect(accountID: id) == .incompatible)
+        }
+    }
+
     @Test("changed executable and a third Codex account fail closed")
     func driftAndCap() async throws {
         try await withConfigurationDirectory { root, executable in
