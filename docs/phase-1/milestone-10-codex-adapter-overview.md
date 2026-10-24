@@ -1,20 +1,24 @@
 # P1-M10: Codex adapter overview
 
-Status: Planned
+Status: Active
 
-Implement the macOS-only Codex app-server half of
-`ResetRadarProviderAdapters` against the existing Domain and Application ports. The
-[sequence](milestone-10-codex-adapter-sequence.md) orders configuration, bounded JSON-RPC,
-normalization, scheduling, synthetic tests, and the owner-present signed-in calibration.
+Implement the macOS-only, two-account Codex app-server half of
+`ResetRadarProviderAdapters` and the account-aware contracts it requires. The
+[sequence](milestone-10-codex-adapter-sequence.md) orders the shared account model, revised UX
+contracts, configuration, bounded JSON-RPC, normalization, scheduling, synthetic tests, and the
+owner-present signed-in calibration.
 
 ## Goal
 
-One explicitly selected Codex profile can be read through its first-party
-`codex app-server --listen stdio://` process without Reset Radar reading or copying a provider
-credential. Successful responses become complete `SourceSnapshot`s with every valid limit
-bucket, an opaque account scope, the compatibility bucket marked as default, provider-reported
-percentage used, and absolute reset instants. Source failures produce typed state-only reports,
-retain the last valid windows, and retry on the approved bounded schedule.
+Up to two explicitly selected Codex profiles can be read concurrently through separate
+first-party `codex app-server --listen stdio://` processes without Reset Radar reading or copying
+a provider credential. Each locally configured account has a stable opaque identifier, global
+account number, optional Mac-authored alias, independent source state, and isolated schedule.
+Successful responses become complete account-scoped `SourceSnapshot`s with every valid limit
+bucket, an opaque provider account scope, the compatibility bucket marked as default,
+provider-reported percentage used, and absolute reset instants. Source failures produce typed
+state-only reports, preserve only applicable last-valid windows, and retry on the approved
+per-account bounded schedule.
 
 The adapter and its synthetic tests pass the complete
 [contribution-guide gate](../contribution-guide.md#required-validation). The owner-present
@@ -24,14 +28,18 @@ window without retaining raw usage or identity data.
 
 ## Why this milestone can proceed
 
-[Phase 1](phase-1.md#order-and-dependencies) allows M10 and M11 to run in parallel with M6 to
-M9 after M5. M5 is done and supplies `UsageSource`, `SourceConfigurator`, `AccountScoper`,
-`ReadReceipt`, and the source-preserving reducer behavior. The ProviderAdapters target and test
-target exist but contain only scaffold symbols.
+[Phase 1](phase-1.md#order-and-dependencies) now makes M10 depend on M5, M7, and M8 because the
+owner-expanded account scope revises the implemented Transport and relay refresh contracts. Those
+milestones are done: M5 supplies `UsageSource`, `SourceConfigurator`, `AccountScoper`,
+`ReadReceipt`, and source-preserving reducer behavior, while M7 and M8 supply the v1 transport and
+refresh-request implementation that M10 migrates. The ProviderAdapters target and test target
+exist but contain only scaffold symbols. M10 can run in parallel with M9; M11 may prepare its
+source-specific work, but production integration waits for M10 Checkpoint A's shared contracts.
 
-M9 is not an M10 dependency. This milestone is entirely local: it does not publish a snapshot,
-connect to Cloudflare, handle a relay secret, or authorize real usage to cross the relay gate.
-M12 owns composition into the Mac collector.
+M9 is not an M10 dependency. This milestone does not deploy, contact Cloudflare, handle a relay
+secret, or publish real usage. It does revise and offline-test the account-targeted manual-refresh
+contract at `/v2/refresh-requests`; the owner directed M10 not to run or manage M9. M12 owns
+composition into the Mac collector.
 
 ## Planning basis
 
@@ -45,10 +53,14 @@ M12 owns composition into the Mac collector.
 - [Domain](../architecture/domain.md) defines `SourceSnapshot`, account scope, window identity,
   percentage validation, and retained-window behavior. [Application](../architecture/application.md)
   owns ingestion and manual-refresh use cases; ProviderAdapters does not reproduce them.
-- The current implementation contracts are
-  `UsageSource.refresh() -> ReadReceipt`, `SourceConfigurator`, and `AccountScoper`. Any port
-  change requires the owner decision below, focused Application regression tests, and a
-  changelog entry before adapter code depends on it.
+- [UX GUI](../ux-gui.md), [information architecture](../ux-information-architecture.md), and
+  [UX terms](../ux-terms.md) now define the owner-approved Account List, Account Row, and Account
+  Details behavior. M10 supplies their shared contracts and read models; M13, M14, and M16 retain
+  ownership of the actual Mac, iPhone/iPad, and Watch SwiftUI screens.
+- The current implementation contracts are `UsageSource.refresh() -> ReadReceipt`,
+  `SourceConfigurator`, `AccountScoper`, product-only sources, and four fixed `HomeSlot`s. The
+  approved decisions below replace those assumptions with account-aware contracts and require
+  focused Domain, Application, Storage, Transport, relay, and UI-model regression tests.
 
 ## Entry criteria
 
@@ -59,19 +71,38 @@ M12 owns composition into the Mac collector.
   verification findings recorded in [Plan review](#plan-review), with delegated validation
   evidence and no signed-in provider access. Evidence: the follow-up result under
   [Plan validation](#plan-validation) and the 2026-10-24 changelog entry.
-- [ ] The owner answers all [implementation decisions](#implementation-decisions), and the
+- [x] The owner answers all [implementation decisions](#owner-decisions), and the
   answers are recorded in [changelog.md](changelog.md) and the binding docs they affect.
-- [ ] Record the implementation branch, starting commit, and complete worktree state. Preserve
-  unrelated concurrent M9 and M11 work as separate pre-existing work.
-- [ ] The `test_runner` passes the complete gate on the recorded baseline before production
-  implementation begins.
+  Evidence: the 2026-10-24 Owner/Codex entry and the revised UX GUI, information architecture,
+  and terms.
+- [x] The revised UX and M10 plans pass a cross-document consistency review covering account
+  labels and ordering, empty and unavailable states, refresh affordances, per-window surfaces,
+  source-state mapping, retry behavior, and protocol bounds. Evidence: the final delegated gate,
+  `git diff --check`, and the active-document link/anchor audit under
+  [Plan validation](#plan-validation) pass on the reviewed worktree.
+- [x] Record the implementation branch, starting commit, and complete worktree state. Preserve
+  unrelated concurrent M9 and M11 work as separate pre-existing work. Evidence: implementation
+  branch `feat/p1-m10-codex-adapter` started at `5b4725d` on 2026-10-24 after the then-current M9
+  commits were fast-forwarded to `main`; `git status --short` was empty.
+- [x] The `test_runner` passes the complete gate on the recorded baseline before production
+  implementation begins. Evidence: delegated validation on 2026-10-24 passed project generation,
+  Swift format and strict lint, import enforcement, the macOS scheme, 26 relay Vitest tests, 31
+  relay Node tests, relay typecheck, and the Wrangler dry run. The Swift/Xcode checks were rerun
+  successfully with cache and CoreSimulator access after their sandbox-only first attempt.
 - [ ] Task 1 makes the Codex calibration independently runnable, passes every offline test and
   installed-schema preflight, and retains the runbook's privacy and cleanup boundaries.
 
 ## In scope
 
-- An owner-confirmed Codex launch configuration for one approved profile selection, persisted
-  locally with owner-only permissions and never included in diagnostics.
+- Owner-confirmed launch configurations for at most two active Codex profiles, persisted with
+  owner-only permissions and isolated so one corrupt or unsafe configuration does not stop the
+  other account.
+- A global account catalog supporting two Codex accounts and one future Claude Code account:
+  opaque `AccountID`, smallest-unused stable account number, optional alias of at most 32 UTF-8
+  bytes, exact effective-display-label uniqueness, localized display ordering, confirmed removal,
+  and replacement that retains the row identity and alias.
+- Account-aware Domain/Application/read-model contracts, inner `UsageSnapshot` schema 2, and the
+  binding Account List UX documentation. Actual platform screens remain in their UI milestones.
 - Bounded executable discovery and validation, an owner-confirmed minimal child environment,
   version/change detection, direct `Process` launch without a shell, stale-session fencing,
   bounded pipe handling, and clean stop.
@@ -80,27 +111,30 @@ M12 owns composition into the Mac collector.
 - Additive decoding of `account/rateLimits/read` and the approved optional account-status read,
   strict validation of the allowlisted fields, account scoping, default-bucket reconciliation,
   and normalization of all valid buckets.
-- The `CodexAppServerSource` actor and `CodexSchedule`: five-minute polling, notification refetch
-  no more than once per 60 seconds, reset reads after 30 seconds, immediate coalesced refresh,
-  ten-second request timeouts, and one/two/five/fifteen-minute restart backoff.
+- One `CodexAppServerSource` actor and `CodexSchedule` per configured account: concurrent startup,
+  five-minute polling, notification refetch no more than once per 60 seconds, reset reads after
+  30 seconds, immediate per-account coalesced refresh, ten-second request timeouts, and independent
+  one/two/five/fifteen-minute restart backoff.
 - Typed source outcomes and retry policies for not installed, signed out, incompatible, timeout,
   process exit, malformed input, permission denial, account-scope failure, and temporary
   unavailability, with redacted diagnostics.
 - Synthetic unit and integration fixtures plus the owner-present Codex half of source
   calibration. Only sanitized structural and timing evidence enters the repository.
-- Necessary focused Domain/Application contract changes approved below, their tests, removal of
-  the ProviderAdapters scaffold, and affected active documentation.
+- Account-targeted `/v2/refresh-requests`, per-account result reporting, and an in-place Durable
+  Object schema migration, with offline tests only and no deployment or M9 work.
+- Necessary focused Domain, Application, Storage, Transport, relay, and UI-model contract changes,
+  their tests, removal of the ProviderAdapters scaffold, and affected active documentation.
 
 ## Out of scope
 
 - Claude Code parsing, session records, helper installation, settings edits, or its 60-minute
   calibration (P1-M11).
-- Mac collector wiring, launch at login, UI, Keychain, publication, or timer-drift observation
-  (P1-M12 and M13).
+- Mac collector wiring, launch at login, SwiftUI screen implementation, Keychain, publication, or
+  timer-drift observation (P1-M12 through M16).
 - Relay deployment or any local or remote publication of real usage (M9 and M12). The live
   calibration talks only to the already signed-in first-party Codex process.
-- Concurrent collection from multiple Codex profiles unless the owner rejects the recommended
-  single-selection rule below. Calibration may still test every owner-designated profile.
+- More than two concurrent Codex profiles or more than one Claude Code account in the first
+  version.
 - Reading a Codex authentication file, browser state, consumer token, prompt, response, project
   path, or private endpoint; API-key mode; dependencies; or a new build tool.
 - Treating missing duration, reset, account identity, or limit identity as a guessed value.
@@ -113,13 +147,15 @@ M12 owns composition into the Mac collector.
 - Pass only the confirmed `HOME`, `USER`, `LANG`, `PATH`, and optional `CODEX_HOME`. `PATH` has
   only absolute non-empty entries, and the child starts in a fixed app-owned directory so a
   relative working directory cannot select `node` or other code.
-- The owner-only launch-configuration file may contain the confirmed executable and environment
-  paths needed to reproduce the selection. Normalized `SourceSnapshot`s may contain the approved
-  percentage, reset, limit identity, opaque account scope, and public source version. Those are
-  the only persistence exceptions. Provider account identifiers, raw JSON-RPC bytes, stderr,
-  profile names, prompts, responses, and every rejected or ignored field are never persisted or
-  logged; launch paths and normalized usage values never enter diagnostics or calibration
-  evidence.
+- Owner-only account metadata may contain a random Reset Radar `AccountID`, stable number, and
+  optional alias. Per-account launch configuration may contain the confirmed executable and
+  environment paths needed to reproduce that selection. End-to-end encrypted snapshots may
+  contain the account metadata, approved percentage, reset, limit identity, opaque provider scope,
+  and public source version. Provider account identifiers, raw JSON-RPC bytes, stderr, prompts,
+  responses, and every rejected or ignored field are never persisted or logged. A profile name is
+  never stored as a separate field or logged; any profile-bearing path required for launch stays
+  only in the owner-only configuration. Aliases, launch paths, and normalized usage values never
+  enter diagnostics or calibration evidence.
 - Drain stderr in bounded chunks and discard it. Bound stdout before decoding: one frame at most
   1 MiB, each decoded key or string at most 4 KiB of UTF-8, nesting at most 32 levels, at most 128
   multi-bucket entries, and at most 128 decoded candidate windows. A violation terminates the
@@ -132,79 +168,73 @@ M12 owns composition into the Mac collector.
 - All tests and checked-in fixtures are synthetic. The owner alone runs signed-in commands and
   completes cleanup before sanitized evidence is written.
 
-## Implementation decisions
+## Owner decisions
 
-These are newly exposed M10 choices, not permission to invent behavior. Implementation remains
-blocked until the owner answers all seven.
+The owner resolved the implementation choices on 2026-10-24. These are binding:
 
-1. **First-version profile cardinality.** Recommend exactly one active Codex profile selection.
-   Setup may calibrate and offer multiple profiles, but applying a new selection atomically
-   replaces the prior launch configuration and restarts the child; it does not run concurrent
-   sources. Supporting several accounts at once would require product-facing account selection,
-   duplicate Home-slot rules, and publication semantics outside the approved first version.
-2. **Profile-aware configuration contract.** The current `SourceConfigurator` can return only
-   `configured`, `unsafe`, or `notConfigured` and a generic `discover` preview; it cannot carry a
-   selected option or show the exact executable/environment that the owner must confirm.
-   Recommend a minimal generic option/preview addition in Application plus an `incompatible`
-   configuration state for corrupt, unsupported-version, or unsafe-permission app-owned state.
-   Display-only fields may carry the exact local path and environment for confirmation, but
-   Application neither interprets nor persists them, while ProviderAdapters retains the typed
-   launch configuration. A provider-generated opaque option ID and preview revision bind apply
-   to the exact selected executable, any `/usr/bin/env node` interpreter resolved from `PATH`, and
-   all five environment values; apply revalidates them and rejects a stale preview. M12 can then
-   list choices, request a preview, and apply only the exact preview the owner confirmed. Do not
-   require `codex-profile` at collector runtime; owner-present discovery may use an installed copy
-   during setup to resolve a selection into an official Codex executable plus the complete fixed
-   launch environment.
-3. **Missing account identifier.** Codex documents the account identifier as optional, while
-   `SnapshotReducer` can remove prior-account windows only after it receives a different non-nil
-   scope. Recommend treating a complete response without a valid account identifier as
-   `incompatible`, preserving the last valid windows, rather than hashing a profile path or
-   allowing windows from two accounts to mix. Task 1 must record identifier *presence and type*
-   for every selected profile without retaining its value. An alternative needs an explicit
-   local profile-scope and account-switch clearing design across Domain/Application.
-4. **Provider limit state.** The approved Domain enum cannot distinguish
-   `ordinaryUsageAllowed: false` from an independently reported reached state. Recommend adding
-   the tolerant wire case `ordinaryUsageDisallowed`. Per-bucket recognized
-   `rateLimitReachedType` takes precedence and maps to `reached`; otherwise account-wide true maps
-   to `ordinaryUsageAllowed`, false to `ordinaryUsageDisallowed`, and absence or an unrecognized
-   reached value to `unknown`. Ignore spend-control state and never infer state from percentage
-   or reset.
-5. **Provider test imports.** Recommend adding the existing local `ResetRadarDomain` and
-   `ResetRadarApplication` targets to `ResetRadarProviderAdaptersTests`. This is not an external
-   dependency, but it is a `Package.swift` dependency-graph change and therefore needs owner
-   approval. It permits direct contract, fake `AccountScoper`, and normalized-record tests under
-   the explicit-import gate.
-6. **Machine-readable sign-in state.** The selected rate-limit call reports signed-out as a
-   generic JSON-RPC invalid-request error; matching its human `message` would be brittle and could
-   leak provider text. The first-party app-server also exposes `account/read` with a structured
-   nullable account and `requiresOpenaiAuth` flag. Recommend allowing that one additional
-   read-only method, with `refreshToken: false`, solely once after initialization before the first
-   rate-limit read and again after a generic rate-limit error that could represent authentication.
-   Decode only account presence/type and the boolean, never email, display name, tokens, workspace
-   data, or error prose. A missing method, ambiguous combination, non-ChatGPT account, or failed
-   status read is `incompatible` or `sourceOffline` under decision 7, never guessed as
-   `signedOut`.
-7. **Source failure, retry, and diagnostics contract.** `SourceState` has five product-visible
-   cases, while M10 has more failure classes, and the closed `DiagnosticEvent` cannot currently
-   express a provider failure category. Recommend an explicit table in ProviderAdapters before
-   code: not configured/not installed/unsafe permissions to `unavailable`; a proven structured
-   sign-out to `signedOut`; schema, identity, framing, or normalization violations to
-   `incompatible`; and timeout, process/pipe exit, temporary backend failure, or account-scoper
-   failure to `sourceOffline`. Only retryable running-source failures use the one/two/five/fifteen
-   minute restart ladder; setup failures wait for a configuration change, and manual/wake/
-   foreground requests respect an active adapter backoff. Add only enum-backed provider
-   diagnostic factories carrying product, source state, error class, duration, and time. Keep the
-   public source version on `ProductSource` rather than adding arbitrary strings to diagnostics.
+1. **Accounts and identity.** Support two concurrent Codex accounts and one Claude Code account.
+   Global `Account #N` numbering uses the smallest unused positive number and stays with the row
+   until confirmed removal. A replacement or provider sign-in change retains the local row ID,
+   number, and alias but clears windows from the prior provider scope. Two profiles resolving to
+   the same provider account are not duplicated: the lower-numbered row remains active and the
+   other becomes incompatible.
+2. **Aliases and presentation.** Only Mac edits aliases for now. An alias is optional, at most 32
+   UTF-8 bytes, follows the Domain safe Unicode profile, contains at least one visible
+   letter/number/punctuation/symbol, and rejects exact effective-label duplicates. Accepted input
+   preserves case and leading/trailing ASCII spaces without Unicode normalization; empty input
+   restores the default. Aliases travel only in the encrypted snapshot, publish immediately after
+   a change, sort with localized natural comparison, and appear in notifications and supported
+   compact surfaces with middle truncation. Watch Home keeps aliases hidden and derives a distinct
+   stable pastel Account Palette from each global account number: #1 lavender, #2 mint, and #3
+   peach, each with contrast-safe appearance variants. The binding Account List and palette
+   behavior is in the UX documents.
+3. **Configuration contract.** Add opaque option identity, exact owner-visible launch previews,
+   preview revisions, selected add/replace intent, confirmed removal, and an `incompatible` state.
+   Apply revalidates the exact executable, applicable Node interpreter, and complete allowlisted
+   environment: four required values plus optional `CODEX_HOME`. `codex-profile` may assist
+   owner-present discovery but is never a runtime dependency.
+4. **Provider identity and state.** A missing provider account identifier is incompatible; paths
+   never substitute for it. Add `ordinaryUsageDisallowed`, preserve the approved reached/allowed/
+   disallowed/unknown precedence, and never infer provider state from usage. Use structured
+   `account/read` with `refreshToken: false`; never classify sign-in from provider prose. The
+   [account-status matrix](../architecture/provider-adapters.md#account-status) is exhaustive.
+5. **Isolation and retry.** Run one child and independent schedule/backoff per Codex account.
+   Concurrent startup is allowed. A corrupt configuration or transient failure affects only that
+   row. Use the [source-state and retry matrix](../architecture/provider-adapters.md#source-states-and-retry)
+   and retry only transient running-source failures at one, two, five, then fifteen minutes;
+   manual, wake, and foreground requests respect active backoff.
+6. **Tests and account-aware contracts.** Add the existing Domain and Application targets to the
+   ProviderAdapters test target. Replace product-only sources, fixed Home slots, and manual refresh
+   results with account-aware equivalents. Home Refresh targets all Codex accounts; Account Details
+   targets one account; partial successes are committed and reported separately.
+7. **Wire versions and scope.** Use inner `UsageSnapshot` schema 2 while preserving the approved
+   envelope, encryption, pairing, and snapshot relay v1 contracts. Add strict
+   `/v2/refresh-requests` with opaque account or `allCodex` targets and one reader-global request
+   per minute. Migrate relay SQL in place, preserving durable relay state while discarding legacy
+   pending refresh rows. M10 performs offline tests only: no deployment, real publication, or M9
+   work.
+8. **Calibration close-out.** Calibrate two signed-in profiles for one initial and six scheduled
+   reads over 30 minutes, with one ordinary owner-controlled Codex turn per profile. If both runs
+   satisfy every defined criterion, record 15 minutes as confirmed rather than retaining candidate
+   wording.
 
 ## Completion checklist
 
 - [ ] Entry criteria hold with recorded owner decisions, baseline evidence, and no unrelated
   work attributed to M10.
-- [ ] Owner-confirmed discovery selects exactly the approved executable/profile environment,
+- [ ] Owner-confirmed discovery selects at most two approved executable/profile environments,
   persists only required launch material with symlink-safe owner-only permissions, rejects stale
-  or altered previews, unsafe `PATH` entries, and executable/interpreter substitution, and never
-  falls back to an ambient profile.
+  or altered previews, unsafe `PATH` entries, executable/interpreter substitution, and a third
+  Codex account, and never falls back to an ambient profile. One corrupt account configuration
+  does not prevent the other account from running.
+- [ ] The account catalog assigns unique random IDs and smallest-unused global account numbers,
+  enforces the approved alias rules and product caps, preserves identity across replacement,
+  confirms removal before deleting metadata, and publishes alias changes immediately without
+  advancing an observation. A removed number is reusable.
+- [ ] `UsageSnapshot` schema 2, sources, windows, Home/Details read models, notification and
+  activity selections, Watch payloads, widgets, and diagnostics are account-aware. Invalid or
+  dangling account references fail closed, and the binding UX documents consistently specify the
+  Account List rather than the superseded four-cell grid.
 - [ ] App-server initialization, request matching, sparse-notification dispatch, timeout,
   cancellation, stdout EOF, bounded stderr draining, clean stdin-close shutdown, and
   executable-version/modification restart pass deterministic tests. A session generation fences
@@ -212,7 +242,8 @@ blocked until the owner answers all seven.
 - [ ] The frame reader rejects an unterminated or delivered frame over 1 MiB before JSON decode;
   malformed UTF-8/JSON, duplicate object keys, decoded keys or strings over 4 KiB of UTF-8,
   nesting over 32, more than 128 bucket entries, and more than 128 candidate windows terminate
-  that child without leaking input or erasing the last valid observation.
+  that child without leaking input or erasing the last valid observation. LF and CRLF delimiters
+  have the same payload bounds, and JSON-RPC request IDs stop at `2^53 - 1` without reuse.
 - [ ] Single-bucket, multi-bucket, and compatibility-only fixtures normalize without duplicate
   windows. Exactly the uniquely reconciled compatibility bucket is default; two same-duration
   limits do not collide; map keys and embedded IDs cannot disagree or repeat; unknown limit IDs
@@ -221,26 +252,33 @@ blocked until the owner answers all seven.
 - [ ] Percentages remain provider-reported integer percentage used with `fractionDigits == 0`;
   reset instants remain absolute; missing duration/reset stays nil; invalid windows are rejected
   individually with redacted diagnostics; explicit provider state is never inferred from usage.
-- [ ] A valid account identifier crosses only the injected `AccountScoper` call and the output
-  contains only its opaque scope. Account change replaces prior scoped windows in a real
-  `CollectUsage` integration test; a missing identifier follows the approved fail-closed rule.
-- [ ] `start`, five-minute polls, sparse updates, reset-plus-30-second reads, concurrent immediate
-  refreshes, `stop`, and one/two/five/fifteen-minute restart backoff are proven with injected
-  time. Reads never overlap, notifications refetch no more than once per 60 seconds, and reset
-  timers are replaced when a newer complete report changes the distinct reset-deadline set. A
-  notification received after an in-flight request started leaves one trailing refetch instead
-  of being incorrectly satisfied by the older request.
+- [ ] A valid provider account identifier crosses only the injected `AccountScoper` call and the
+  output contains only its opaque scope. Account change replaces prior scoped windows only in its
+  local row. Missing identity follows the fail-closed rule, and two profiles resolving to the
+  same scope deterministically keep only the lower-numbered row active.
+- [ ] Concurrent `start`, five-minute polls, sparse updates, reset-plus-30-second reads, immediate
+  refreshes, `stop`, and one/two/five/fifteen-minute restart backoff are proven with injected time
+  for two accounts. Reads never overlap within an account, sibling accounts do not share backoff,
+  notifications refetch no more than once per 60 seconds per account, and reset timers are
+  replaced when a newer complete report changes that account's deadline set. A notification newer
+  than an in-flight request leaves one trailing refetch.
 - [ ] Every failure class maps to the approved source state and a state-only `SourceSnapshot`;
   retry and non-retry behavior follows the approved table. `start()` keeps operational failures
   observable instead of tearing down the runtime, one physical read produces at most one stream
   event, and every coalesced caller receives the same `ReadReceipt`. Receipt times bound the
-  actual read and report success only for a complete normalized response. M5 ingestion and
-  manual-refresh tests pass with the real adapter seam.
-- [ ] Privacy tests prove that configuration contains only approved launch fields and that
-  diagnostics, thrown errors, and the app/test process's own output contain no fixture sentinel
-  representing an account ID, profile/path, prompt, response, limit ID, percentage, reset, child
-  stderr, or raw frame.
-- [ ] Owner-present calibration passes for every selected profile: installed schema, initial plus
+  actual read and report success only for a complete normalized response. A backoff-deferred
+  receipt has no fabricated attempt times or report and cannot satisfy `codexRead`. M5 ingestion
+  and manual-refresh tests pass with the real adapter seam.
+- [ ] Strict `/v2/refresh-requests`, per-account results, one-reader-per-minute limiting, replay
+  behavior, and the in-place SQL migration pass Swift and TypeScript tests. M10 performs no relay
+  deployment, Cloudflare call, real publication, or M9 work.
+- [ ] Privacy tests prove that configuration contains only approved account and launch fields and
+  that diagnostics, thrown errors, and the app/test process's own output contain no fixture
+  sentinel representing a provider account ID, alias, profile/path, prompt, response, limit ID,
+  percentage, reset, child stderr, or raw frame. Random Reset Radar `AccountID`s appear only in
+  approved typed records; aliases appear only in the owner-only catalog or inside encrypted
+  snapshots.
+- [ ] Owner-present calibration passes for both selected profiles: installed schema, initial plus
   six scheduled reads, ten-second latency, legitimate-response measurements below all approved
   input bounds, unambiguous default bucket, account-identifier presence/type, approved sign-in
   discriminator shape, process exit within five seconds, profile isolation, and the 15-minute
@@ -257,10 +295,12 @@ blocked until the owner answers all seven.
 
 ## Checkpoints
 
-- **A: Configuration and process boundary** (Tasks 0 to 3): decisions, baseline, calibration
-  workflow repair, configuration contract, launch persistence, child host, and bounded framing.
-- **B: Schema and source behavior** (Tasks 4 and 5): decoder, normalizer, account scope, source
-  actor, schedule, error mapping, and synthetic Application integration.
+- **A: Account, configuration, and process boundary** (Tasks 0 to 3): decisions, baseline,
+  revised UX and account contracts, calibration workflow repair, configuration persistence,
+  child host, and bounded framing.
+- **B: Schema, source, and refresh behavior** (Tasks 4 and 5): decoder, normalizer, account scope,
+  two source actors, schedules, error mapping, Application integration, and offline refresh-v2
+  implementation.
 - **C: Owner calibration and close-out** (Task 6): owner-run signed-in evidence, cleanup, final
   gate, documentation, and M12 handoff.
 
@@ -289,27 +329,30 @@ gaps:
   explicit-import check. The local dependency change is called out for approval instead of
   appearing incidentally during implementation.
 
-The review found no reason to make M9 a dependency or to broaden M10 into Claude setup, Mac
-composition, relay publication, or multi-account product behavior. Plan validation results are
-recorded here after the delegated gate completes.
+The review originally found no reason to make M9 a dependency or broaden M10 into multi-account
+behavior. The later owner interview supersedes only that product-scope conclusion: M10 now owns
+the two-account Codex contracts, revised UX specifications, and offline refresh-v2 changes, while
+still excluding Claude acquisition, platform SwiftUI screens, deployment, and real publication.
+The first two plan-validation results below predate that revision and remain baseline evidence;
+the final result validates the owner-revised plan and binding documentation.
 
 A follow-up review on 2026-10-24 found and corrected additional execution gaps:
 
 - The original privacy sentence forbade persisting the executable, home, percentages, resets,
   and limit IDs even though the plan requires an owner-only launch file and normalized snapshots.
-  The invariant now names those narrow exceptions and still excludes every raw, identity, profile,
-  rejected-field, diagnostic, and calibration-evidence path.
+  The invariant now names those narrow exceptions and still excludes every raw, provider-identity,
+  separate profile-name, rejected-field, diagnostic, and calibration-evidence path.
 - The launch configuration pinned only `PATH` and `CODEX_HOME` while the child also inherited
   `HOME`, `USER`, and `LANG`. Preview, storage, validation, and launch now bind the same complete
-  five-variable environment, a safe absolute-only `PATH`, a fixed working directory, and the
+  allowlisted environment, a safe absolute-only `PATH`, a fixed working directory, and the
   executable identity. npm-script discovery also binds the actual `node` selected by that `PATH`.
 - The plan promised `signedOut` without a stable discriminator. Official app-server source uses a
   generic invalid-request error for an unauthenticated rate-limit read, while `account/read`
-  exposes structured account presence and `requiresOpenaiAuth`. Decision 6 makes the narrow
+  exposes structured account presence and `requiresOpenaiAuth`. The revised owner decisions make the narrow
   read-only status method explicit and forbids matching provider error prose.
 - Product-visible source state, retry eligibility, and provider diagnostics were under-specified;
-  account-scoper failure was omitted entirely. Decision 7 now requires one exhaustive table and
-  keeps diagnostics enum-backed and string-free.
+  account-scoper failure was omitted entirely. The revised plan now requires exhaustive
+  account-status and source-state/retry matrices and keeps diagnostics enum-backed and string-free.
 - A replaced child could deliver a late response or notification, and a sparse notification that
   arrived after a request began could be incorrectly coalesced into that older request. The plan
   now requires session-generation fencing and one rate-limited trailing refetch.
@@ -320,9 +363,31 @@ A follow-up review on 2026-10-24 found and corrected additional execution gaps:
 - Default-bucket reconciliation did not fully order identity matching, structural fallback,
   duplicate identities, and the zero-valid-window result. The sequence now makes those outcomes
   deterministic and fail-closed.
-- Earlier Markdown validation considered tracked files, but both new M10 plan files are still
-  untracked in the shared worktree. Follow-up validation must inspect these two paths explicitly;
-  the earlier result is not reused as link evidence for their enhanced contents.
+- Earlier Markdown validation considered only then-tracked files, so the follow-up explicitly
+  inspected both M10 plan paths; the earlier result was not reused as link evidence for their
+  enhanced contents.
+
+A cross-document UX and execution review later on 2026-10-24 corrected these remaining gaps:
+
+- The phase table still let M10 precede M7/M8 even though refresh v2 revises their implemented
+  contracts, and it let M11 production code race the shared account-contract rewrite. M10 now
+  depends on M7/M8, while M11 integration waits for Checkpoint A.
+- Setup wording incorrectly emptied the Mac list when only relay or pairing setup was incomplete,
+  Home Refresh had no defined containment, and notification controls covered only standard
+  windows despite the account-window scheduling contract. The UX documents now preserve configured
+  rows, separate Home and Account Details refresh scopes, and cover every eligible account window.
+- Two alias rules produced blank or unsafe visible identity. Custom aliases now require a visible
+  scalar, use the dependency-free safe Unicode profile in Domain, and retain exact accepted text.
+  The owner also chose stable pastel Account Palettes to distinguish alias-free Watch Home rows.
+- The plan referred to approved sign-in and retry tables that did not exist. ProviderAdapters now
+  contains exhaustive account-status and source-state/retry matrices, including non-retrying
+  incompatible input and the duplicate-account rule.
+- A manual refresh during source backoff lacked an honest receipt shape and could falsely satisfy
+  `codexRead`. The revised contract returns an immediate deferred receipt with no fabricated read
+  times or report.
+- CRLF framing, JSON-RPC request-ID exhaustion, launch-path privacy exceptions, and out-of-range
+  percentage rejection were inconsistent or implicit across active documents. They are now
+  explicit and aligned.
 
 ## Plan validation
 
@@ -346,7 +411,16 @@ explicit whitespace inspection of both untracked M10 files, and a fenced-code-aw
 Markdown-link check covering 131 links also passed. No signed-in provider process, profile,
 account value, real usage, network deployment, or Cloudflare state was accessed. This validates
 the enhanced plan; it does not replace the isolated clean baseline required after the owner
-answers all seven decisions and implementation begins.
+decisions are recorded and implementation begins.
+
+After the owner resolved the account, UX, alias, and refresh-v2 decisions, the `test_runner`
+validated the final reviewed documentation worktree on 2026-10-24. Project generation, Swift format
+lint, strict SwiftLint with zero violations, import checks, the Mac scheme, 26 relay Vitest tests,
+31 relay Node tests, relay typechecking, and the non-deploying Wrangler dry run passed. A relative
+Markdown-link scan across active `docs/` and `git diff --check` also passed. Initial Xcode/Swift
+cache access required the same approved host-access retry. No signed-in provider process,
+Cloudflare call, deployment, secret, account value, or real usage was accessed. This validates the
+owner-revised plan and documentation; implementation and owner-present calibration remain open.
 
 ## Risks
 

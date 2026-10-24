@@ -6,6 +6,41 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-24 — Owner/Codex — Started P1-M10 on `feat/p1-m10-codex-adapter` from
+  `5b4725d` after fast-forwarding the then-current M9 commits to local `main`; the recorded clean
+  baseline passed the complete delegated gate. The owner replaced the planned single Codex
+  profile and fixed four-cell Allowance Grid with an account model: at most two concurrent Codex
+  accounts and one Claude Code account, global smallest-unused `Account #N` numbering, Mac-only
+  aliases, and a vertically scrolling Account List. Aliases are optional, exact, at most 32 UTF-8
+  bytes, require a visible letter/number/punctuation/symbol, and accept only Unicode letters,
+  marks, numbers, punctuation, symbols, and ASCII spaces. They reject invisible/control/format,
+  private-use/unassigned, noncharacter, non-ASCII-space, whitespace-only, and exact duplicate
+  labels; publish immediately in the encrypted snapshot; sort with localized natural comparison;
+  and use middle truncation.
+  Replacement or a provider sign-in change keeps the local row identity and alias; confirmed
+  removal deletes them and releases the number. Two Codex profiles resolving to the same provider
+  account keep only the lower-numbered row active. The owner approved one isolated child and
+  independent backoff per Codex account, structured `account/read`, fail-closed missing identity,
+  `ordinaryUsageDisallowed`, direct Domain/Application provider-test dependencies, and the typed
+  failure table. Home Refresh targets all Codex accounts with per-account outcomes; Account
+  Details refreshes one account. A source in restart backoff returns an immediate deferred receipt
+  that cannot masquerade as a completed Codex read. The encrypted usage snapshot advances to
+  schema 2 while the
+  envelope remains v1; strict account-targeted refresh moves to `/v2/refresh-requests` with an
+  in-place SQL migration and reader-global rate limit. M10 will validate those relay edits offline
+  only: the owner directed it not to deploy, publish real usage, run M9, or change M9 tracking.
+  iPhone uses compact rounded account rows with two rings and a circular bitmap detail button;
+  iPad and Mac use split list/detail layouts; Watch uses an N-by-two ring matrix without visible
+  Home aliases and assigns each account a stable, distinct pastel palette derived from its global
+  account number (#1 lavender, #2 mint, and #3 peach, each with contrast-safe appearance
+  variants); widgets select one account; notifications and supported compact surfaces identify
+  the alias. Palette never encodes usage or source state. Actual SwiftUI screens remain in M13,
+  M14, and M16. The expanded milestone depends on completed M7/M8. Because M10 now owns
+  shared account and configuration contracts, M11 may prepare independently but its production
+  work waits for M10 Checkpoint A. Close-out calibrates two profiles for 30 minutes with one
+  ordinary update-producing turn each and confirms the 15-minute Codex freshness window only when
+  all defined evidence passes.
+
 - 2026-10-24 — Owner/Codex — The repaired P1-M9 run from clean commit `9720206` passed private preflight, bounded provisioning and deployment, the exact ten-operation smoke, one uninterrupted 1,422-request sample, dashboard reconciliation, all nine client fault cases, and all seven remote fault cases. The sample completed in 1,803,433 ms with 426,261 response bytes, overall p50/p95 latency of 251.79/834.78 ms, zero dashboard errors, disabled observability, no unexplained activity, and US$0 billing. The owner explicitly waived the physical cellular check before preparation or Scriptable installation and accepted the missing evidence; no cellular pass is claimed. The assistant then incorrectly omitted the mandatory second compatible release deployment. Because the initial code deployment reconciled the Durable Object `exports` lifecycle after secret provisioning, default rollback targeted an incompatible pre-lifecycle version and Cloudflare rejected it as designed. No post-rollback smoke or storage-coherence evidence exists, so the release criterion remains open. The owner completed authenticated empty-state proof, bounded Worker deletion, dashboard cleanup, recovery-retention acknowledgement, final US$0 billing, six-secret deletion, and pasteboard clearing.
 
 - 2026-10-24 — Codex — Diagnosed the latest P1-M9 soak drift as a harness workload-ordering defect: each manual round issued all 30 bounded snapshot reads sequentially in one slot, contrary to the binding initial-plus-nine-five-second-read cadence, and combined 37 to 41 requests in a burst. The repair retains the 5.05-second drift rejection and exact 900-read and 1,422-request accounting, schedules three concurrent due reads across each of ten consecutive slots, and drains the final accepted round through its bounded 1,802.85-second target without starting new regular post-deadline work. A fresh deployed sample is still required.
@@ -44,7 +79,7 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 - 2026-10-24 — Codex — Re-reviewed and strengthened the untracked P1-M10 plan on
   `plan/p1-m10-codex-adapter`. The follow-up resolves the privacy contradiction between required
   owner-only launch storage, normalized snapshots, and the prior blanket persistence ban; binds
-  the complete five-variable environment, safe `PATH`, executable/interpreter identity, and working
+  the complete allowlisted environment, safe `PATH`, executable/interpreter identity, and working
   directory; fences stale child generations; rejects duplicate JSON keys and bounds empty bucket
   maps; orders default-bucket identity reconciliation; requires a valid surviving allowance
   window; and preserves a trailing refetch for notifications newer than an in-flight request. Two

@@ -54,7 +54,7 @@ flowchart LR
     subgraph Shared["Shared"]
       ReconcileResetNotifications
       SetNotificationOptIn
-      Queries["LoadHome, LoadUsageDetails, LoadPairingStatus, ExportDiagnostics"]
+      Queries["LoadHome, LoadAccountDetails, LoadPairingStatus, ExportDiagnostics"]
     end
   end
   subgraph Policies["Policies"]
@@ -85,7 +85,7 @@ Adapters implement the ports from outside; the arrows show compile-time dependen
 
 | Port | Purpose | Implemented by |
 |---|---|---|
-| `UsageSource` | Start, refresh (returning a `ReadReceipt` with start and finish times and the normalized report), stop, and stream `SourceSnapshot`s for one product (macOS). | [ProviderAdapters](provider-adapters.md) |
+| `UsageSource` | Start, refresh, stop, and stream `SourceSnapshot`s for one configured account (macOS). A performed `ReadReceipt` carries start/finish times and the normalized or state-only report; a backoff-deferred receipt carries only its retry deadline and current source state. | [ProviderAdapters](provider-adapters.md) |
 | `SourceConfigurator` | Inspect, preview, apply, and restore a source's local setup, such as Codex discovery or the Claude Code status line. | [ProviderAdapters](provider-adapters.md) |
 | `AccountScoper` | Turn a provider account identifier into an `AccountScope` without retaining the identifier. | [Transport](transport.md) |
 | `SnapshotStore` | Load and clear the committed snapshot. `LocalSnapshotCommitting` adds the Mac's `commitLocal`, which assigns no relay sequence. On iPhone and iPad the snapshot lives inside `ReaderState`, so `SnapshotStore` is a read facade and ingestion commits through `ReaderStore`; on Watch it is a facade over `WatchCacheStore`. | [Storage](storage.md) |
@@ -130,13 +130,19 @@ Use cases report typed outcomes, never HTTP codes or strings. `RelayGateway` ada
 
 ### Collection and publication (macOS)
 
-**`CollectUsage`** merges the latest `SourceSnapshot` from each `UsageSource` into the authoritative `UsageSnapshot`:
+**`CollectUsage`** merges the latest account-scoped `SourceSnapshot` from each `UsageSource` and
+the authoritative account catalog into `UsageSnapshot`:
 
 - A window absent from the latest report stays, marked `retained`, with its last observation.
-- A newer report of the same `WindowID` replaces a retained window, and an account-scope change drops it.
-- A retained window that does not resolve to a Home slot is dropped once its reset passes, or immediately if it has no reset instant.
-- A retained Home window with no reset instant, or whose last known reset has passed, remains only for diagnostics; Domain resolves its slot as unavailable until a new provider report arrives. This keeps the four Home cells stable without showing a reset-awaiting-refresh ring forever.
-- When Codex reports a new account scope, windows of the prior scope are dropped and never merged.
+- A newer report of the same `WindowID` replaces a retained window.
+- A provider-scope change drops prior-scope windows only for that local `AccountID`; sibling
+  accounts are never merged or erased.
+- A retained window that does not resolve to an account's standard Home ring is dropped once its
+  reset passes, or immediately if it has no reset instant.
+- A retained standard Home window with no reset instant, or whose last known reset has passed,
+  remains only for diagnostics; Domain resolves its account ring as unavailable until a new report.
+- Removing an account removes its source and windows. Alias-only metadata changes are transitions
+  and never advance `observedAt`.
 
 It commits locally through `LocalSnapshotCommitting`, without assigning a relay sequence, and classifies the change. A heartbeat restamps `generatedAt` without new content, so liveness stays accurate:
 
@@ -158,9 +164,21 @@ It commits locally through `LocalSnapshotCommitting`, without assigning a relay 
 
 It never runs before relay setup. An oversized envelope is a typed incompatibility that leaves the last relay snapshot in place and stops automatic retries until the source shape or application changes. It stops automatic retries on `400`, `401`, `409`, `413`, or `422`, and reports `secretsUnavailable` when `SecretStore` fails with `interactionRequired`.
 
-**`ConfigureSources`** drives `SourceConfigurator` for Codex discovery and the Claude Code guided setup. It always shows a preview first and applies changes only after confirmation.
+**`ConfigureSources`** drives `SourceConfigurator` for Codex discovery and the Claude Code guided
+setup. It enumerates opaque options, previews the exact add or replacement, rejects stale
+revisions, applies only after confirmation, and requires separate confirmation for removal.
+`UpdateAccountAlias` validates and stores the Mac-authoritative alias; either change reconciles
+the account catalog into a metadata-only local snapshot transition.
 
-**`HandleManualRefreshRequests`** (the remote-forced read time lives in memory, so a restart permits one read, bounded by the relay's own 60-second limit; handled request IDs are persisted in `PublisherStore`) runs when the Mac's relay-request driver sees one or more pending IDs. It coalesces IDs into one Codex read and never creates a Claude Code response. A read started after the request was observed, or already in flight when it was observed, may satisfy it. After that read completes, it adds a `ManualRefreshResult` for each handled ID to the local snapshot and publishes immediately, even when the percentage is unchanged. A failed read publishes `sourceUnavailable` if the relay remains reachable. It keeps results in subsequent snapshots for two minutes, then acknowledges each request to the relay only after the result-bearing publication succeeds. If publication fails, the requests remain pending until relay expiry and the phone's wait times out. The Mac accepts no more than one remote-forced Codex read per 30 seconds; requests arriving during that interval wait for the next permitted read. Repeated relay polls never repeat an in-flight or completed request.
+**`HandleManualRefreshRequests`** runs when the Mac sees one or more pending v2 requests. Each
+request targets one opaque Codex `AccountID` or `allCodex`. It refreshes targeted account actors
+concurrently, never creates a Claude Code response, ingests every successful report, and records a
+bounded per-account result even when a sibling fails or the target was removed. Results remain in
+subsequent snapshots for two minutes and are acknowledged only after result-bearing publication
+succeeds. The relay retains its reader-global 60-second request limit; Mac-side forced-read
+throttling and each source's active backoff are not bypassed. Repeated polls never repeat an
+in-flight or completed request. A backoff-deferred source receipt maps promptly to
+`sourceUnavailable`; it never fabricates read times or satisfies `codexRead`.
 
 **Relay administration** follows the setup and pairing lifecycle in [Pairing, revocation, and loss](../architecture.md#pairing-revocation-and-loss):
 
@@ -191,7 +209,7 @@ When the run is in the app process, a `committed` outcome triggers the after-com
 - `ReconcileResetNotifications` and `ReconcileLiveActivities` run; and
 - `ForwardToWatch` updates the Watch.
 
-A commit made in the widget process attempts reset-notification reconciliation using the already granted, per-slot opt-in state. The extension never requests notification authorization. The atomic `needsAppReconcile` flag makes the app retry notification reconciliation and update Live Activities and the Watch on its next run even if the extension expires mid-reconciliation.
+A commit made in the widget process attempts reset-notification reconciliation using the already granted, per-account-window opt-in state. The extension never requests notification authorization. The atomic `needsAppReconcile` flag makes the app retry notification reconciliation and update Live Activities and the Watch on its next run even if the extension expires mid-reconciliation.
 
 **`RequestMacRefresh`** is called only by a user-started Refresh that includes Codex. It first performs an ordinary conditional relay read, then posts a random request ID using the reader's read token. It writes a pending-request marker before the POST, so a relaunch resumes the wait without posting again. It polls conditional snapshot reads through the shared fetch claim every five seconds for at most 45 seconds and reports Mac completion only after a newer, authenticated snapshot contains a matching `ManualRefreshResult` for its `ReaderID` and request ID. An unchanged `304`, an unrelated publication, or a locally fresh cache does not complete the request. A `sourceUnavailable` result is reported separately from a successful Codex read. If the Mac is asleep, the request is rate-limited, the relay fails, or the wait expires, it returns the latest valid cache and a specific pending/unavailable outcome. It does not retry the POST automatically or ask the Mac to read Claude Code. A manual Refresh scoped only to Claude Code performs the ordinary relay read without posting a request.
 
@@ -226,22 +244,27 @@ After a commit it asks `SurfaceReloader` to reload the complication.
 
 **`ReconcileResetNotifications`** runs after every commit, and when the time zone or clock changes while the app runs. On iOS it takes `NotificationReconcileGate` before reading the latest committed snapshot and applying pending-request changes, so an app and widget cannot schedule different reset instants out of order. A claim interrupted by extension expiry remains retryable. The Mac has only one scheduler process and does not need this gate.
 
-- For each opted-in `HomeSlot` with a future `resetsAt`, it keeps exactly one request, with an identifier derived from the slot.
+- For each opted-in `AccountWindow` with a future `resetsAt`, it keeps exactly one request, with an
+  identifier derived from the account-window selection.
 - A newer reset replaces the request. A missing, expired, incompatible, or account-replaced window cancels it.
 - Requests carry an absolute instant, scheduled so a local time-zone change does not move it.
-- Copy names the product and window and says it has reset. It never embeds a formatted local time or a replenished percentage.
+- Copy names the displayed account alias, product, and window and says it has reset. It never
+  embeds a formatted local time or a replenished percentage.
 
 **`SetNotificationOptIn`** records the per-device choice. The first enable requests authorization, and a denied state stays visible with a route to system settings. Because the Mac and an iPhone schedule independently, the same reset may alert on both.
 
 ### Reset Live Activity (iPhone)
 
-**`ReconcileLiveActivities`** runs whenever the app executes, in the foreground or a background task, and keeps at most one activity per five-hour slot. Activities start only from a foreground Usage Details action, through the same use case.
+**`ReconcileLiveActivities`** runs whenever the app executes, in the foreground or a background
+task, and keeps at most one activity per five-hour account window. Activities start only from a
+foreground Account Details action, through the same use case.
 
 - **Update.** It updates content from the committed snapshot. Each update sets `staleDate` to the earlier of the observation's current-data expiry and `resetsAt`.
 - **End.** It ends an activity with immediate dismissal when any of these holds:
   - its reset has passed;
-  - its slot now resolves to a different `WindowID`;
+  - its `AccountWindow` now resolves to a different `WindowID`;
   - its observation is gone;
+  - its account is removed;
   - the user stops it;
   - the Mac is forgotten; or
   - Live Activities are disabled.
@@ -249,8 +272,12 @@ After a commit it asks `SurfaceReloader` to reload the complication.
 
 ### Queries
 
-- **`LoadHome`** produces the `HomeReadModel`: four `HomeCell`s in slot order, each with its `HomeSlotResolution`, `PresentationState`, used percentage, reset instant, observation time, and `nextChange`, plus the earliest `nextChange` of any cell. Read models hold Domain types and dates only, no strings. On iPhone and iPad, usage is hidden while no pairing exists, while activation is pending, and while Forget Mac cleanup is unfinished.
-- **`LoadUsageDetails`** produces the per-product read model with every window, provenance, Mac liveness, and transport status.
+- **`LoadHome`** produces one row per configured account with raw alias metadata, product, source
+  state, and five-hour/weekly ring models, plus the earliest `nextChange`. Presentation sorts rows
+  with localized natural comparison and account-number ties. On iPhone and iPad, usage is hidden
+  while no pairing exists, activation is pending, or Forget Mac cleanup is unfinished.
+- **`LoadAccountDetails`** produces one selected account's complete window list, source provenance,
+  Mac liveness, and transport status. Standard windows sort first; additional valid limits follow.
 - **`LoadPairingStatus`** produces local pairing state, pending local Forget Mac cleanup, and, on iPhone, `watchErasePending` or the last confirmed responding-Watch cache erasure without claiming immediate complication-frame removal or erasure of another paired Watch. An iPad has no Watch-erasure field.
 - **`ExportDiagnostics`** produces a confirmed, redacted export from `DiagnosticsSink` history.
 
@@ -285,7 +312,7 @@ All automatic triggers share the 15-second minimum through `ReaderStore`, across
 **`ComplicationBudgetPolicy`** (iOS) allows a complication transfer only when all of these hold:
 
 - the complication is enabled and transfers remain;
-- a Home-slot percentage, reset instant, or source state changed since the last transfer; and
+- a standard account-window percentage, reset instant, or source state changed since the last transfer; and
 - at least 30 minutes have passed since the last transfer.
 
 At most 48 transfers a day fit inside the system's daily allowance of 50. A day is a rolling 24 hours over the transfer timestamps persisted in `ReaderState`, so the count never depends on the time zone; the enabled flag lives in `PreferenceStore`.

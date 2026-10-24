@@ -31,15 +31,18 @@ This file is the overall plan. Each milestone gets its own overview file when it
 | P1-M7 Transport crypto and protocol | M4, M5 | Transport | none |
 | P1-M8 Relay implementation | M7 fixtures | `relay/` | none |
 | P1-M9 Relay synthetic-data gate | M7, M8 | Relay, Transport | Cloudflare deployment, 30-minute measurement, billing check |
-| P1-M10 Codex adapter | M5 | ProviderAdapters | signed-in schema smoke test, profile selection |
-| P1-M11 Claude Code adapter | M5 | ProviderAdapters | signed-in status-line calibration |
+| P1-M10 Codex adapter | M5, M7, M8 | ProviderAdapters, account contracts, refresh v2 | signed-in schema smoke test, profile selection |
+| P1-M11 Claude Code adapter | M5, M10 Checkpoint A | ProviderAdapters | signed-in status-line calibration |
 | P1-M12 Mac collector app | M6, M7, M10, M11 | Mac root | Keychain checks, eight-day re-read, timer drift |
 | P1-M13 Mac UI | M12 | UI, Mac root | none |
 | P1-M14 iOS core app | M6, M7, M9, M13 | iOS root | Sideloadly seven-day re-sign |
 | P1-M15 Scheduling | M14 | Scheduling, widgets | widget, Live Activity, and background-timing checks on device |
 | P1-M16 Watch | M14, M15 | WatchSync, Watch root | WatchConnectivity on a paired watch |
 
-M6, M7 and M8 can proceed in parallel after M5; M10 and M11 can run in parallel with M6 to M9. Real data first flows end to end when M9 and M12 have both passed.
+M6, M7 and M8 can proceed in parallel after M5. The expanded M10 account-refresh scope starts
+after M7 and M8 and can run in parallel with M9. M11 preparation may proceed independently, but
+its production work waits for M10 Checkpoint A's shared account and configuration contracts. Real
+data first flows end to end when M9 and M12 have both passed.
 
 ## Time-gated work
 
@@ -115,8 +118,9 @@ Goal: Owner-run Cloudflare spike on synthetic data covering the conformance crit
 Plan: [overview](milestone-09-relay-synthetic-gate-overview.md), [sequencing](milestone-09-relay-synthetic-gate-sequence.md), [relay](../architecture/relay.md)
 
 ### P1-M10: Codex adapter
-Status: Planned
-Goal: Codex app-server client, schema validation, current-data window, and explicit profile isolation, with source calibration.
+Status: Active
+Goal: Two-account Codex app-server client, account-aware shared contracts, schema validation,
+current-data window, explicit profile isolation, and source calibration.
 Plan: [overview](milestone-10-codex-adapter-overview.md), [sequencing](milestone-10-codex-adapter-sequence.md), [ProviderAdapters](../architecture/provider-adapters.md)
 
 ### P1-M11: Claude Code adapter
@@ -130,11 +134,13 @@ Goal: Mac composition root, Keychain secret store, publish loop, launch-at-login
 
 ### P1-M13: Mac UI
 Status: Planned
-Goal: Allowance Grid and rings, sidebar, menu-bar companion, Usage Details, and Settings.
+Goal: Split Account List and Account Details, rings, sidebar, per-account menu-bar status, alias
+editing, and Settings.
 
 ### P1-M14: iOS core app
 Status: Planned
-Goal: Pairing, relay reader, Allowance Grid, Usage Details, Setup Banner, and Main Toolbar screens; re-enables the iPhone and iPad test runs in the gate.
+Goal: Pairing, relay reader, iPhone Account List, iPad split Account List and Account Details,
+Setup Banner, and Main Toolbar screens; re-enables the iPhone and iPad test runs in the gate.
 
 ### P1-M15: Scheduling
 Status: Planned

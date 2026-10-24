@@ -245,7 +245,9 @@ Proposed experiments, not performed here:
 
 - `[inferred — confidence: high]` Test absolute notification replacement, cancellation, expiry, denial, and OS-local rendering after clock or time-zone changes.
 - `[inferred — confidence: high]` Validate widget timer rendering at reset and after a device clock/time-zone change without relying on a timeline reload.
-- `[inferred — confidence: high]` Test usage observation clamping, orientation, stale transitions, missing windows, and reset-cycle boundaries without fabricating a 0% value at a predicted reset.
+- `[inferred — confidence: high]` Test usage observation range rejection, orientation, stale
+  transitions, missing windows, and reset-cycle boundaries without fabricating a 0% value at a
+  predicted reset.
 - `[inferred — confidence: high]` Complete the synthetic-data Cloudflare, cellular, quota, deletion, and deployment checks in [cloudflare-synchronization.md](cloudflare-synchronization.md) before the conditionally approved transport becomes final or receives real usage data.
 
 ## 9. Research completion audit

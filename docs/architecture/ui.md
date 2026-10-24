@@ -16,7 +16,7 @@ Status: Active
 Rules:
 
 - Never imports a storage, transport, scheduling, link, or source adapter. Views receive read models and call use-case protocols injected by the composition root.
-- Never derives business state itself. Presentation state, slot resolution, and liveness come from Domain policies through the read models; views only format them.
+- Never derives business state itself. Presentation state, standard account-window resolution, and liveness come from Domain policies through the read models; views only format them.
 - Never presents remaining percentage, history, forecasts, pace, or threshold controls.
 - Color never carries state alone: every state also has text, a symbol, and an accessibility label.
 
@@ -26,12 +26,14 @@ Rules:
 flowchart TB
   subgraph Screens["Screen models (@MainActor, @Observable)"]
     HomeModel
-    UsageDetailsModel
+    AccountDetailsModel
     SetupBannerModel
     SettingsModels["Settings models: pairing, notifications, diagnostics; Mac sources and relay"]
   end
   subgraph Components["Components"]
-    AllowanceGrid
+    AccountList
+    AccountRow
+    AccountPalette
     AllowanceRing
     WindowDetails
     StateBadge
@@ -45,16 +47,18 @@ flowchart TB
     A11y["Accessibility labels"]
   end
   subgraph AppLayer["Application (inner layer)"]
-    ReadModels["HomeReadModel, UsageDetailsReadModel, PairingStatusReadModel"]
+    ReadModels["HomeReadModel, AccountDetailsReadModel, PairingStatusReadModel"]
     UseCaseProtocols["Use-case protocols"]
   end
   HomeModel --> ReadModels
-  UsageDetailsModel --> ReadModels
+  AccountDetailsModel --> ReadModels
   SettingsModels --> UseCaseProtocols
   HomeModel --> UseCaseProtocols
-  UsageDetailsModel --> UseCaseProtocols
-  AllowanceGrid --> AllowanceRing
-  AllowanceGrid --> StateBadge
+  AccountDetailsModel --> UseCaseProtocols
+  AccountList --> AccountRow
+  AccountRow --> AllowanceRing
+  AllowanceRing --> AccountPalette
+  AccountRow --> StateBadge
   WindowDetails --> AllowanceRing
   WindowDetails --> ProvenanceSection
   Components --> Formatting
@@ -63,7 +67,10 @@ flowchart TB
 
 ## Screen models
 
-**Home and Usage Details.** `HomeModel` and `UsageDetailsModel` load their read model when they appear. They re-load when the composition root signals a commit, and at the read model's next-change instant, using a `TimelineView` schedule. This keeps countdowns and stale transitions moving without polling storage.
+**Home and Account Details.** `HomeModel` and `AccountDetailsModel` load their read model when they
+appear. They re-load when the composition root signals a commit, and at the read model's next-
+change instant, using a `TimelineView` schedule. This keeps countdowns and stale transitions moving
+without polling storage.
 
 **Actions.** Refresh, notification opt-in, Start Live Activity, pairing, and the diagnostics export each call one injected use case and show its typed outcome.
 
@@ -81,7 +88,9 @@ flowchart TB
 
 | Component | Notes |
 |---|---|
-| `AllowanceGrid` | Four `HomeSlot` cells in fixed logical order: Codex in the top row, Claude Code in the bottom row, five-hour windows on the left, weekly on the right. Accessibility adaptation may reflow the cells but never reorders them. |
+| `AccountList` | Account rows in localized natural alias order, with stable account number as the tie-breaker. It is a vertical list on iPhone and the leading pane on iPad and Mac. |
+| `AccountRow` | Small top-leading alias label, product, five-hour and weekly rings, account status symbols, and the neutral bitmap Account Details action. It may reflow for accessibility sizes without changing logical order; the alias becomes inline-editable only in the Mac composition. |
+| `AccountPalette` | Watch-only appearance-aware surface/foreground pair derived from the stable global account number: #1 lavender, #2 mint, and #3 peach. The surface stays pastel while the foreground meets contrast requirements; status remains independently encoded by text, symbol, and accessibility. |
 | `AllowanceRing` | Fills from 0% toward 100% used. It shows no value for `unavailable` and `resetAwaitingRefresh`, and a stale treatment for `stale`. |
 | `WindowDetails` | Ring, exact percentage, window label, relative countdown, absolute reset in the OS's current time zone, observation time, and state explanation. |
 | `ProvenanceSection` | Acquisition source, Mac liveness, last successful sync on this device, and compatibility. Versions and errors sit behind a disclosure. |
@@ -96,7 +105,7 @@ Widget, Live Activity, and complication views reuse `AllowanceRing`, `StateBadge
 | iPhone | Main Toolbar content. |
 | iPad | Same screens within the adaptive tab bar or sidebar. |
 | macOS | Main Sidebar content and the menu-bar summary. |
-| watchOS | Compact grid and compact Usage Details, with no notification or Live Activity controls. |
+| watchOS | N-by-two ring matrix with stable pastel account palettes and compact Account Details, with no notification or Live Activity controls. |
 
 Variants live in platform-conditional files; screen models are shared.
 
@@ -106,6 +115,8 @@ Variants live in platform-conditional files; screen models are shared.
 
 - screen-model state for every presentation and transport state;
 - pairing and Watch-erasure state, including an unreachable Watch and a confirmed cache receipt;
+- stable #1 lavender, #2 mint, and #3 peach Watch Account Palette mapping across account order and
+  supported appearances, including foreground contrast;
 - formatter output across precisions and time zones; and
 - accessibility labels.
 

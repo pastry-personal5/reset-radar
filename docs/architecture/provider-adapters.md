@@ -11,7 +11,7 @@ Status: Active
 | Layer | Adapter |
 | Platforms | macOS only |
 | Depends on | [Domain](domain.md), [Application](application.md), and Foundation |
-| Implements | `UsageSource` for each product, and `SourceConfigurator` |
+| Implements | One account-scoped `UsageSource` per configured account, `SourceConfigurator`, and the account catalog |
 | Consumes | `AccountScoper`, injected by the Mac app and implemented by [Transport](transport.md#account-scope) |
 | Used by | The [Mac app](mac-app.md) and the `ResetRadarStatusLine` helper, both composition roots |
 
@@ -26,6 +26,7 @@ Rules:
 ```mermaid
 flowchart TB
   subgraph Codex["Codex"]
+    CodexFleet["Codex fleet/coordinator (max 2)"]
     CodexAppServerSource["CodexAppServerSource (actor): UsageSource"]
     CodexSchedule["CodexSchedule"]
     ExecutableLocator
@@ -48,10 +49,12 @@ flowchart TB
     ComposedCommandRunner
   end
   subgraph Setup["Setup"]
+    AccountCatalog["Provider account catalog"]
     SourceConfigurators["CodexConfigurator, ClaudeCodeConfigurator: SourceConfigurator"]
     SettingsEditor["Claude Code settings editor (status-line restore record, preview, restore)"]
   end
   AccountScoperPort["AccountScoper (port)"]
+  CodexFleet --> CodexAppServerSource
   CodexAppServerSource --> CodexSchedule
   CodexAppServerSource --> ChildProcessHost
   ChildProcessHost --> ExecutableLocator
@@ -68,29 +71,80 @@ flowchart TB
   StatusLineRecorder --> SessionRecordFile
   StatusLineRecorder --> StatusLineDecoder
   SourceConfigurators --> ExecutableLocator
+  SourceConfigurators --> AccountCatalog
   SourceConfigurators --> SettingsEditor
   SourceConfigurators --> ComposedCommandRunner
 ```
 
 ## Codex app-server
 
-**Discovery.** A login item starts with a minimal `PATH`, and an npm-installed `codex` is a Node script that also needs `node`. `CodexConfigurator` therefore resolves the executable once, with the owner present, trying in order:
+**Discovery.** A login item starts with a minimal `PATH`, and an npm-installed `codex` is a Node
+script that also needs `node`. `CodexConfigurator` resolves each of at most two selected profiles,
+with the owner present, trying in order:
 
 1. a path the owner chose;
 2. `command -v codex` in the owner's login shell;
 3. the standard Homebrew locations.
 
-It records the absolute path, plus the login shell's `PATH` and `CODEX_HOME` when set, and the owner confirms the result in Sources settings. `ChildProcessHost` launches the child with only those variables plus `HOME`, `USER`, and `LANG`. Discovery never reads authentication files.
+For each selection it records the absolute path, applicable interpreter identity, and confirmed
+`HOME`, `USER`, `LANG`, `PATH`, and optional `CODEX_HOME`. The owner confirms the exact preview in
+Sources settings. `ChildProcessHost` launches that account's child with only those values.
+Discovery never reads authentication files, and runtime never consults `codex-profile` or an
+ambient selector.
 
-**Lifecycle.** `CodexAppServerSource` starts one long-lived `codex app-server --listen stdio://` child, completes the initialization handshake, and calls `account/rateLimits/read`. The child's standard error is drained and discarded in bounded chunks, never accumulated or logged. The source restarts the child when the resolved executable's version or modification time changes, so an upgraded Codex is never read through an old process. Closing standard input on quit or collector crash ends the child; source calibration confirms this.
+**Lifecycle.** The fleet starts one isolated, long-lived
+`codex app-server --listen stdio://` child per configured account, concurrently. Each source
+completes initialization, calls structured `account/read` with `refreshToken: false`, and then
+calls `account/rateLimits/read`. Standard error is drained and discarded in bounded chunks, never
+accumulated or logged. A source independently restarts after its executable/interpreter version or
+modification identity changes. Closing standard input on quit or collector crash ends both
+children; source calibration confirms this.
 
-`BoundedRPCFrame` reads newline-delimited standard output incrementally. It rejects an unterminated payload as soon as it exceeds 1 MiB and rejects a completed payload over 1 MiB before JSON decoding; the delimiter is not part of that count. Structural preflight caps a decoded object key or string value at 4 KiB of UTF-8, nesting at 32 levels, multi-bucket entries at 128, and decoded rate-limit windows at 128. A missing delimiter cannot grow a buffer without limit. An over-limit frame terminates that child, maps to a typed malformed/incompatible source outcome, preserves the last valid observation, and enters restart backoff. Raw bytes and rejected fields are never logged. Source calibration checks that legitimate installed-version responses fit these limits; a legitimate over-limit result returns the bound to review rather than silently truncating windows.
+`BoundedRPCFrame` reads newline-delimited standard output incrementally. It rejects an unterminated
+payload as soon as it exceeds 1 MiB and rejects a completed payload over 1 MiB before JSON decode.
+LF terminates a frame; one immediately preceding CR forms a CRLF delimiter, and neither terminator
+byte counts toward the payload cap. A standalone CR remains payload. Structural preflight caps a
+decoded object key or string value at 4 KiB of UTF-8, nesting at 32 levels, multi-bucket entries at
+128, and decoded rate-limit windows at 128. A missing delimiter cannot grow a buffer without limit.
+An over-limit or malformed frame terminates that child, maps to `incompatible`, and preserves the
+last valid observation without repeatedly restarting unchanged input. Raw bytes and rejected
+fields are never logged. Source calibration checks that legitimate installed-version responses fit
+these limits; a legitimate over-limit result returns the bound to review rather than silently
+truncating windows.
+
+`JSONRPCClient` uses monotonically increasing positive integer request IDs through `2^53 - 1` and
+refuses exhaustion instead of reusing an ID.
+
+### Account status
+
+`account/read` is decoded structurally before the first rate-limit read and after a rate-limit RPC
+error that could represent authentication. These are the only outcomes:
+
+| Decoded status | Outcome |
+|---|---|
+| Supported ChatGPT account and `requiresOpenaiAuth == false` | Authenticated; continue to the rate-limit read. |
+| Null account and `requiresOpenaiAuth == true` | `signedOut`; retain applicable prior windows and do not infer anything from error prose. |
+| Any other well-formed combination, including a non-ChatGPT account | `incompatible`; API-key mode and ambiguous authentication state are outside scope. |
+| Missing method, missing or wrong-typed discriminator, or incompatible result shape | `incompatible`. |
+| Timeout, process/pipe exit, or a typed temporary RPC failure | `sourceOffline` under the retry matrix below. |
+
+After a generic rate-limit RPC error, a repeated status read may prove only the signed-out case.
+When it instead proves an authenticated supported account, the adapter classifies the original
+error from its machine-readable JSON-RPC code. Standard parse, invalid-request, method-not-found,
+and invalid-params codes (`-32700`, `-32600`, `-32601`, `-32602`) are incompatible. Internal error
+(`-32603`) and reserved server errors (`-32099...-32000`) are temporarily source-offline. Every
+other code is incompatible. It never inspects or retains the provider message.
 
 **Reads.** `RateLimitDecoder` decodes both the compatibility bucket and `rateLimitsByLimitId`. `CodexNormalizer`:
 
 - classifies windows by duration and limit identity rather than primary/secondary position;
 - marks windows of the compatibility bucket's limit as `isDefaultLimit`; and
-- obtains the account scope through `AccountScoper`.
+- requires a provider account identifier, obtains its opaque scope through `AccountScoper`, and
+  stamps the separate local `AccountID` on every window.
+
+The fleet rejects two configured profiles that resolve to the same provider scope. The lower
+global account number remains active; the other row becomes incompatible. A provider-scope change
+retains the local row ID, number, and alias while clearing only that row's old-scope windows.
 
 `observedAt` is the Mac time a successful read response arrived.
 
@@ -101,10 +155,27 @@ It records the absolute path, plus the login shell's `PATH` and `CODEX_HOME` whe
 | Poll | Every five minutes while the collector runs. |
 | `account/rateLimits/updated` notification | Read at most once per 60 seconds. The payload is sparse, so the source always refetches instead of merging it. |
 | Known `resetsAt` | One read 30 seconds after each reset instant in the latest report. |
-| `wake`, `foreground`, `manual` | An immediate read, coalesced with any read in flight; never parallel processes. |
-| Authenticated manual relay request | An immediate read when the Mac is awake, coalesced across pending reader IDs and limited to one remote-forced read every 30 seconds. Its result is handled by `HandleManualRefreshRequests`; it never invokes Claude Code. |
+| `wake`, `foreground`, `manual` | Read immediately when no restart backoff is active and coalesce with any read in flight; otherwise return a deferred receipt. Never create parallel processes. |
+| Authenticated manual relay request | Read the one opaque account target or all configured Codex accounts, coalescing within each source. Active backoff returns an immediate deferred receipt and is never bypassed. Results remain per account; it never invokes Claude Code. |
 | Request timeout | 10 seconds. |
 | Restart backoff | One, two, five, then fifteen minutes maximum. |
+
+### Source states and retry
+
+The adapter emits one enum-backed diagnostic and at most one state-only report per failed physical
+attempt. State-only reports preserve prior windows except for a proven account-scope transition or
+duplicate-scope eviction.
+
+| Failure class | Source state | Automatic behavior |
+|---|---|---|
+| Not configured; configured executable absent; launch configuration or file permissions unsafe | `unavailable` | Do not launch or enter restart backoff. Re-evaluate after an owner configuration or executable change. |
+| Structurally proven signed-out status | `signedOut` | Keep the healthy child when possible; recheck status on the normal five-minute poll and explicit refresh triggers. Do not use restart backoff solely for sign-out. |
+| Unsupported method or schema; ambiguous account status; missing account/limit identity; framing, JSON, bound, or normalization violation | `incompatible` | Terminate the affected session and wait for a configuration or executable-version change. Repeated manual refresh does not relaunch unchanged incompatible input. |
+| Request timeout; process or pipe exit; typed temporary backend failure; `AccountScoper` failure | `sourceOffline` | Terminate the affected session when needed and retry after 1, 2, 5, then 15 minutes; later failures remain at 15 minutes until one complete success resets the ladder. Explicit triggers respect the active deadline. |
+| Duplicate provider scope on the higher-numbered row | `incompatible` | Keep the lower-numbered row active. Re-evaluate only after relevant configuration or provider-scope state changes. |
+
+`ordinaryUsageDisallowed` and `reached` describe a successfully read allowance bucket; neither is a
+source failure and neither enters this matrix.
 
 The candidate current-data window is fifteen minutes; source calibration must confirm it.
 
@@ -138,7 +209,7 @@ Otherwise it keeps the earlier `observedAt`. A percentage or reset change alone 
 
 ### Dropped windows
 
-Claude Code drops a window from its input once the window's reset passes, and `rate_limits` is absent before a session's first API response. A window missing from the input keeps its prior entry, marked `retained`; after its last known reset, its Home slot becomes unavailable while the old entry remains available to diagnostics. A missing `rate_limits` object never erases earlier entries.
+Claude Code drops a window from its input once the window's reset passes, and `rate_limits` is absent before a session's first API response. A window missing from the input keeps its prior entry, marked `retained`; after its last known reset, its standard Account Row ring becomes unavailable while the old entry remains available to diagnostics. A missing `rate_limits` object never erases earlier entries.
 
 ### Collection
 
@@ -153,7 +224,11 @@ The candidate current-data window is sixty minutes from `observedAt`; source cal
 
 ## Errors and logging
 
-Errors are typed as not-installed, signed-out, incompatible, timeout, process-exited, malformed, permission-denied, or temporarily-unavailable, and map to the product's source state. Diagnostics record event category, source version, timing, and error class only.
+Errors are typed as not-installed, signed-out, incompatible, timeout, process-exited, malformed,
+permission-denied, account-scope failure, duplicate provider scope, or temporarily-unavailable and
+map to the affected account's source state. Diagnostics record only enum-backed event category, product and
+source kind, timing, and error class. The bounded public source version remains on `AccountSource`;
+diagnostics accept no provider string.
 
 ## Tests
 
@@ -168,7 +243,10 @@ Errors are typed as not-installed, signed-out, incompatible, timeout, process-ex
   - reached and permission state;
   - malformed percentage;
   - timeout and process exit;
-  - completed and unterminated oversized JSON-RPC payloads, missing framing, excessive nesting, bucket/window counts, duplicate keys, and bounded stderr draining;
+  - exact account-status combinations and every source-state/retry-matrix row;
+  - completed and unterminated oversized JSON-RPC payloads, LF and CRLF framing, missing framing,
+    excessive nesting, bucket/window counts, duplicate keys, request-ID exhaustion, and bounded
+    stderr draining;
   - discovery with a missing `node` and with an owner-chosen path; and
   - restart after the executable changes.
 - **Claude Code:**

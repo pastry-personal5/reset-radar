@@ -41,11 +41,11 @@ evidence or commits.
 
 ## Task 0: Decisions, branch, and baseline
 
-Record the implementation branch, starting commit, and `git status --short`. Resolve every
-overview decision and update the changelog plus affected binding architecture before code uses
-the result. If M10 already resolved a compatible configuration-preview, test-dependency, source-
-state, or diagnostic choice, cite that decision rather than deciding it twice. Set M11 to `Active`
-only when implementation begins.
+After M10 Checkpoint A, record the implementation branch, starting commit, and
+`git status --short`. Resolve every remaining M11-specific overview decision and update the
+changelog plus affected binding architecture before code uses the result. Consume M10's shared
+account, configuration-preview, test-dependency, source-state, and diagnostic contracts rather
+than deciding them twice. Set M11 to `Active` only when implementation begins.
 
 Add approved direct local test dependencies and the approved CryptoKit architecture dependency.
 Record public Swift, Xcode, and Claude Code version strings without executable paths, settings,

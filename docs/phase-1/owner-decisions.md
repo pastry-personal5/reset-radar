@@ -2,7 +2,9 @@
 
 Status: Active
 
-This record captures the owner's 2026-10-19 decisions after reviewing the P1-M1 research results and subsequent 2026-10-20 architecture choices. These decisions constrain P1-M2 architecture work; validation gates listed here remain mandatory and are not implied to have passed.
+This record captures the owner's decisions after reviewing the P1-M1 research results, subsequent
+architecture choices, and the 2026-10-24 P1-M10 account-model revision. These decisions constrain
+Phase 1 work; validation gates listed here remain mandatory and are not implied to have passed.
 
 ## Product and security boundaries
 
@@ -21,17 +23,25 @@ On 2026-10-20 the owner requested an optional independent iPhone/iPad source, pr
 - The Mac collector and pairing flow must ship with the first usable version. A reset-only iOS increment does not count as the first release.
 - Include Live Activities for eligible short windows such as a five-hour window. Weekly windows remain app and widget content. Activation, update, expiration, and stale-state behavior require an ActivityKit spike before implementation is frozen.
 - Include an Apple Watch app in the first version. It receives the normalized, credential-free model through its paired iPhone, shows reset times, latest usage, source, and freshness, and does not connect directly to provider services or hold provider credentials.
-- Use the same two-by-two Allowance Grid on iPhone, Mac, and Apple Watch. Ring selection opens product-scoped details; the Watch also includes one configurable-window complication.
+- Use an account-scoped Home model. iPhone has a vertically scrolling Account List with one compact
+  row and two standard Allowance Rings per account. iPad and Mac use split Account List/Account
+  Details layouts. Watch uses an N-by-two ring matrix with aliases available in accessibility and
+  details rather than visibly on Watch Home. Stable pastel Account Palettes use lavender for
+  Account #1, mint for Account #2, and peach for Account #3, with appearance-aware,
+  contrast-compliant foregrounds. They distinguish Watch rows without encoding usage or source
+  state. This supersedes the fixed two-by-two Allowance Grid.
 - Display provider-reported percentage used, from 0% toward 100%; do not invert it into percentage remaining.
 - Do not include percentage threshold alerts, percentage history, pace labels, or exhaustion forecasts. Retain only the latest valid observation and its source, observation time, and freshness or availability state.
 - Always display reset dates and times using the OS's current local time zone.
-- Make reset notifications per-window opt-in. Make eligible five-hour Live Activities user-started from Usage Details.
+- Make reset notifications per-account-window opt-in. Make eligible five-hour Live Activities
+  user-started from Account Details.
 
 ## Time-zone and scheduling semantics
 
 - Store provider-reported resets as absolute instants.
 - When the OS time zone changes, re-render reset dates locally without changing the stored instant.
-- Maintain at most one pending reset notification for each of the four Home windows. Replace or cancel it when the provider reset changes, disappears, or expires.
+- Maintain at most one pending reset notification for each configured account window. Replace or
+  cancel it when the provider reset changes, disappears, expires, or the account is removed.
 
 ## Synchronization and freshness
 
@@ -63,7 +73,14 @@ On 2026-10-20 the owner resolved the existing-command security case: if a curren
 - Toolbar icons are original, neutral, tintable bitmap assets using house, faceted-gem, three-person, lightbulb, and three-horizontal-bars metaphors.
 - The relay uses strict TypeScript, npm, Wrangler, Workers Vitest support, and a SQLite-backed Durable Object. This build-tool addition is approved.
 - Pairing uses a short-lived QR package with a manual copy/paste fallback.
-- Small and Lock Screen widgets select one window; the medium widget summarizes all four.
+- Small and Lock Screen widgets select one account window; the medium widget shows both standard
+  windows for one selected account.
+- Account aliases accept Unicode letters, marks, numbers, punctuation, symbols, and ASCII spaces,
+  must contain at least one visible letter/number/punctuation/symbol, and reject every other scalar
+  category, Unicode noncharacters, and exact effective-label duplicates. Accepted input is kept
+  exact without Unicode normalization. This preserves letters from international scripts and
+  emoji that need no zero-width joiner while excluding invisible controls, bidirectional
+  overrides, explicit shaping controls, private-use text, and whitespace-only names.
 
 ## Architecture review decisions
 
@@ -71,13 +88,19 @@ The owner made these decisions on 2026-10-19 while reviewing the [software archi
 
 - The iOS app is universal. iPad runs it natively, with the system's adaptive tab bar or sidebar presentation of the Main Toolbar, and has no Live Activities or Watch transfer.
 - iPhone, iPad, and Mac each offer per-window opt-in reset notifications from their own cache. The same reset may alert on more than one device.
-- Codex Home rings use the windows in Codex's backward-compatible default bucket. Other Codex limits appear only in Codex Usage Details.
+- Each account row's Codex rings use the windows in that account's backward-compatible default
+  bucket. Other valid Codex limits appear only in that account's Account Details.
 - A reader's first authenticated snapshot read is only a preflight. The relay marks it activated on an explicit, idempotent read-token confirmation sent after the iPhone or iPad saves its Keychain secrets and local pairing state. The relay assigns a five-minute pending expiry; the Mac uses the administration-only reader list to close pairing after activation and revoke abandoned readers. This 2026-10-20 decision replaces first-read activation.
 - Shared Swift modules live in one local Swift package, `ResetRadarKit`, with no third-party dependencies.
 - **Layering.** The architecture follows the clean-architecture dependency rule. A `ResetRadarApplication` module holds use cases and ports; storage, transport, scheduling, Watch, provider, and UI modules are adapters that depend only inward. Each major module has its own design document.
 - **Widgets.** Widgets may refresh the shared cache from the relay during a system reload, at most when the last successful refresh is over five minutes old.
 - **Foreground refresh.** While the iOS app is in the foreground, it fetches from the relay every 60 seconds.
-- **Manual Mac-assisted refresh.** On iPhone and iPad, a user-started Codex or all-product Refresh asks an awake Mac through the authenticated relay to read Codex immediately. It waits briefly for an encrypted result tied to that request, then falls back to the latest valid cache if the Mac is asleep, offline, or the request expires. A Claude Code-only Refresh reads the relay without posting a request; no request forces a Claude Code response. This path requires its own synthetic security, quota, and latency spike before real data uses it.
+- **Manual Mac-assisted refresh.** On iPhone and iPad, Account Details targets one opaque Codex
+  account and Home Refresh targets all configured Codex accounts through the authenticated relay.
+  Successful per-account results survive a sibling failure. A Claude Code account Refresh reads
+  the relay without forcing a provider response. The reader-global one-minute request limit stays
+  in force. This path requires its own synthetic security, quota, and latency evidence before real
+  data uses it.
 - **Mac secrets.** The Mac stores relay secrets in the login keychain. Every Release build is signed with one Personal Team Apple Development identity, ad-hoc Release builds are rejected, and Keychain calls are non-interactive. See [Mac Keychain access](../research/phase-1/mac-keychain-access.md).
 - **Platform targets.**
 

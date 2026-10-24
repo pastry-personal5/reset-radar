@@ -61,9 +61,9 @@ flowchart TB
 | `PUT /v1/snapshot` | Write token | Accept at most 64 KiB. On empty storage, bind the envelope's publisher ID and sequence. Otherwise atomically reject an unexpected publisher, an equal or lower sequence, malformed outer metadata, or an unsupported mandatory version. Return the sequence and a strong ETag. |
 | `GET /v1/snapshot` | Any registered read token | Authenticate a pending reader's preflight without activating it. Return the latest envelope with `Cache-Control: no-store`, support `If-None-Match`, and return not-found before the first publish. |
 | `POST /v1/readers/activate` | Registered read token | Derive `ReaderID` from the token and idempotently mark that reader activated after the client has saved its pairing locally. Return `200` even if already activated. Reject an expired or revoked pending reader with `401`; never accept a reader ID supplied in the body. |
-| `POST /v1/refresh-requests` | Activated read token | Accept a client-generated random 128-bit request ID for a Codex read in a body capped at 128 bytes. Store at most one pending request per reader for 60 seconds. Repeating the same ID while pending returns the same `202` and expiry without a new request; repeating the last completed ID returns `409`; retrying the reader's last accepted ID after expiry or using another reader's live ID returns `400`; a different ID inside the reader's 60-second rate limit returns `429`. Return `202` and the relay-assigned expiry for a new request. The request carries no usage value, account data, or provider credential. |
-| `GET /v1/refresh-requests` | Write token | Return at most three unexpired request IDs with their `ReaderID`s and relay-assigned expiry, using `Cache-Control: no-store`. Reading does not consume a request, so a Mac crash cannot lose it. |
-| `DELETE /v1/refresh-requests/{id}` | Write token | Remove a request after the Mac has successfully published its encrypted result. A duplicate delete is idempotent. Expiry also removes a request. |
+| `POST /v2/refresh-requests` | Activated read token | Accept a client-generated random 128-bit request ID and a target of one opaque Reset Radar `AccountID` or `allCodex`, in a body capped at 192 bytes. Store at most one pending request per reader for 60 seconds. Repeating the same ID and target while pending returns the same `202` and expiry; changing the target for that ID returns `400`; repeating the last completed ID returns `409`; retrying the reader's last accepted ID after expiry or using another reader's live ID returns `400`; a different ID inside the reader's global 60-second rate limit returns `429`. The request carries no alias, usage value, provider account data, or credential. |
+| `GET /v2/refresh-requests` | Write token | Return at most three unexpired requests with `ReaderID`, request ID, target kind, optional opaque account ID, and relay-assigned expiry, using `Cache-Control: no-store`. Reading does not consume a request. |
+| `DELETE /v2/refresh-requests/{id}` | Write token | Remove a request after the Mac has successfully published its encrypted per-account result. A duplicate delete is idempotent. Expiry also removes a request. |
 | `PUT /v1/readers/{id}` | Administration token | Accept at most 256 bytes. Register a pending reader's token digest with a relay-assigned five-minute expiry and return that expiry in UTC; reject a fourth registered reader. `{id}` is a random `ReaderID` chosen by the Mac. A retry with an existing ID and matching digest returns the original expiry. An existing ID with a changed digest, a digest bound to another reader, or a digest matching the write or administration role returns `400` without mutation. Expired pending rows are removed before enforcing the cap. |
 | `GET /v1/readers` | Administration token | List registered reader IDs and whether each is activated, with no times or other metadata. |
 | `DELETE /v1/readers/{id}` | Administration token | Revoke one reader. |
@@ -71,7 +71,16 @@ flowchart TB
 
 ### V1 HTTP body profile
 
-This profile is shared with the [Transport v1 wire profile](transport.md#v1-wire-profile). All JSON request and response bodies are compact UTF-8 objects with sorted keys and no unknown or duplicate fields. Every JSON body has `protocolVersion: 1`. `PublisherID` is 64 lowercase hexadecimal characters; `ReaderID` and `RequestID` are 32 each; token digests are 64 lowercase hexadecimal characters. Relay-assigned times are UTC ISO-8601 strings with exactly millisecond precision. The snapshot body is the [outer envelope](transport.md#v1-wire-profile), not a wrapper. Its `sequence` is an integer JSON number from `1` through `9007199254740991` (`2^53 - 1`); the client refuses to seal or send a higher v1 sequence, and the Worker rejects one before comparing or storing it. This bound keeps Swift and TypeScript integer comparisons exact.
+This profile is shared with the [Transport v1 wire profile](transport.md#v1-wire-profile). Except
+for the separately versioned manual-refresh operations below, all JSON request and response bodies
+are compact UTF-8 objects with sorted keys, no unknown or duplicate fields, and
+`protocolVersion: 1`. `PublisherID` is 64 lowercase hexadecimal characters; `ReaderID` and
+`RequestID` are 32 each; token digests are 64 lowercase hexadecimal characters. Relay-assigned
+times are UTC ISO-8601 strings with exactly millisecond precision. The snapshot body is the
+[outer envelope](transport.md#v1-wire-profile), not a wrapper. Its `sequence` is an integer JSON
+number from `1` through `9007199254740991` (`2^53 - 1`); the client refuses to seal or send a
+higher v1 sequence, and the Worker rejects one before comparing or storing it. This bound keeps
+Swift and TypeScript integer comparisons exact.
 
 The [shared synthetic fixtures](../../Fixtures/Protocol/README.md) pin the exact outer envelope, operation bodies, error bodies, ETag, and collision outcomes consumed by both language suites.
 
@@ -82,13 +91,29 @@ The wire credential is `Authorization: Bearer <token>`, where `<token>` is the u
 | `PUT /v1/snapshot` | Outer envelope, at most 64 KiB | `200` `{"protocolVersion":1,"sequence":N}` and `ETag` |
 | `GET /v1/snapshot` | Empty | `200` outer envelope and `ETag`; `304` empty body and matching `ETag` |
 | `POST /v1/readers/activate` | Empty | `200` `{"activated":true,"protocolVersion":1}` |
-| `POST /v1/refresh-requests` | `{"protocolVersion":1,"requestID":"<32 hex>"}`, at most 128 bytes | `202` `{"expiresAt":"<UTC millis>","protocolVersion":1}` |
-| `GET /v1/refresh-requests` | Empty | `200` `{"protocolVersion":1,"requests":[{"expiresAt":"<UTC millis>","readerID":"<32 hex>","requestID":"<32 hex>"}]}`; zero to three entries |
-| `DELETE /v1/refresh-requests/{id}` | Empty | `204` empty |
 | `PUT /v1/readers/{id}` | `{"protocolVersion":1,"tokenDigest":"<64 hex>"}`, at most 256 bytes | `200` `{"expiresAt":"<UTC millis>","protocolVersion":1}` |
 | `GET /v1/readers` | Empty | `200` `{"protocolVersion":1,"readers":[{"activated":true,"readerID":"<32 hex>"}]}`; zero to three entries, with `activated` a Boolean |
 | `DELETE /v1/readers/{id}` | Empty | `204` empty |
 | `DELETE /v1/relay` | Empty | `204` empty, including a repeated delete |
+
+### V2 manual-refresh body profile
+
+Only manual-refresh operations use protocol version 2. The account-target body is
+`{"accountID":"<32 hex>","protocolVersion":2,"requestID":"<32 hex>","target":"account"}`;
+the all-account body is
+`{"protocolVersion":2,"requestID":"<32 hex>","target":"allCodex"}`. Both are canonical,
+strict, and at most 192 bytes. `AccountID` is an opaque Reset Radar identifier, not a provider
+identifier. The old `/v1/refresh-requests` operations are not a compatibility path.
+
+| Operation | Request body | Success status and body |
+|---|---|---|
+| `POST /v2/refresh-requests` | One exact target body above | `202` `{"expiresAt":"<UTC millis>","protocolVersion":2}` |
+| `GET /v2/refresh-requests` | Empty | `200` `{"protocolVersion":2,"requests":[...]}` with zero to three canonical entries carrying expiry, reader ID, request ID, target, and `accountID` only for `account` |
+| `DELETE /v2/refresh-requests/{id}` | Empty | `204` empty |
+
+V2 refresh errors use the same stable codes and statuses as v1 but carry
+`{"code":"<code>","protocolVersion":2}`. The success and error mappers reject a response whose
+version does not match the operation.
 
 `ETag` is a strong validator: a double quote, the 64-character lowercase SHA-256 hex digest of the exact outer-envelope response bytes, then a double quote. `PUT` returns the digest of the accepted request body. A `GET 200` returns those same stored bytes and ETag; a `GET 304` includes the matching ETag and no body. The client checks an accepted write's sequence against its submitted header and a read ETag against the received bytes. For a conditional `304`, the ETag must match the request; an unexpected `304` to an unconditional read is passed to the existing one-time unconditional retry path and never marks success by itself. All snapshot-read responses include `Cache-Control: no-store, no-transform`: `no-store` prevents authenticated ciphertext from entering the edge cache, and `no-transform` prevents public response compression from weakening or removing the byte-exact validator. The relay compares `If-None-Match` only after authenticating a reader and only when a snapshot exists.
 
@@ -149,15 +174,25 @@ The Durable Object's SQLite database has three tables:
 |---|---|
 | `relay_state` (one row) | Latest envelope, its ETag and accepted time, bound publisher ID, last sequence, and protocol-state version. |
 | `readers` (at most three rows) | Reader ID, token digest, activated flag, pending expiry, last accepted manual-refresh time and ID for duplicate and rate-limit checks, and a separate last completed request ID for replay rejection. |
-| `refresh_requests` (at most three live rows) | Reader ID, opaque request ID, and relay-assigned accepted and expiry times. Expired rows are removed during request operations; no alarm is needed. Deleting a completed request does not reset the rate limit in `readers`. |
+| `refresh_requests` (at most three live rows) | Reader ID, opaque request ID, target (`account` or `allCodex`), optional opaque Reset Radar account ID, and relay-assigned accepted and expiry times. Expired rows are removed during request operations; no alarm is needed. Deleting a completed request does not reset the reader-global rate limit in `readers`. |
 
 There is no product history. An expired pending reader is unauthorized immediately. Cleanup runs only after a request has passed its applicable authority check; an invalid read token causes no write. Authenticated registration removes expired pending rows before enforcing the cap, and expiry cannot revoke an already activated reader. The write and administration digests live as Worker secrets, not in the database. Cloudflare point-in-time recovery may retain provider-managed historical storage for its documented period, so deletion copy cannot promise immediate physical erasure from backups.
+
+The schema migration for v2 manual refresh preserves `relay_state`, reader registrations, token
+digests, activation state, and the last accepted snapshot. It discards legacy and expired pending
+refresh rows because their v1 bodies cannot express an account target. The migration runs in one
+SQLite transaction and advances the internal protocol-state version only after the new tables and
+constraints are installed successfully.
 
 ## Operations
 
 - **Cost contract.** Workers Free with no paid add-on. Logs, traces, Logpush, and unused bindings are disabled. The route fails closed at the Free limits.
 - **No idle work.** No WebSockets or alarms, so the object idles between requests.
-- **Manual refresh bounds.** A reader can cause at most one accepted request per 60 seconds. The Mac polls the request list every 15 seconds while collecting, and the reader polls the snapshot every five seconds for no more than 45 seconds. The Mac independently limits remote-forced Codex reads to one per 30 seconds. Rejected or unauthenticated requests cannot trigger a source read. The Free-tier capacity calculation includes even repeated manual actions at these limits.
+- **Manual refresh bounds.** A reader can cause at most one accepted request per 60 seconds across
+  account and all-account targets. The Mac polls the request list every 15 seconds while collecting,
+  and the reader polls the snapshot every five seconds for no more than 45 seconds. Each account's
+  adapter backoff remains authoritative. Rejected, stale-target, or unauthenticated requests cannot
+  trigger an unrelated source read.
 - **Pinned build.** A compatibility date and a tested Wrangler version.
 - **Releases.** Immutable versions. Because Cloudflare does not generate Version URLs for Durable Object Workers, the isolated synthetic M9 Worker promotes a candidate to 100%, privately verifies the active version, immediately smoke-tests it with synthetic ciphertext, and rolls back on failure. Rollback never assumes a storage rollback.
 - **Scripts.** `npm test` runs Workers Vitest; `npm run typecheck` runs `tsc --noEmit`. A provisioning script reads the write and administration digests from standard input and writes them as Worker secrets without echoing them.

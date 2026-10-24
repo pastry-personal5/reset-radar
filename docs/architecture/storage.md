@@ -105,7 +105,7 @@ The Application ports that Storage implements are transactional. `ReaderStore`, 
 
 **`FilePublisherStore`** holds the Mac relay state: endpoint, publisher ID, paired-device names and dates, pending registrations, recently handled manual-refresh IDs and their encrypted result expiry, lifecycle state (`active`, `setupPending`, or `destroyPending`), and the sequence. `nextSequence()` atomically writes the incremented value before returning it, so a crash or retry can skip a number but never reuse one. A transaction cannot lower the allocated sequence or accepted sequence for the same publisher; a new publisher may start at zero after relay destruction or setup. Recently handled IDs keep a relay polling retry from starting another Codex read after a publication failure or process restart. A non-active lifecycle state prevents publication after a crash or relaunch.
 
-**`DefaultsPreferenceStore`** wraps App Group or target-local `UserDefaults` with typed keys. Notification opt-in is stored per `HomeSlot` and per device, and is never synchronized.
+**`DefaultsPreferenceStore`** wraps App Group or target-local `UserDefaults` with typed keys. Notification opt-in is stored per `AccountWindow` and per device, and is never synchronized. Device-local Account Details selection and widget configuration use stable `AccountID` values; removal makes a dependent surface unavailable rather than silently retargeting it.
 
 **`LogDiagnosticsSink`** forwards `DiagnosticEvent`s to unified logging with privacy markers, and keeps a bounded ring-buffer file for the confirmed diagnostics export. Because events carry no free-form strings (see [Domain](domain.md#records)), the sink cannot log a token, path, or payload.
 

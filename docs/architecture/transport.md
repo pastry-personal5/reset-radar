@@ -150,7 +150,12 @@ The canonical `workers.dev` origin is `https://<worker>.<account>.workers.dev` w
 - **Requests.** Tokens travel only in the `Authorization` header. Conditional reads send `If-None-Match`.
 - **Responses.** `BoundedBodyReader` checks `Content-Length` when present, then counts delivered bytes while reading incrementally with `URLSession.bytes(for:delegate:)`; it cancels before buffering more than 64 KiB for a snapshot or 4 KiB for any other response, including errors. Missing or false lengths do not bypass the delivered-byte cap. `ResponseMapper` turns each bounded status and body into a typed `RelayOutcome`, which use cases map to `TransportStatus`. An oversized or malformed response preserves the last validated cache and does not update its ETag or successful-contact time.
 - **Pairing activation.** The gateway carries the relay-assigned registration deadline from registration into the package, preflight-reads without activation, and sends a body-free activation POST after the application commits locally. A lost response can be retried with the same token; a local clock deadline never substitutes for a relay `401`.
-- **Manual refresh.** The gateway posts a request ID with the reader token, lists and acknowledges requests with the Mac write token, and uses the same conditional snapshot GET for the reader's bounded wait. It never treats an accepted request, `304`, or a plain newer snapshot as proof that Codex was read; only an authenticated matching `ManualRefreshResult` proves completion.
+- **Manual refresh.** The gateway uses `/v2/refresh-requests` to post a request ID plus one opaque
+  Codex `AccountID` or `allCodex`, list and acknowledge requests with the Mac write token, and use
+  the unchanged conditional v1 snapshot GET for the reader's bounded wait. It never treats an
+  accepted request, `304`, or a plain newer snapshot as proof of a read; only an authenticated
+  matching `ManualRefreshResult` with the targeted per-account outcomes proves completion. The v2
+  request carries no alias, provider account identifier, usage value, or credential.
 - **No certificate pinning.** Content is authenticated end to end, and `workers.dev` certificates rotate under Cloudflare's control.
 
 ## Pairing package codec

@@ -86,7 +86,8 @@ The selected Durable Object contains:
 - the time the Worker accepted it;
 - a protocol-state version needed to reject incompatible requests;
 - up to three registered reader-token digests, activation flags, and pending deadlines; and
-- up to three short-lived opaque manual-refresh requests, with per-reader rate-limit metadata.
+- up to three short-lived opaque, account-targeted manual-refresh requests, with per-reader
+  rate-limit metadata.
 
 No history is retained by Reset Radar in Cloudflare. Replacing a snapshot overwrites the active record. Cloudflare's SQLite-backed Durable Object point-in-time recovery can restore database state from the preceding 30 days, so product copy must not promise immediate physical erasure from every provider recovery system.
 
@@ -99,8 +100,8 @@ The validation spike should prove the canonical [relay protocol](../../architect
 | `PUT /v1/snapshot` | Write token | Accept one versioned encrypted envelope no larger than 64 KiB. Atomically reject an unexpected publisher, an equal or lower sequence, malformed metadata, or an unsupported mandatory version. Return the accepted sequence and entity tag. |
 | `GET /v1/snapshot` | Read token | Return the current envelope with `Cache-Control: no-store` and an entity tag. Support `If-None-Match`; return not-found when no snapshot has been published. |
 | `POST /v1/readers/activate` | Registered read token | Idempotently activate the token after local save, before its pending expiry. |
-| `POST /v1/refresh-requests` | Activated read token | Accept a bounded, rate-limited, opaque Codex request ID for an awake Mac to poll. |
-| `GET` and `DELETE /v1/refresh-requests` | Write token | List unexpired requests and acknowledge one only after publishing its encrypted result. |
+| `POST /v2/refresh-requests` | Activated read token | Accept a bounded, rate-limited, opaque request ID targeting one Reset Radar `AccountID` or `allCodex` for an awake Mac to poll. The clean-break v2 body carries no alias, provider identifier, usage value, or credential. |
+| `GET` and `DELETE /v2/refresh-requests` | Write token | List unexpired requests with their opaque target and acknowledge one only after publishing its encrypted per-account result. There is no `/v1/refresh-requests` compatibility path. |
 | Reader registration, listing, and revocation | Administration token | Register, list, and revoke up to three independent reader tokens through the paths in the canonical protocol. |
 | `DELETE /v1/relay` | Destructive administration token | Atomically call `deleteAll()` after explicit owner confirmation in a trusted local UI. The client then discards its credentials and cache. |
 

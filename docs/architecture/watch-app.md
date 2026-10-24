@@ -27,11 +27,11 @@ flowchart TB
     PayloadDriver["PayloadDriver: PhoneLink payload stream and erase receipt"]
     BackgroundTaskDriver["BackgroundTaskDriver: WatchConnectivity background tasks"]
     ActivationDriver["ActivationDriver: app becomes active"]
-    WatchScenes["Scenes: Allowance Grid, compact Usage Details"]
+    WatchScenes["Scenes: account ring matrix, compact Account Details"]
   end
   subgraph ComplicationProcess["ResetRadarWatchWidgets process"]
     ComplicationTimelineProvider
-    ComplicationSlotIntent["HomeSlot configuration intent"]
+    ComplicationSlotIntent["Account-window configuration intent"]
   end
   subgraph Inner["Inner layers"]
     CommitWatchPayload
@@ -74,11 +74,24 @@ The Watch app offers an owner-confirmed **Erase Watch Data** action. It clears i
 
 ## Scenes
 
-Watch Home is the Allowance Grid with a navigation stack to compact product-scoped Usage Details, with both standard windows. There is no Main Toolbar, notification control, or Live Activity control. Reset notifications appear on the Watch only through the system's forwarding of iPhone notifications. [ux-gui.md](../ux-gui.md) is authoritative for layout.
+Watch Home is an N-by-two ring matrix in Account List order with a navigation stack to compact
+Account Details. The grid has no visible alias. Each row receives a distinct pastel
+`AccountPalette` derived from its stable global account number: #1 lavender, #2 mint, and #3
+peach. The palette provides appearance-aware pastel surface and contrast-compliant foreground
+variants; Account Details keeps the same family, while accessibility and details identify the
+account. Palette does not encode usage or source state, which retain independent symbols and
+accessibility text. There is no Main Toolbar, notification control, or Live Activity control.
+Reset notifications appear on the Watch only through the system's forwarding of iPhone
+notifications.
+[ux-gui.md](../ux-gui.md) is authoritative for layout.
 
 ## Complication
 
-`ComplicationTimelineProvider` reads only the Watch App Group cache through `LoadHome`, for the `HomeSlot` chosen in its configuration intent. It emits an entry now plus one at each presentation-state change instant, and requests its next reload at the earlier of the next change instant and fifteen minutes from now. Every family shows presentation state without relying on color alone.
+`ComplicationTimelineProvider` reads only the Watch App Group cache through `LoadHome`, for the
+account-window chosen in its configuration intent. It emits an entry now plus one at each
+presentation-state change instant, and requests its next reload at the earlier of the next change
+instant and fifteen minutes from now. Every family shows presentation state without relying on
+color alone; families with room show the middle-truncated alias.
 
 ## Configuration
 
@@ -94,6 +107,8 @@ Watch Home is the Allowance Grid with a navigation stack to compact product-scop
 `ResetRadarWatchTests` covers:
 
 - payload ordering, replayed clears, durable clear tombstones, duplicate erase receipts, re-pairing, a changed iPhone installation ID, and local erase through `CommitWatchPayload` with a stubbed `PhoneLink`;
+- stable #1 lavender, #2 mint, and #3 peach Account Palette assignment, independent of row order
+  and usage/source state, with foreground contrast in every supported appearance;
 - background-task completion after the payload drains;
 - the activation refresh request; and
 - complication timeline entries and reload dates.

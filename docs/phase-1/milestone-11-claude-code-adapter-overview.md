@@ -26,14 +26,18 @@ or identity data.
 
 ## Why this milestone can proceed
 
-[Phase 1](phase-1.md#order-and-dependencies) allows M10 and M11 to proceed in parallel after M5.
-M5 is done and supplies `UsageSource`, `SourceConfigurator`, `ReadReceipt`, and source-preserving
-ingestion. The ProviderAdapters package target, its test target, and the embedded
-`ResetRadarStatusLine` executable target exist but contain only scaffold symbols.
+[Phase 1](phase-1.md#order-and-dependencies) allows M11 preparation after M5 but makes production
+work depend on M10 Checkpoint A. M5 supplies the existing source and ingestion seams; M10 replaces
+the product-only contracts with the owner-approved account catalog, account-scoped `UsageSource`,
+configuration preview, source-state, and diagnostic contracts that Claude Code must also use. The
+ProviderAdapters package target, its test target, and the embedded `ResetRadarStatusLine`
+executable target exist but contain only scaffold symbols.
 
-M9 and M10 are not M11 dependencies. M11 is local and never publishes a snapshot, contacts the
-relay, starts a Claude Code turn, or reads Codex. M12 owns composition into the Mac collector and
-invokes the helper installer and configurator built here.
+M9 is not an M11 dependency. M11 remains local and never publishes a snapshot, contacts the relay,
+starts a Claude Code turn, or reads Codex. Its source-specific calibration preparation may proceed
+independently, but implementation must consume rather than duplicate M10's shared account
+contracts. M12 owns composition into the Mac collector and invokes the helper installer and
+configurator built here.
 
 ## Planning basis
 
@@ -52,13 +56,13 @@ invokes the helper installer and configurator built here.
   [settings-precedence documentation](https://code.claude.com/docs/en/settings#settings-precedence)
   makes user settings lower precedence than managed, command-line, and project settings and
   documents the optional `CLAUDE_CONFIG_DIR` relocation.
-- [Domain](../architecture/domain.md) defines Claude Code's unscoped window identity, exact Home
-  durations, reported/retained behavior, and presentation thresholds.
+- [Domain](../architecture/domain.md) defines Claude Code's account-scoped window identity, exact
+  standard-window durations, reported/retained behavior, and presentation thresholds.
   [Application](../architecture/application.md) owns ingestion and setup confirmation;
   ProviderAdapters does not reproduce those policies.
-- The current implementation contracts are `UsageSource`, `SourceConfigurator`,
-  `ConfigurationPreview`, and `ConfigureSources`. Any contract or dependency change requires the
-  owner decisions below, focused regressions, and a changelog entry before adapter code uses it.
+- M10 Checkpoint A owns the shared `UsageSource`, `SourceConfigurator`, account-catalog,
+  `ConfigurationPreview`, and `ConfigureSources` revisions. M11 must rebase its source-specific
+  seams and tests on those reviewed contracts rather than reopening them.
 
 ## Entry criteria
 
@@ -369,9 +373,12 @@ and addressed these plan gaps:
   whole-settings backup. The wording is corrected to the intended status-line-only restore
   record.
 
-The review found no reason to add M9 or M10 as a dependency, adopt the early-access function-hook
-API, broaden collection beyond Claude Code coding allowances, or let a manual refresh create a
-provider turn. Plan validation results are recorded here after the delegated gate completes.
+The review originally found no reason to add M9 or M10 as a dependency, adopt the early-access
+function-hook API, broaden collection beyond Claude Code coding allowances, or let a manual
+refresh create a provider turn. The later M10 owner interview supersedes only the dependency
+conclusion: M11 production work now waits for M10 Checkpoint A's shared account contracts. The
+other conclusions remain unchanged. Plan validation results are recorded here after the delegated
+gate completes.
 
 A follow-up review on 2026-10-24 found and corrected additional execution gaps:
 

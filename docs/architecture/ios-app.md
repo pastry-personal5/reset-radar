@@ -35,17 +35,17 @@ flowchart TB
       SystemChangeDriver["SystemChangeDriver (time zone, clock)"]
       CommitPipeline["CommitPipeline"]
     end
-    Scenes["Scenes: Main Toolbar, Usage Details, Settings, pairing scanner"]
+    Scenes["Scenes: Main Toolbar, Account List, Account Details, Settings, pairing scanner"]
     AppIntents["Read-only App Intent"]
   end
   subgraph WidgetProcess["ResetRadarWidgets process"]
     WidgetEnvironment["WidgetEnvironment"]
     AllowanceTimelineProvider
-    SlotIntent["HomeSlot configuration intent"]
+    SlotIntent["Account-window configuration intent"]
     LiveActivityViews["Reset Live Activity views"]
   end
   subgraph Inner["Inner layers"]
-    UseCases["Use cases: IngestRelaySnapshot, AcceptPairing, ForgetMac, ForwardToWatch, ReconcileResetNotifications, ReconcileLiveActivities, LoadHome, LoadUsageDetails"]
+    UseCases["Use cases: IngestRelaySnapshot, AcceptPairing, ForgetMac, ForwardToWatch, ReconcileResetNotifications, ReconcileLiveActivities, LoadHome, LoadAccountDetails"]
     UIModule["UI screen models and components"]
   end
   subgraph Shared["Shared between processes"]
@@ -98,7 +98,7 @@ When the widget process commits, it reconciles opted-in reset notifications befo
 |---|---|---|
 | `SceneDriver` | A scene becomes active | `IngestRelaySnapshot(.foregroundActivation)` |
 | `ForegroundTicker` | Every 60 seconds while any scene is active; cancelled when none is | `IngestRelaySnapshot(.foregroundTick)` |
-| Refresh action | The user pulls to refresh or taps Refresh | For an all-product or Codex action, `RequestMacRefresh` runs the initial relay ingest, posts a Codex request, and waits for its encrypted result. A Claude Code-only action calls `IngestRelaySnapshot(.manual)` only. |
+| Refresh action | The user pulls to refresh or taps Refresh | Home Refresh ingests the relay, posts one `allCodex` request, and waits for its encrypted per-account result. A Codex Account Details action follows the same flow for that account ID. A Claude Code Account Details action calls `IngestRelaySnapshot(.manual)` only. |
 | `BackgroundRefreshDriver` | `BGAppRefreshTask` | `IngestRelaySnapshot(.backgroundTask)`, then the pipeline |
 | `WatchRequestDriver` | A Watch refresh request wakes the app | `IngestRelaySnapshot(.watchRequest)`, then a `ForwardToWatch` reply |
 | `AllowanceTimelineProvider` | WidgetKit asks for a timeline | `IngestRelaySnapshot(.widgetReload)`, then `LoadHome` |
@@ -123,14 +123,18 @@ When the widget process commits, it reconciles opted-in reset notifications befo
 [ux-gui.md](../ux-gui.md), [ux-information-architecture.md](../ux-information-architecture.md), and [ux-terms.md](../ux-terms.md) are authoritative for destinations, order, placement, icons, and copy.
 
 - **Root.** One root tab container is presented as the Main Toolbar on iPhone. On iPad it uses the system's adaptive tab bar or sidebar presentation, with the same five destinations in the same order.
-- **Navigation.** Each destination owns its navigation stack. Home's Allowance Grid pushes product-scoped Usage Details, and All pushes Settings.
+- **Navigation.** Each destination owns its navigation stack. On iPhone, Home's Account List
+  pushes Account Details; on iPad it remains in a split view with Account Details. All pushes
+  Settings.
 - **Setup Banner.** Derived from pairing and transport status.
 - **Pairing.** The pairing scanner uses the camera, with a manual paste fallback, and calls `AcceptPairing`. It shows `awaitingActivation` while the saved pairing's confirmation is retried; an expired or revoked registration returns to setup and requires a fresh package.
 - **Live Activities.** Start Live Activity appears only where ActivityKit reports activities as enabled, which excludes iPad.
 
 ## Widget extension
 
-**Timelines.** `AllowanceTimelineProvider` serves the small and Lock Screen widgets, which are configured by a `HomeSlot` intent, and the medium widget, which shows all four slots. For each timeline it:
+**Timelines.** `AllowanceTimelineProvider` serves the small and Lock Screen widgets, configured by
+an account-window intent, and the medium widget, configured for one account and both standard
+windows. For each timeline it:
 
 1. runs `IngestRelaySnapshot(.widgetReload)` with the client's 10-second request timeout, reconciles opted-in notifications after a commit within the extension's remaining execution time, and continues with the committed cache if the call is skipped or fails;
 2. calls `LoadHome`, and emits an entry now plus one at each presentation-state change instant the read model reports; and
@@ -142,7 +146,9 @@ Countdowns use dynamic dates, so they move between entries.
 
 ## App Intent
 
-The read-only intent takes one `HomeSlot`. It returns percentage used when current, the absolute reset time when available, source, observation time, and presentation state. It reads only the committed cache through `LoadHome` and never triggers a relay or provider refresh.
+The read-only intent takes one account-window selection. It returns percentage used when current,
+the absolute reset time when available, source, observation time, and presentation state. It reads
+only the committed cache through `LoadHome` and never triggers a relay or provider refresh.
 
 ## Configuration
 
@@ -159,4 +165,6 @@ The read-only intent takes one `HomeSlot`. It returns percentage used when curre
 ## Tests
 
 - **`ResetRadarTests`:** the App Group store and lock across the app and a simulated widget process; background-task submission and completion; widget-only notification reconciliation and expiry fallback; the `needsAppReconcile` pipeline; manual Codex refresh and cancellation, including a Claude Code-only action; the App Intent; timeline entries and reload dates; and Watch clear persistence, receipt handling, and resumed payload sending.
-- **`ResetRadarUITests`:** navigation, fixed grid ordering, unavailable states, Settings routes, and accessibility, on the iPhone and iPad simulator destinations in [Platform targets](../architecture.md#platform-targets).
+- **`ResetRadarUITests`:** navigation, global account-number ordering, row/ring unavailable states,
+  Settings routes, and accessibility on the iPhone and iPad simulator destinations in
+  [Platform targets](../architecture.md#platform-targets).

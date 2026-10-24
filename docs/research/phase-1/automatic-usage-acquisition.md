@@ -58,7 +58,7 @@ That validates the product shape but not the security design. The examined bridg
 4. Call `account/rateLimits/read` on a bounded interval and after relevant update notifications.
 5. Decode both the backward-compatible `rateLimits` bucket and `rateLimitsByLimitId` when present.
 6. For each non-null window, retain `limitId`, `limitName`, `usedPercent`, `windowDurationMins`, `resetsAt`, plan/reached state, and observation time.
-7. Clamp `usedPercent` to `0...100` after validation and retain it without changing its orientation.
+7. Accept `usedPercent` only in `0...100` and retain it without clamping or changing its orientation.
 8. Classify 300-minute and 10,080-minute windows by duration, never by `primary`/`secondary` position. Preserve unknown durations as additional windows.
 9. Treat `ordinaryUsageAllowed` and reached/spend states separately from the percentage.
 10. On timeout, process exit, incompatible method, missing window, or sign-out, retain the last observation only as stale and show an actionable status.

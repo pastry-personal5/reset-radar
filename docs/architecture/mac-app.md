@@ -106,7 +106,7 @@ The Mac app must never show a Keychain prompt.
 
 | Flow | Behavior |
 |---|---|
-| Source setup | Codex discovery confirmation and the Claude Code guided status-line setup, through `ConfigureSources`; every change shows a preview and requires confirmation. An unsafe existing status-line command is left untouched. |
+| Source setup | Up to two Codex account discoveries and one Claude Code guided status-line setup, through `ConfigureSources`; every add or replacement shows a preview, removal requires confirmation, and aliases are editable from Home or Sources. An unsafe existing status-line command is left untouched. |
 | Relay setup | Show the provisioning digests for copy; then wipe and bind through `SetUpRelay`. |
 | Pairing | Show the QR package, poll reader activation every five seconds while visible, hide it only after the reader confirms its local save, and revoke at the relay-assigned expiry. Manual Copy is a separate warned action with conditional pasteboard cleanup; QR is the default. |
 | Paired devices | List names, pairing dates, and unknown readers; Revoke; Destroy Relay. |
@@ -116,9 +116,11 @@ The Mac app must never show a Keychain prompt.
 
 [ux-gui.md](../ux-gui.md) and [ux-information-architecture.md](../ux-information-architecture.md) are authoritative.
 
-- **Main window.** Contains the Main Sidebar, with the same Home grid and product-scoped Usage Details as iPhone.
+- **Main window.** Contains the Main Sidebar. Home uses a split Account List and Account Details
+  view; the list restores its last valid selection and permits inline alias editing.
 - **Settings.** The standard Settings scene, opened with Command-comma, with General, Sources, Relay & Pairing, Diagnostics, and About.
-- **Menu-bar extra.** Shows both source states and the last publication, with Refresh All, Open Reset Radar, Settings, and Quit. Closing the main window leaves it running.
+- **Menu-bar extra.** Shows one state line per account and the last publication, with Refresh All,
+  Open Reset Radar, Settings, and Quit. Closing the main window leaves it running.
 - **Login launch.** Starts the menu-bar extra without bringing the main window forward.
 
 ## Installation and lifecycle

@@ -14,7 +14,8 @@ System-level architecture for Reset Radar across iPhone, iPad, Apple Watch, Mac,
 - Observation, publication, receipt, and presentation times remain distinct. No component advances an observation time without evidence of a new provider reading.
 - Missing, stale, expired, offline, unauthorized, and incompatible data are never represented as healthy usage.
 - No percentage history, forecasting, pace analysis, threshold alerts, manual percentage entry, or manual reset rule exists.
-- The window model is open-ended; Home's four fixed slots are a presentation over it.
+- The window model is open-ended; Home presents one account row at a time with two standard-window
+  positions, while Account Details exposes every valid window for that account.
 - Source dependencies point inward only: product rules never depend on storage, networking, Keychain, operating-system services, or presentation.
 
 ## System context and trust boundaries
@@ -155,7 +156,7 @@ Building requires an Xcode whose SDKs are at least iOS 26.1, watchOS 26.6, and m
 
 ## Interface structure
 
-[ux-gui.md](ux-gui.md), [ux-information-architecture.md](ux-information-architecture.md), and [ux-terms.md](ux-terms.md) are authoritative for destinations, order, placement, icons, and copy. Their assignment to scenes and targets is in the [iOS app](architecture/ios-app.md#scenes-and-navigation), [Mac app](architecture/mac-app.md#scenes), and [Watch app](architecture/watch-app.md#scenes) designs. Every Home grid resolves its cells through `HomeSlot` (see [Domain](architecture/domain.md#home-slot-resolution)), so missing data produces an unavailable ring rather than a removed or reordered cell.
+[ux-gui.md](ux-gui.md), [ux-information-architecture.md](ux-information-architecture.md), and [ux-terms.md](ux-terms.md) are authoritative for destinations, order, placement, icons, and copy. Their assignment to scenes and targets is in the [iOS app](architecture/ios-app.md#scenes-and-navigation), [Mac app](architecture/mac-app.md#scenes), and [Watch app](architecture/watch-app.md#scenes) designs. Home resolves configured accounts through stable `AccountID` values and orders their rows by displayed alias, with account number as the deterministic tie-breaker. A configured account remains present when its reading is unavailable; unavailable data never removes or silently retargets the account.
 
 ## Sync and refresh model
 
@@ -276,11 +277,11 @@ A user-visible diagnostics export requires confirmation. Normal operation uses u
 | Condition | Required behavior |
 |---|---|
 | Provider not installed or signed out | Keep the last observation as stale, expose a setup action, and never fall back to credentials or private endpoints. |
-| Adapter incompatible or malformed | Preserve the cache, mark only that product incompatible, and stop tight retries. |
+| Adapter incompatible or malformed | Preserve the cache, mark only the affected account incompatible, and stop tight retries. |
 | Existing Claude Code status-line command could contain a secret or cannot be parsed safely | Leave Claude Code settings untouched, create no restore record, and explain that automatic composition is unavailable. |
 | One window invalid | Reject that window's observation only, and keep the other windows. |
 | Reset passes without new data | Show reset-awaiting-refresh and remove the ring value; never synthesize 0%. |
-| A provider stops reporting a Home window and its last reset passes | Show the fixed Home cell as unavailable; retain the old observation only for diagnostics until a new report arrives. |
+| A provider stops reporting a standard Home window and its last reset passes | Show that account row's ring as unavailable; retain the old observation only for diagnostics until a new report arrives. |
 | Manual Mac-assisted refresh times out or the Mac is asleep | Keep the latest valid cache, identify that the Mac did not complete the request, and never mark an unrelated relay contact as a successful Codex read. |
 | Codex account changes | Drop the prior scope's windows, replace or cancel affected notifications, and end affected Live Activities. |
 | Claude Code account changes | Not detectable. A newer observation replaces the same window kind, while unmatched old kinds remain stale and become unavailable after their last known reset; the UI never claims to have verified account identity. |

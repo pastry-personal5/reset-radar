@@ -28,7 +28,7 @@ This makes automatic percentages feasible without weakening the credential bound
 
 For a provider-reported allowance, store and present its percentage-used orientation:
 
-`displayed percent = clamp(provider used percent, 0...100)`
+`displayed percent = validated provider used percent in 0...100`
 
 Preserve the source's precision internally and apply display rounding separately. Do not invert a rounded used value into percentage remaining.
 
@@ -93,7 +93,8 @@ Therefore the Mac source should:
 
 - Invoke the installed first-party Codex app-server instead of reading or copying its authentication files.
 - Classify windows by their explicit duration and limit ID, never by “primary” or “secondary” position.
-- Import, validate, clamp, and retain `usedPercent` without changing its orientation.
+- Import and retain `usedPercent` without changing its orientation; reject out-of-range values
+  rather than clamping them into apparently valid readings.
 - Treat the backend's permission/reached state as distinct from the percentage; a value below 100% used is not proof that a new turn is allowed.
 - Coalesce refreshes, apply backoff, and show stale data rather than poll aggressively.
 
@@ -163,7 +164,8 @@ Risks:
 
 Required experiments:
 
-- Validate decoding, clamping, percentage orientation, staleness, missing-source, and reset-cycle transitions with deterministic fixtures.
+- Validate decoding, out-of-range rejection, percentage orientation, staleness, missing-source,
+  and reset-cycle transitions with deterministic fixtures.
 - Define stale thresholds per source type without deleting the last known observation.
 - Prototype compact two-window widget layouts using current, stale, missing, 0%, and 100% values.
 - Verify that latest-observation replacement and reset invalidation cannot expose an old cycle as current data.
