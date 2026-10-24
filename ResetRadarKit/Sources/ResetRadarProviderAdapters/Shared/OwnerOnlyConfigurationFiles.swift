@@ -5,9 +5,17 @@ import ResetRadarDomain
 
 struct OwnerOnlyConfigurationFiles: Sendable {
     let directoryURL: URL
+    let maximumBytes: Int
+    /// nil blocks until the lock is free; otherwise acquisition fails with `unavailable`.
+    let lockTimeout: TimeInterval?
 
-    init(directoryURL: URL) {
+    init(
+        directoryURL: URL, maximumBytes: Int = ProviderAccountCatalogStore.maximumFileBytes,
+        lockTimeout: TimeInterval? = nil
+    ) {
         self.directoryURL = directoryURL.standardizedFileURL
+        self.maximumBytes = maximumBytes
+        self.lockTimeout = lockTimeout
     }
 
     func withLock<T>(_ body: () throws -> T) throws -> T {
@@ -18,9 +26,7 @@ struct OwnerOnlyConfigurationFiles: Sendable {
         }
         defer { close(descriptor) }
         try validate(descriptor: descriptor, kind: S_IFREG, permissions: 0o600)
-        guard flock(descriptor, LOCK_EX) == 0 else {
-            throw ProviderAccountCatalogStoreError.unavailable
-        }
+        try acquireLock(descriptor)
         defer { flock(descriptor, LOCK_UN) }
         return try body()
     }
@@ -37,7 +43,7 @@ struct OwnerOnlyConfigurationFiles: Sendable {
         var metadata = Darwin.stat()
         guard fstat(descriptor, &metadata) == 0,
             metadata.st_size >= 0,
-            metadata.st_size <= ProviderAccountCatalogStore.maximumFileBytes
+            metadata.st_size <= maximumBytes
         else { throw ProviderAccountCatalogStoreError.incompatibleConfiguration }
         var result = Data()
         var bytes = [UInt8](repeating: 0, count: 8_192)
@@ -46,7 +52,7 @@ struct OwnerOnlyConfigurationFiles: Sendable {
             guard count >= 0 else { throw ProviderAccountCatalogStoreError.unavailable }
             if count == 0 { break }
             result.append(bytes, count: count)
-            guard result.count <= ProviderAccountCatalogStore.maximumFileBytes else {
+            guard result.count <= maximumBytes else {
                 throw ProviderAccountCatalogStoreError.incompatibleConfiguration
             }
         }
@@ -54,7 +60,7 @@ struct OwnerOnlyConfigurationFiles: Sendable {
     }
 
     func write(_ data: Data, named name: String) throws {
-        guard data.count <= ProviderAccountCatalogStore.maximumFileBytes else {
+        guard data.count <= maximumBytes else {
             throw ProviderAccountCatalogStoreError.incompatibleConfiguration
         }
         let destination = try child(named: name)
@@ -100,6 +106,22 @@ struct OwnerOnlyConfigurationFiles: Sendable {
             throw ProviderAccountCatalogStoreError.unavailable
         }
         try syncDirectory()
+    }
+
+    private func acquireLock(_ descriptor: Int32) throws {
+        guard let lockTimeout else {
+            guard flock(descriptor, LOCK_EX) == 0 else {
+                throw ProviderAccountCatalogStoreError.unavailable
+            }
+            return
+        }
+        let deadline = Date().addingTimeInterval(lockTimeout)
+        while flock(descriptor, LOCK_EX | LOCK_NB) != 0 {
+            guard errno == EWOULDBLOCK, Date() < deadline else {
+                throw ProviderAccountCatalogStoreError.unavailable
+            }
+            usleep(5_000)
+        }
     }
 
     private var lockURL: URL { directoryURL.appending(path: ".lock") }

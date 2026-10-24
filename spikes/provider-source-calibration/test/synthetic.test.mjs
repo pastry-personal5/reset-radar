@@ -238,6 +238,33 @@ test("report verifier accepts a complete sanitized observation", async () => {
     assert.equal(summary.codex.profiles.every((profile) => profile.currentDataWindowTechnicalChecks === "pass"), true);
     assert.equal(summary.claudeCode.currentDataWindowTechnicalChecks, "pass");
     assert.equal(summary.privacyShapeChecks, "pass");
+
+    // Claude Code-only verification needs no Codex report and emits no Codex section.
+    await rm(path.join(root, "codex-1-report.json"));
+    await rm(path.join(root, "codex-2-report.json"));
+    const claudeOnly = await execute(process.execPath, [
+      path.join(spikeRoot, "verify-reports.mjs"),
+      "--mode", "claude",
+      "--root", root,
+    ]);
+    assert.equal(claudeOnly.code, 0, claudeOnly.stderr);
+    const claudeSummary = JSON.parse(claudeOnly.stdout);
+    assert.equal(claudeSummary.mode, "claude");
+    assert.equal(Object.hasOwn(claudeSummary, "codex"), false);
+    assert.equal(claudeSummary.claudeCode.currentDataWindowTechnicalChecks, "pass");
+    const codexRequired = await execute(process.execPath, [
+      path.join(spikeRoot, "verify-reports.mjs"),
+      "--mode", "combined",
+      "--root", root,
+    ]);
+    assert.notEqual(codexRequired.code, 0);
+    await rm(path.join(root, "claude-B-report.jsonl"));
+    const missing = await execute(process.execPath, [
+      path.join(spikeRoot, "verify-reports.mjs"),
+      "--mode", "claude",
+      "--root", root,
+    ]);
+    assert.notEqual(missing.code, 0);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

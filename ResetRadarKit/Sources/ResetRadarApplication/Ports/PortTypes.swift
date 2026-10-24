@@ -189,23 +189,52 @@ public struct ConfigurationOption: Sendable, Equatable {
     }
 }
 
+public enum StatusLineChangeKind: Sendable, Equatable {
+    /// No `statusLine` setting exists; a minimal command object is created.
+    case add
+    /// An accepted `statusLine` object keeps its siblings; only `command` is replaced.
+    case replaceCommand
+}
+
+/// Transient owner-visible description of the exact Claude Code status-line change. Like
+/// `ConfigurationLaunchPreview`, it is display-only: never a diagnostic, snapshot, or relay field.
+public struct ConfigurationStatusLinePreview: Sendable, Equatable {
+    public let settingsPath: String
+    public let helperPath: String
+    public let existingExecutablePath: String?
+    public let changeKind: StatusLineChangeKind
+
+    public init(
+        settingsPath: String, helperPath: String, existingExecutablePath: String? = nil,
+        changeKind: StatusLineChangeKind
+    ) {
+        self.settingsPath = settingsPath
+        self.helperPath = helperPath
+        self.existingExecutablePath = existingExecutablePath
+        self.changeKind = changeKind
+    }
+}
+
 public struct ConfigurationPreview: Sendable, Equatable {
     public let product: ProductID
     public let optionID: ConfigurationOptionID
     public let revision: ConfigurationPreviewRevision
     public let intent: ConfigurationIntent
     public let launch: ConfigurationLaunchPreview
+    /// Present only for a status-line source.
+    public let statusLine: ConfigurationStatusLinePreview?
 
     public init(
         product: ProductID, optionID: ConfigurationOptionID,
         revision: ConfigurationPreviewRevision, intent: ConfigurationIntent,
-        launch: ConfigurationLaunchPreview
+        launch: ConfigurationLaunchPreview, statusLine: ConfigurationStatusLinePreview? = nil
     ) {
         self.product = product
         self.optionID = optionID
         self.revision = revision
         self.intent = intent
         self.launch = launch
+        self.statusLine = statusLine
     }
 }
 

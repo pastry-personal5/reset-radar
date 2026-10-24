@@ -93,4 +93,28 @@ import Testing
         try await use.remove(accountID, product: .codex, confirmed: true)
         #expect(configurator.removed == [accountID])
     }
+
+    @Test func statusLineDetailIsPartOfThePreviewIdentity() async throws {
+        let configurator = FakeSourceConfigurator(product: .claudeCode)
+        let use = ConfigureSources(configurators: [configurator])
+        let preview = try await use.preview(
+            for: .claudeCode, optionID: configurator.option.id, intent: .add)
+        #expect(preview.statusLine == nil)
+        let detail = ConfigurationStatusLinePreview(
+            settingsPath: "/Users/owner/.claude/settings.json",
+            helperPath: "/Users/owner/Library/Application Support/ResetRadar/bin/helper",
+            existingExecutablePath: "/Users/owner/bin/line", changeKind: .replaceCommand)
+        let detailed = ConfigurationPreview(
+            product: preview.product, optionID: preview.optionID, revision: preview.revision,
+            intent: preview.intent, launch: preview.launch, statusLine: detail)
+        #expect(detailed != preview)
+        await #expect(throws: ConfigureSourcesError.previewRequired) {
+            try await use.apply(detailed, confirmed: true)
+        }
+        try await use.apply(preview, confirmed: true)
+    }
+
+    @Test func restoreConflictAndActiveInstallationAreTypedErrors() {
+        #expect(SourceConfigurationError.restoreConflict != .installationActive)
+    }
 }

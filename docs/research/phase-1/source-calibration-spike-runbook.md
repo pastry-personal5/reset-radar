@@ -24,8 +24,10 @@ The first command must equal the owner-approved revision and the second must pri
 scripts reject a different revision or dirty worktree and cleanup proves both remain unchanged.
 M10 uses `--mode codex`; this mode does not inspect Claude settings or history, require the
 `claude` executable, create Claude session identifiers or files, wait for Claude observations, or
-delete Claude data. `--mode combined` still requires Codex profiles. P1-M11 Task 1 adds a
-Claude Code-only mode and updates this runbook before any Claude Code run.
+delete Claude data. `--mode combined` still requires Codex profiles. `--mode claude` is the
+Claude Code-only mode for P1-M11: it takes no profile count, never inspects Codex profiles,
+requires neither `codex-profile` nor a Codex report, and creates no Codex launcher, report, or
+state.
 
 The spike files are:
 
@@ -159,6 +161,10 @@ test -f "$source_calibration_root/session.zsh"
 printf 'Disposable session attached.\n'
 ```
 
+For the Claude Code observation, prepare with `zsh spikes/provider-source-calibration/prepare.zsh
+--mode claude --expected-revision "$approved_revision"` instead; it prompts for nothing, refuses a
+running Claude Code process, and prints the same disposable directory and `source` command.
+
 Codex-only preparation does not read or edit anything under `~/.claude`, locate `claude`, or
 create Claude artifacts. It copies only the Codex harness and verifier into the disposable
 directory. Any later revision or worktree change causes cleanup to refuse until the reviewed state
@@ -257,9 +263,9 @@ The final verifier checks every ordinal report and fails the combined Codex resu
 ## 9. Run the Claude Code observation
 
 M10 Codex-only calibration skips this section. M11 must repeat sections 5 through 8 from a new
-clean, separately approved revision, substituting the Claude Code-only mode that M11 Task 1
-adds (not `--mode combined`, which needs Codex) during preparation, before
-following the preserved combined-provider steps below. Never reuse a Codex-only disposable
+clean, separately approved revision, substituting `--mode claude --expected-revision COMMIT`
+(not `--mode combined`, which needs Codex) during preparation, then skip section 7 and the
+Codex part of section 8, and follow the steps below. Never reuse a Codex-only disposable
 session.
 
 This part uses three Terminal windows at the same time. Keep every unrelated Claude Code process closed. Do not run the following commands in a terminal pane inside Claude Code.
@@ -436,7 +442,7 @@ Before editing any repository file, run:
 The Codex-mode verifier fails unless every selected Codex profile has all required technical
 observations. It neither opens nor requires a Claude report. Its printed JSON is redacted and may
 be transcribed into the private worksheet. Do not copy an underlying report. M11 substitutes
-`--mode combined` for its later combined-provider verification.
+`--mode claude` (no Codex report needed) for its Claude Code verification.
 
 `updateNotificationObserved: false` in any ordinal profile summary is an explicit Codex deferral, even if every other technical check passes. The owner still decides whether each current-data window is confirmed or rejected.
 
@@ -456,8 +462,15 @@ zsh spikes/provider-source-calibration/cleanup.zsh \
 ```
 
 The cleanup script refuses if the repository revision or status changed, the session mode differs,
-or the target directory is outside the exact expected `/private/tmp` prefix. Combined-mode cleanup
-additionally retains the narrow Claude process, UUID, history-prefix, and settings checks.
+or the target directory is outside the exact expected `/private/tmp` prefix. Claude-mode and
+combined-mode cleanup require `--confirm-delete-calibration-sessions` and additionally retain the
+narrow Claude process, UUID, history-prefix, and settings checks:
+
+```zsh
+zsh spikes/provider-source-calibration/cleanup.zsh \
+  --mode claude --confirm-delete-calibration-sessions \
+  "$source_calibration_root/session.zsh"
+```
 
 If cleanup refuses, do not broaden its path, delete by age, truncate an unverified history file, or use a wildcard over `~/.claude`. Preserve the disposable directory and investigate privately.
 

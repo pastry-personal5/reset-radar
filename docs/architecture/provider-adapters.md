@@ -10,7 +10,7 @@ Status: Active
 |---|---|
 | Layer | Adapter |
 | Platforms | macOS only |
-| Depends on | [Domain](domain.md), [Application](application.md), Foundation, and Darwin for file, lock, and process primitives |
+| Depends on | [Domain](domain.md), [Application](application.md), Foundation, Darwin for file, lock, and process primitives, and CryptoKit for the 128-bit Claude Code session key and content digests |
 | Implements | One account-scoped `UsageSource` per configured account, `SourceConfigurator`, and the account catalog |
 | Consumes | `AccountScoper`, injected by the Mac app and implemented by [Transport](transport.md#account-scope) |
 | Used by | The [Mac app](mac-app.md) and the `ResetRadarStatusLine` helper, both composition roots |

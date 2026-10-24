@@ -76,8 +76,8 @@ const RAW_VALUE_KEYS = new Set([
 
 function parseArguments(argv) {
   if (argv.length !== 4 || argv[0] !== "--mode" || argv[2] !== "--root"
-      || !["codex", "combined"].includes(argv[1])) {
-    throw new Error("usage: node verify-reports.mjs --mode codex|combined --root ROOT");
+      || !["codex", "combined", "claude"].includes(argv[1])) {
+    throw new Error("usage: node verify-reports.mjs --mode codex|combined|claude --root ROOT");
   }
   const mode = argv[1];
   const root = path.resolve(argv[3]);
@@ -220,31 +220,29 @@ function verifySixtyMinutes(events, increased) {
 
 async function run() {
   const { mode, root } = parseArguments(process.argv.slice(2));
-  const codexReportNames = (await readdir(root))
-    .filter((name) => /^codex-[1-9][0-9]*-report\.json$/.test(name))
-    .sort((left, right) => Number(left.match(/[0-9]+/u)[0]) - Number(right.match(/[0-9]+/u)[0]));
-  assert(codexReportNames.length > 0, "no explicitly selected Codex profile reports found");
-  codexReportNames.forEach((name, index) => {
-    assert(name === `codex-${index + 1}-report.json`, "Codex profile report sequence is not contiguous");
-  });
-  const codexSummaries = [];
-  for (const name of codexReportNames) {
-    const report = JSON.parse(await readFile(path.join(root, name), "utf8"));
-    codexSummaries.push(verifyCodex(report));
-  }
-  const summary = {
-    formatVersion: 2,
-    mode,
-    codex: {
+  const summary = { formatVersion: 2, mode, privacyShapeChecks: "pass" };
+  if (mode !== "claude") {
+    const codexReportNames = (await readdir(root))
+      .filter((name) => /^codex-[1-9][0-9]*-report\.json$/.test(name))
+      .sort((left, right) => Number(left.match(/[0-9]+/u)[0]) - Number(right.match(/[0-9]+/u)[0]));
+    assert(codexReportNames.length > 0, "no explicitly selected Codex profile reports found");
+    codexReportNames.forEach((name, index) => {
+      assert(name === `codex-${index + 1}-report.json`, "Codex profile report sequence is not contiguous");
+    });
+    const codexSummaries = [];
+    for (const name of codexReportNames) {
+      const report = JSON.parse(await readFile(path.join(root, name), "utf8"));
+      codexSummaries.push(verifyCodex(report));
+    }
+    summary.codex = {
       profileCount: codexSummaries.length,
       profiles: codexSummaries,
       allProfileTechnicalChecks: codexSummaries.every((profile) => profile.updateNotificationObserved)
         ? "pass"
         : "deferred",
-    },
-    privacyShapeChecks: "pass",
-  };
-  if (mode === "combined") {
+    };
+  }
+  if (mode !== "codex") {
     const claudeA = await readJsonLines(path.join(root, "claude-A-report.jsonl"));
     const claudeB = await readJsonLines(path.join(root, "claude-B-report.jsonl"));
     const a = verifyClaude(claudeA, "A");

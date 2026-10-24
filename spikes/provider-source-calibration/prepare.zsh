@@ -3,16 +3,23 @@
 set -euo pipefail
 umask 077
 
-if (( $# != 6 )) || [[ "$1" != --mode || "$2" != (codex|combined) \
-    || "$3" != --codex-profile-count || "$4" != <-> \
-    || "$5" != --expected-revision || -z "$6" ]] \
-    || (( $4 < 1 || $4 > 2 )); then
+if (( $# == 4 )) && [[ "$1" == --mode && "$2" == claude \
+    && "$3" == --expected-revision && -n "$4" ]]; then
+  source_calibration_mode=claude
+  codex_profile_count=0
+  expected_revision="$4"
+elif (( $# == 6 )) && [[ "$1" == --mode && "$2" == (codex|combined) \
+    && "$3" == --codex-profile-count && "$4" == <-> \
+    && "$5" == --expected-revision && -n "$6" ]] \
+    && (( $4 >= 1 && $4 <= 2 )); then
+  source_calibration_mode="$2"
+  codex_profile_count="$4"
+  expected_revision="$6"
+else
   print -u2 -- "usage: zsh prepare.zsh --mode codex|combined --codex-profile-count COUNT --expected-revision COMMIT"
+  print -u2 -- "   or: zsh prepare.zsh --mode claude --expected-revision COMMIT"
   exit 2
 fi
-source_calibration_mode="$2"
-codex_profile_count="$4"
-expected_revision="$6"
 typeset -a requested_codex_profiles
 typeset -A seen_codex_profiles
 for (( profile_index = 1; profile_index <= codex_profile_count; profile_index += 1 )); do
@@ -42,14 +49,16 @@ if [[ -n "$(git -C "$repo_root" status --porcelain=v1 --untracked-files=all)" ]]
   print -u2 -- "The calibration requires a clean worktree."
   exit 1
 fi
-if [[ "$source_calibration_mode" == combined ]] && pgrep -x claude >/dev/null 2>&1; then
+if [[ "$source_calibration_mode" != codex ]] && pgrep -x claude >/dev/null 2>&1; then
   print -u2 -- "Close every Claude Code process before preparing the calibration."
   exit 1
 fi
 
 source_calibration_node="$(command -v node)"
-source_calibration_codex_profile="$(command -v codex-profile)"
-if [[ "$source_calibration_mode" == combined ]]; then
+if [[ "$source_calibration_mode" != claude ]]; then
+  source_calibration_codex_profile="$(command -v codex-profile)"
+fi
+if [[ "$source_calibration_mode" != codex ]]; then
   source_calibration_claude="$(command -v claude)"
 fi
 source_calibration_root="$(mktemp -d /private/tmp/reset-radar-source-calibration.XXXXXX)"
@@ -90,11 +99,13 @@ for (( profile_index = 1; profile_index <= ${#requested_codex_profiles}; profile
 done
 unset profile_name profile_home launcher requested_codex_profiles seen_codex_profiles
 
-cp "$script_root/codex-calibration.mjs" "$source_calibration_root/harness/"
+if [[ "$source_calibration_mode" != claude ]]; then
+  cp "$script_root/codex-calibration.mjs" "$source_calibration_root/harness/"
+fi
 cp "$script_root/verify-reports.mjs" "$source_calibration_root/harness/"
 chmod 600 "$source_calibration_root/harness/"*.mjs
 
-if [[ "$source_calibration_mode" == combined ]]; then
+if [[ "$source_calibration_mode" != codex ]]; then
   source_calibration_claude_report_a="$source_calibration_root/claude-A-report.jsonl"
   source_calibration_claude_report_b="$source_calibration_root/claude-B-report.jsonl"
   source_calibration_claude_work_a="$source_calibration_root/claude-a-work"
@@ -169,13 +180,17 @@ typeset -p \
   source_calibration_revision \
   source_calibration_root \
   source_calibration_node \
-  source_calibration_codex_profile \
-  source_calibration_codex_launchers \
-  source_calibration_codex_reports \
   source_calibration_repo_root \
   source_calibration_repo_status_before \
   > "$source_calibration_root/session.zsh"
-if [[ "$source_calibration_mode" == combined ]]; then
+if [[ "$source_calibration_mode" != claude ]]; then
+  typeset -p \
+  source_calibration_codex_profile \
+  source_calibration_codex_launchers \
+  source_calibration_codex_reports \
+  >> "$source_calibration_root/session.zsh"
+fi
+if [[ "$source_calibration_mode" != codex ]]; then
   typeset -p \
   source_calibration_claude \
   source_calibration_claude_report_a \
@@ -197,11 +212,13 @@ chmod 600 "$source_calibration_root/session.zsh"
 
 print -- "macOS: $(sw_vers -productVersion) ($(sw_vers -buildVersion))"
 print -- "Node.js: $("$source_calibration_node" --version)"
-print -- "codex-profile: $("$source_calibration_codex_profile" version 2>/dev/null)"
-for (( profile_index = 1; profile_index <= ${#source_calibration_codex_launchers}; profile_index += 1 )); do
-  print -- "Codex profile $profile_index: $("${source_calibration_codex_launchers[$profile_index]}" --version 2>/dev/null)"
-done
-if [[ "$source_calibration_mode" == combined ]]; then
+if [[ "$source_calibration_mode" != claude ]]; then
+  print -- "codex-profile: $("$source_calibration_codex_profile" version 2>/dev/null)"
+  for (( profile_index = 1; profile_index <= ${#source_calibration_codex_launchers}; profile_index += 1 )); do
+    print -- "Codex profile $profile_index: $("${source_calibration_codex_launchers[$profile_index]}" --version 2>/dev/null)"
+  done
+fi
+if [[ "$source_calibration_mode" != codex ]]; then
   print -- "Claude Code: $("$source_calibration_claude" --version)"
 fi
 print -- "Disposable directory: $source_calibration_root"

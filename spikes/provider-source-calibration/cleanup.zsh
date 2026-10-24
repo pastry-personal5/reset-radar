@@ -6,13 +6,13 @@ umask 077
 if (( $# == 3 )) && [[ "$1" == --mode && "$2" == codex ]]; then
   requested_mode=codex
   session_file="${3:A}"
-elif (( $# == 4 )) && [[ "$1" == --mode && "$2" == combined \
+elif (( $# == 4 )) && [[ "$1" == --mode && "$2" == (combined|claude) \
     && "$3" == --confirm-delete-calibration-sessions ]]; then
-  requested_mode=combined
+  requested_mode="$2"
   session_file="${4:A}"
 else
   print -u2 -- "usage: zsh cleanup.zsh --mode codex SESSION_FILE"
-  print -u2 -- "   or: zsh cleanup.zsh --mode combined --confirm-delete-calibration-sessions SESSION_FILE"
+  print -u2 -- "   or: zsh cleanup.zsh --mode combined|claude --confirm-delete-calibration-sessions SESSION_FILE"
   exit 2
 fi
 if [[ "$session_file" != /private/tmp/reset-radar-source-calibration.*/session.zsh || ! -f "$session_file" ]]; then
@@ -32,7 +32,7 @@ repo_status_after="$(
 [[ "$repo_status_after" == "$source_calibration_repo_status_before" ]]
 [[ "$(git -C "$source_calibration_repo_root" rev-parse HEAD)" == "$source_calibration_revision" ]]
 
-if [[ "$source_calibration_mode" == combined ]]; then
+if [[ "$source_calibration_mode" != codex ]]; then
 if ! print -r -- "$source_calibration_claude_session_a" \
     | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' \
   || ! print -r -- "$source_calibration_claude_session_b" \

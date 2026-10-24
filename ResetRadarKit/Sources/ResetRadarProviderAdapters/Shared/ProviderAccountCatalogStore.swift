@@ -49,12 +49,12 @@ public struct CodexStoredConfiguration: Codable, Equatable, Sendable {
     }
 }
 
-private struct StoredAccountEntry: Codable, Equatable {
+struct StoredAccountEntry: Codable, Equatable {
     let metadata: AccountMetadata
     let configurationRevision: ConfigurationPreviewRevision
 }
 
-private struct StoredAccountIndex: Codable {
+struct StoredAccountIndex: Codable {
     static let currentSchemaVersion = 1
 
     let schemaVersion: Int
@@ -76,7 +76,7 @@ private struct StoredAccountIndex: Codable {
 public actor ProviderAccountCatalogStore: AccountCatalogStore {
     public static let maximumFileBytes = 65_536
 
-    private let files: OwnerOnlyConfigurationFiles
+    let files: OwnerOnlyConfigurationFiles
 
     public init(directoryURL: URL) {
         files = OwnerOnlyConfigurationFiles(directoryURL: directoryURL)
@@ -274,7 +274,7 @@ public actor ProviderAccountCatalogStore: AccountCatalogStore {
         }
     }
 
-    private func loadIndex() throws -> StoredAccountIndex {
+    func loadIndex() throws -> StoredAccountIndex {
         let data: Data
         do {
             data = try files.read(named: "accounts.json")
@@ -288,7 +288,7 @@ public actor ProviderAccountCatalogStore: AccountCatalogStore {
         }
     }
 
-    private func saveIndex(_ index: StoredAccountIndex) throws {
+    func saveIndex(_ index: StoredAccountIndex) throws {
         guard index.catalog != nil else {
             throw ProviderAccountCatalogStoreError.incompatibleCatalog
         }

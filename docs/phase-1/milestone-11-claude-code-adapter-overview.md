@@ -1,6 +1,6 @@
 # P1-M11: Claude Code adapter overview
 
-Status: Planned
+Status: Active
 
 Implement the macOS-only Claude Code status-line half of
 `ResetRadarProviderAdapters` and the `ResetRadarStatusLine` helper. The
@@ -88,13 +88,19 @@ configurator built here.
 - [x] The owner answers all [implementation decisions](#implementation-decisions), and the
   answers are recorded in [changelog.md](changelog.md) and the binding docs they affect.
   Evidence: the three 2026-10-25 Owner/Claude changelog entries.
-- [ ] Record the implementation branch, starting commit, and complete worktree state. Preserve
-  the pre-existing M9 and M10 planning edits as separate work.
-- [ ] The `test_runner` passes the complete gate on the recorded baseline before production
-  implementation begins.
-- [ ] Task 1 adds a Claude Code-only `--mode claude` to the calibration programs (M10 delivered
+- [x] Record the implementation branch, starting commit, and complete worktree state. Preserve
+  the pre-existing M9 and M10 planning edits as separate work. Evidence: branch
+  `m11-claude-code-adapter` from `e20c7fe`; `git status --short` was empty (no pre-existing M9 or
+  M10 edits). Public versions: Swift 6.4, Xcode 27.1, Claude Code 2.1.310.
+- [x] The `test_runner` passes the complete gate on the recorded baseline before production
+  implementation begins. Evidence: 2026-10-25 run on `e20c7fe`: project generation, format lint,
+  strict SwiftLint, import check, 85 Mac-scheme tests, relay install, 28 Workers Vitest and 31
+  Node tests, typecheck, and Wrangler dry run all passed.
+- [x] Task 1 adds a Claude Code-only `--mode claude` to the calibration programs (M10 delivered
   `codex` and the Codex-requiring `combined`), passes its offline tests, and retains the runbook's
-  owner-presence, clean-approved-revision, temporary-settings, privacy, and exact-cleanup rules.
+  owner-presence, clean-approved-revision, temporary-settings, privacy, and exact-cleanup rules. Evidence: `zsh spikes/provider-source-calibration/test.zsh`
+  passes (5 Node tests and the Codex-only and Claude-only prepare/cleanup suites); runbook sections
+  1, 6, 9, 10, and 11 name `--mode claude`.
 
 ## In scope
 
