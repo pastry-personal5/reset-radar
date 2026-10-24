@@ -85,7 +85,7 @@ configurator built here.
 - [x] M10 Checkpoint A's shared contracts are implemented on `main` and the M11 plan is rebased
   on them. Evidence: commits `18f5723` to `b8d64bd`, the 2026-10-25 refresh under
   [Plan review](#plan-review), and the narrowed decisions 1 and 6 below.
-- [ ] The owner answers all open [implementation decisions](#implementation-decisions), and the
+- [ ] The owner answers the remaining open [implementation decisions] (2, 4, 5, 7, 9, 10; 1, 3, 6, 8, and 11 are answered)(#implementation-decisions), and the
   answers are recorded in [changelog.md](changelog.md) and the binding docs they affect.
 - [ ] Record the implementation branch, starting commit, and complete worktree state. Preserve
   the pre-existing M9 and M10 planning edits as separate work.
@@ -190,7 +190,7 @@ These are newly exposed M11 choices, not permission to invent behavior. Implemen
 blocked until the owner answers them. A compatible M10 decision may satisfy the shared items if
 it lands first and is explicitly referenced from the M11 implementation record.
 
-1. **Revision-bound setup and restore conflict.** M10 already supplied the `incompatible` and
+1. **Revision-bound setup and restore conflict.** *Owner-approved 2026-10-25: recommendation below.* M10 already supplied the `incompatible` and
    `unsafe` setup states, opaque option and preview-revision identities, and `ConfigureSources`'
    stale-preview rejection. What remains is that `ConfigurationLaunchPreview` is Codex-shaped
    (executable, interpreter, and Codex-only environment keys) and cannot show the exact
@@ -218,7 +218,7 @@ it lands first and is explicitly referenced from the M11 implementation record.
    for captured stdout and stderr; production composition streams the approved command's output
    instead of accumulating it. A legitimate installed payload, setting, directory, or command that
    exceeds a bound returns the bound for review rather than widening it silently.
-3. **Private session-key dependency.** The architecture requires a truncated SHA-256 session
+3. **Private session-key dependency.** *Owner-approved 2026-10-25: recommendation below, CryptoKit included.* The architecture requires a truncated SHA-256 session
    filename but does not choose its length or list the required system framework. Recommend the
    first 128 digest bits encoded as 32 lowercase hexadecimal characters and approval for
    ProviderAdapters to import Apple's CryptoKit. No raw or reversible session identifier is
@@ -247,7 +247,7 @@ it lands first and is explicitly referenced from the M11 implementation record.
    streamed SHA-256 content digest; apply revalidates the same identity. Runtime revalidates path,
    type, ownership, and modes but permits a later legitimate executable upgrade. Reject every
    other owner/mode combination; do not trust a path prefix alone.
-8. **Settings scope and precedence.** Claude Code can relocate its user root with
+8. **Settings scope and precedence.** *Owner-approved 2026-10-25: default user file only.* Claude Code can relocate its user root with
    `CLAUDE_CONFIG_DIR`, and managed, command-line, project-local, and shared-project values can all
    override user `statusLine`. Recommend first-version automatic setup for the default
    `~/.claude/settings.json` only, with an exact preview naming that scope. A custom root or higher-
@@ -273,7 +273,7 @@ it lands first and is explicitly referenced from the M11 implementation record.
     Once a composed child launches, preserve its stdout, stderr, and exit status regardless of
     recorder success. A compose-record, trust, launch, or pipe failure before the child can run is
     quiet but nonzero; cancellation terminates and reaps only that child and leaves no orphan.
-11. **Claude Code account row lifecycle.** The catalog allows one Claude Code row, but
+11. **Claude Code account row lifecycle.** *Owner-approved 2026-10-25: recommendation below.* The catalog allows one Claude Code row, but
     `ProviderAccountCatalogStore` can add, replace, load, and remove only Codex rows, and
     `ConfigureSources.remove`/`restore` are separate confirmed actions. Recommend: a verified
     install creates the row (random `AccountID`, smallest unused number) in the same catalog lock as

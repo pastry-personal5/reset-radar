@@ -6,6 +6,12 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Owner/Claude — Answered P1-M11 decisions 1, 3, 8, and 11 as recommended: a
+  status-line display-only preview plus typed restore conflict; CryptoKit for the 128-bit session
+  key; automatic setup for the default `~/.claude/settings.json` only; and a Claude Code account row
+  that survives restore, with removal refused while installed. Decisions 2, 4, 5, 7, 9, and 10 stay
+  open.
+
 - 2026-10-25 — Claude — Reviewed the P1-M11 plan and the ProviderAdapters architecture against
   the code M10 landed. M11 now builds on the implemented account contracts: it plans the single
   Claude Code catalog row (`AccountID`, no provider scope) and catalog-store operations (new
