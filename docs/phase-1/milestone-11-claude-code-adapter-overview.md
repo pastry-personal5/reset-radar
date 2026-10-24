@@ -375,7 +375,9 @@ Checkpoints A and B are implemented and covered by the tests named in the comple
 The `ResetRadarStatusLine` scaffold comment and the ProviderAdapters placeholder are replaced by
 the helper composition root. Checkpoint C needs the owner: the signed-in calibration, the 60-minute
 decision, cleanup, and the sanitized evidence entry cannot be performed or fabricated by an agent,
-so P1-M11 stays `Active`. The calibration commands are in
+so P1-M11 stays `Active`. After the whole-branch review fixes, the complete gate passed on
+2026-10-25 (189 Swift tests, 28 relay tests, 5 calibration-harness tests, lint, import check, and
+`git diff --check`); the relative-Markdown-link check and the owner-run items remain open. The calibration commands are in
 [the runbook](../research/phase-1/source-calibration-spike-runbook.md) (`--mode claude`).
 
 ## Checkpoints

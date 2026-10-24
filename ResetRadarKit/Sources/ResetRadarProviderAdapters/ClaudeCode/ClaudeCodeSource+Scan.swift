@@ -8,7 +8,9 @@ extension ClaudeCodeSource {
     /// Probes setup, then arms the directory watch before the initial scan so no record
     /// replacement can land between the scan and the subscription.
     func activate() async {
-        switch await probe.status() {
+        let status = await probe.status()
+        guard !terminallyStopped else { return }
+        switch status {
         case .ready:
             awaitingConfiguration = false
         case .notConfigured, .helperUnavailable:
@@ -17,23 +19,21 @@ extension ClaudeCodeSource {
             await fail(.notInstalled, startedAt: clock.now)
             return
         }
-        await revalidate()
-        guard retryDeadline == nil, !terminallyStopped else { return }
+        guard await revalidate() == nil, !terminallyStopped else { return }
         _ = await scanNow()
     }
 
-    /// Arms a fresh watch generation; a failure reports once and schedules the next attempt.
-    func revalidate() async {
+    /// Arms a fresh watch generation. Returns nil on success; a failure reports once, schedules
+    /// the next attempt when it is operational, and returns its state-only receipt.
+    func revalidate() async -> ReadReceipt? {
+        guard !terminallyStopped else { return .unavailable(sourceState: .unavailable) }
         discardWatch()
         retryDeadline = nil
         do {
             try file.prepare()
         } catch {
-            await fail(
-                error as? SessionRecordError == .unsafeLocation
-                    ? .malformed : .temporarilyUnavailable,
-                startedAt: clock.now)
-            return
+            let unsafe = error as? SessionRecordError == .unsafeLocation
+            return await fail(unsafe ? .malformed : .temporarilyUnavailable, startedAt: clock.now)
         }
         do {
             let session = try watchFactory.watch(directory: file.directoryURL)
@@ -45,8 +45,9 @@ extension ClaudeCodeSource {
                     await self?.received(event, generation: armed)
                 }
             }
+            return nil
         } catch {
-            await fail(ClaudeCodeSourceFailure(error), startedAt: clock.now)
+            return await fail(ClaudeCodeSourceFailure(error), startedAt: clock.now)
         }
     }
 
@@ -162,6 +163,7 @@ extension ClaudeCodeSource {
 
     @discardableResult
     func fail(_ failure: ClaudeCodeSourceFailure, startedAt: Date) async -> ReadReceipt {
+        guard !terminallyStopped else { return .unavailable(sourceState: .unavailable) }
         let report = SourceSnapshot(
             source: source(state: failure.state), windows: [], isCompleteReport: false)
         emit(report)
@@ -204,8 +206,7 @@ extension ClaudeCodeSource {
 
     private func revalidationDue(_ deadline: Date) async {
         guard !terminallyStopped, retryDeadline == deadline else { return }
-        await revalidate()
-        guard retryDeadline == nil, !terminallyStopped else { return }
+        guard await revalidate() == nil, !terminallyStopped else { return }
         _ = await scanNow()
     }
 }

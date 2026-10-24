@@ -88,11 +88,11 @@ public actor ClaudeCodeSource: UsageSource {
         if let retryDeadline, retryDeadline > clock.now {
             return .deferred(retryAt: retryDeadline, sourceState: .sourceOffline)
         }
-        if watch == nil, retryDeadline != nil {
-            await revalidate()
+        if watch == nil, let failure = await revalidate() {
             if let retryDeadline {
                 return .deferred(retryAt: retryDeadline, sourceState: .sourceOffline)
             }
+            return failure
         }
         return await scanNow()
     }
