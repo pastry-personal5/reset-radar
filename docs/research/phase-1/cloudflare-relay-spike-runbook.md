@@ -116,7 +116,7 @@ Run once under `caffeinate`:
 caffeinate -dimsu npm --prefix relay run soak:remote -- https://REPLACE.workers.dev
 ```
 
-Do not restart and combine partial runs. The checked-in model expects 1,422 requests: seven setup operations, 90 accepted manual requests, 900 bounded follow-up reads, 120 ordinary reads, 119 request-list polls, 60 ordinary publications, six heartbeat publications, 60 separately counted manual-result publications, and 60 acknowledgements. The script must report exactly those observed counts plus response bytes and overall and per-operation p50/p95 latency.
+Do not restart and combine partial runs. The checked-in model expects 1,422 requests: seven setup operations, 90 accepted manual requests, 900 bounded follow-up reads, 120 ordinary reads, 119 request-list polls, 60 ordinary publications, six heartbeat publications, 60 separately counted manual-result publications, and 60 acknowledgements. Each reader is gated for 60,001 ms from its prior accepted response, and each round issues all three manual requests before any bounded follow-up read. The script must report exactly those observed counts plus response bytes and overall and per-operation p50/p95 latency. A relay `requestRateLimited` response and a non-relay `429` have distinct redacted failures; either invalidates the sample.
 
 After completion, privately record dashboard request count, Worker CPU, Durable Object duration, rows read and written, and storage. Reconcile unexplained account activity before accepting the sample. Recheck observability and billing.
 

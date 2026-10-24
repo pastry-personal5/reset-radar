@@ -10,6 +10,7 @@ import {
   digest,
   HarnessFailure,
   parseActivationResponse,
+  parseErrorResponse,
   parseExpiryResponse,
   parsePublicationResponse,
   parseRefreshList,
@@ -28,6 +29,62 @@ import {
 } from "./harness-core.mjs";
 
 const delay = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
+export const MANUAL_REQUEST_SPACING_MS = 60_001;
+
+export function manualRequestWaitMilliseconds(nextAllowedAt, now) {
+  return Math.max(0, nextAllowedAt - now);
+}
+
+export function parseManualRequestResponse(response) {
+  if (response.status === 202) return parseExpiryResponse(response.text);
+  if (response.status === 429) {
+    try {
+      parseErrorResponse(response.text, "requestRateLimited");
+    } catch {
+      throw new HarnessFailure("Non-relay HTTP 429 stopped the scheduled sample.");
+    }
+    throw new HarnessFailure("Relay rate-limited a scheduled manual request.");
+  }
+  throw new HarnessFailure(`Manual request returned HTTP ${response.status}; expected 202.`);
+}
+
+export async function runManualRequestRound({
+  measured,
+  now = () => performance.now(),
+  readTokens,
+  readyAt,
+  requestIDFactory = randomIdentifier,
+  wait = delay,
+}) {
+  if (!Array.isArray(readTokens) || !Array.isArray(readyAt) || readTokens.length !== readyAt.length) {
+    throw new HarnessFailure("Manual request schedule is invalid.");
+  }
+  const accepted = await Promise.all(readTokens.map(async (token, index) => {
+    const remaining = manualRequestWaitMilliseconds(readyAt[index] ?? 0, now());
+    if (remaining > 0) await wait(remaining);
+    const requestID = requestIDFactory();
+    const response = await measured("manualRequests", "/v1/refresh-requests", {
+      body: canonicalJSON({ protocolVersion: 1, requestID }),
+      label: "manual request",
+      method: "POST",
+      token,
+    });
+    parseManualRequestResponse(response);
+    readyAt[index] = now() + MANUAL_REQUEST_SPACING_MS;
+    return { requestID, token };
+  }));
+  for (const item of accepted) {
+    for (let followUp = 0; followUp < 10; followUp += 1) {
+      await measured("followUpReads", "/v1/snapshot", {
+        bodyLimit: SNAPSHOT_BODY_LIMIT,
+        expectedStatus: 200,
+        label: "follow-up read",
+        token: item.token,
+      });
+    }
+  }
+  return accepted.map(({ requestID }) => ({ requestID }));
+}
 
 export async function runSoak(originInput, secrets, fetchImplementation = fetch) {
   const origin = parseRemoteOrigin(originInput);
@@ -39,6 +96,7 @@ export async function runSoak(originInput, secrets, fetchImplementation = fetch)
   const publisherID = randomIdentifier(32);
   const key = validateSecretSet(secrets);
   const readerIDs = secrets.readTokens.map(() => randomIdentifier());
+  const manualRequestReadyAt = secrets.readTokens.map(() => 0);
   let pending = [];
   let liveRequestIDs = new Set();
 
@@ -71,13 +129,11 @@ export async function runSoak(originInput, secrets, fetchImplementation = fetch)
     if (performance.now() < target) await delay(target - performance.now());
 
     if ((slot - 1) % 12 === 0) {
-      for (let index = 0; index < 3; index += 1) {
-        const requestID = randomIdentifier();
-        const response = await measured("manualRequests", "/v1/refresh-requests", { body: canonicalJSON({ protocolVersion: 1, requestID }), expectedStatus: 202, label: "manual request", method: "POST", token: secrets.readTokens[index] });
-        parseExpiryResponse(response.text);
-        pending.push({ requestID });
-        for (let followUp = 0; followUp < 10; followUp += 1) await measured("followUpReads", "/v1/snapshot", { bodyLimit: SNAPSHOT_BODY_LIMIT, expectedStatus: 200, label: "follow-up read", token: secrets.readTokens[index] });
-      }
+      pending.push(...await runManualRequestRound({
+        measured,
+        readTokens: secrets.readTokens,
+        readyAt: manualRequestReadyAt,
+      }));
     }
     if ((slot - 1) % 3 === 0) {
       const listed = parseRefreshList((await measured("requestListPolls", "/v1/refresh-requests", {
