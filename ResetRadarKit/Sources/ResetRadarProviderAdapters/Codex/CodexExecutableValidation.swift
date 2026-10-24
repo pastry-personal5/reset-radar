@@ -147,8 +147,7 @@ public struct CodexExecutableValidator: Sendable {
             throw .unavailable
         }
         guard data.starts(with: Data("#!".utf8)) else { return .native }
-        guard data.count <= Self.maximumShebangBytes,
-            let newline = data.firstIndex(of: UInt8(ascii: "\n"))
+        guard let newline = data.prefix(Self.maximumShebangBytes).firstIndex(of: UInt8(ascii: "\n"))
         else { throw .unsupportedLauncher }
         var line = data[..<newline]
         if line.last == UInt8(ascii: "\r") { line = line.dropLast() }

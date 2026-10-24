@@ -95,6 +95,20 @@ struct CodexExecutableValidationTests {
         }
     }
 
+    @Test("a launcher larger than the shebang bound is accepted when its first line is short")
+    func largeNpmLauncher() throws {
+        try withDirectory { directory in
+            let node = try executable(named: "node", data: Data([0xCF]), in: directory)
+            let script = Data(
+                ("#!/usr/bin/env node\n" + String(repeating: "//", count: 8_192)).utf8)
+            let launcher = try executable(named: "codex", data: script, in: directory)
+            let validated = try CodexExecutableValidator().validate(
+                invocationPath: launcher.path,
+                pathEnvironment: node.deletingLastPathComponent().path)
+            #expect(validated.node != nil)
+        }
+    }
+
     @Test("replacement or modification invalidates a confirmed identity")
     func replacement() throws {
         try withDirectory { directory in

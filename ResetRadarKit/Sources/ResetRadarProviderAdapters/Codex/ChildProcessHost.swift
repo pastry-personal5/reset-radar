@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public enum ChildProcessHostError: Error, Equatable, Sendable {
@@ -72,6 +73,8 @@ public final class ChildProcessSession: JSONRPCTransport, @unchecked Sendable {
     ) {
         self.process = process
         self.standardInput = standardInput
+        // A write to an exited child must fail with EPIPE, not raise SIGPIPE in the host app.
+        _ = fcntl(standardInput.fileDescriptor, F_SETNOSIGPIPE, 1)
         self.standardOutput = standardOutput
         self.standardError = standardError
         stdoutChunks = stdoutStream

@@ -65,6 +65,24 @@ struct CodexAppServerSourceSchedulingTests: CodexSourceTestHarness {
         await rig.source.stop()
     }
 
+    @Test("notification while the response is being scoped leaves one trailing refetch")
+    func notificationDuringScoping() async throws {
+        let scoper = GatedAccountScoper()
+        let rig = makeRig(scoper: scoper)
+        try await rig.source.start()
+        scoper.hold()
+        let read = Task { await rig.source.refresh() }
+        for _ in 0..<5_000 where scoper.entered < 2 { await Task.yield() }
+        #expect(scoper.entered == 2)
+        rig.session.notify(generation: 1)
+        for _ in 0..<200 { await Task.yield() }
+        scoper.release()
+        _ = await read.value
+        await waitForRateLimitReads(3, session: rig.session)
+        #expect(rig.session.rateLimitReads == 3)
+        await rig.source.stop()
+    }
+
     @Test("configuration change replaces the session generation before reading")
     func configurationChange() async throws {
         let rig = makeRig()

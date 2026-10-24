@@ -51,6 +51,16 @@ import Testing
         #expect(try reduce(nil, [report(windows: [window()])]).change == .transition)
     }
 
+    @Test func aChangedDefaultBucketLeavesOneDefaultWindowPerDuration() throws {
+        let first = try reduce(nil, [report(windows: [window(limitID: "old")])])
+        let changed = report(windows: [window(limitID: "new", observedAt: at(60))])
+        let result = try reduce(first.snapshot, [changed], now: 60)
+        let defaults = result.snapshot.windows.filter {
+            $0.isDefaultLimit && $0.durationMinutes == 300
+        }
+        #expect(defaults.map(\.limitID) == ["new"])
+    }
+
     @Test func aCodexAccountScopeChangeIsATransitionAndDropsPriorWindows() throws {
         let first = try reduce(nil, [report(windows: [window(scope: scopeA)])])
         let switched = report(windows: [window(scope: scopeB)])

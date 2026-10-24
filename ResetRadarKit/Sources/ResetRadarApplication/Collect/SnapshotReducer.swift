@@ -92,6 +92,10 @@ public enum SnapshotReducer {
         _ existing: [AllowanceWindow], with accepted: [AllowanceWindow], accountID: AccountID
     ) -> [AllowanceWindow] {
         let reportedScopes = Set(accepted.compactMap(\.scope))
+        let replacedDefaults = Set(
+            accepted.filter(\.isDefaultLimit).map {
+                DefaultSlot(accountID: $0.accountID, minutes: $0.durationMinutes)
+            })
         var remaining = Dictionary(
             accepted.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var result: [AllowanceWindow] = []
@@ -102,12 +106,27 @@ public enum SnapshotReducer {
                 result.append(replacement)
             } else if isFromReplacedScope(window, reportedScopes: reportedScopes) {
                 continue  // an account-scope change: the prior scope's windows are never merged
+            } else if movedDefault(window, in: replacedDefaults) {
+                continue  // the default bucket moved: exactly one default per duration remains
             } else {
                 result.append(window.markingRetained())
             }
         }
         result += accepted.filter { remaining[$0.id] != nil }
         return result
+    }
+
+    private static func movedDefault(
+        _ window: AllowanceWindow, in slots: Set<DefaultSlot>
+    ) -> Bool {
+        window.isDefaultLimit
+            && slots.contains(
+                DefaultSlot(accountID: window.accountID, minutes: window.durationMinutes))
+    }
+
+    private struct DefaultSlot: Hashable {
+        let accountID: AccountID
+        let minutes: Int?
     }
 
     private static func isFromReplacedScope(

@@ -77,7 +77,10 @@ public actor CodexAppServerSource: UsageSource {
             }
             readTask = task
             let receipt = await task.value
-            readTask = nil
+            if readTask == task {
+                readTask = nil
+                activeRequest = nil
+            }
             armTimer()
             return receipt
         }
@@ -104,7 +107,7 @@ public actor CodexAppServerSource: UsageSource {
         supersededRead?.cancel()
         await discardSession()
         if let supersededRead { _ = await supersededRead.value }
-        readTask = nil
+        if readTask == supersededRead { readTask = nil }
         schedule.configurationChanged(at: clock.now)
         armTimer()
     }
@@ -182,7 +185,6 @@ extension CodexAppServerSource {
         from client: any CodexRPCSession, generation expectedGeneration: UInt64
     ) async throws -> JSONValue {
         activeRequest = ActiveRequest(generation: expectedGeneration, sentAt: clock.now)
-        defer { clearActiveRequest(generation: expectedGeneration) }
         return try await readRateLimits(from: client)
     }
 
@@ -298,10 +300,6 @@ extension CodexAppServerSource {
 
     private func staleReceipt() -> ReadReceipt {
         .unavailable(sourceState: terminallyStopped ? .unavailable : schedule.sourceState)
-    }
-
-    private func clearActiveRequest(generation expectedGeneration: UInt64) {
-        if activeRequest?.generation == expectedGeneration { activeRequest = nil }
     }
 
     private func apply(_ failure: CodexSourceFailure) -> SourceState {

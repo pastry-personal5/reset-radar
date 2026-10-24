@@ -69,13 +69,20 @@ public struct CodexExecutableMetadataReader: Sendable {
         guard let core = pieces.first else { return false }
         let numbers = core.split(separator: ".", omittingEmptySubsequences: false)
         guard numbers.count == 3,
-            numbers.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isNumber) })
+            numbers.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isASCIIDigit) })
         else { return false }
         if pieces.count == 2 {
             let suffix = pieces[1]
-            let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ".-"))
-            return !suffix.isEmpty && suffix.unicodeScalars.allSatisfy(allowed.contains)
+            return !suffix.isEmpty && suffix.utf8.count <= 64
+                && suffix.utf8.allSatisfy {
+                    ($0 >= 0x30 && $0 <= 0x39) || ($0 >= 0x41 && $0 <= 0x5A)
+                        || ($0 >= 0x61 && $0 <= 0x7A) || $0 == 0x2E || $0 == 0x2D
+                }
         }
         return true
     }
+}
+
+extension Character {
+    fileprivate var isASCIIDigit: Bool { isASCII && isNumber }
 }

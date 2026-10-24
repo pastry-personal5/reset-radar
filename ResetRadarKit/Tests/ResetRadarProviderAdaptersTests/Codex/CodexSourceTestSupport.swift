@@ -149,6 +149,31 @@ final class FakeCodexRuntimeInspector: CodexRuntimeInspecting, @unchecked Sendab
     }
 }
 
+final class GatedAccountScoper: AccountScoper, @unchecked Sendable {
+    private let inner = FakeAccountScoper()
+    private let state = Locked((held: false, entered: 0))
+    private let gate = AsyncStream<Void>.makeStream()
+
+    var entered: Int { state.withLock { $0.entered } }
+    func hold() { state.withLock { $0.held = true } }
+    func release() {
+        state.withLock { $0.held = false }
+        gate.continuation.yield()
+    }
+
+    func scope(forAccountIdentifier identifier: String) async throws -> AccountScope {
+        let held = state.withLock { state in
+            state.entered += 1
+            return state.held
+        }
+        if held {
+            var iterator = gate.stream.makeAsyncIterator()
+            _ = await iterator.next()
+        }
+        return try await inner.scope(forAccountIdentifier: identifier)
+    }
+}
+
 struct CodexSourceRig {
     let source: CodexAppServerSource
     let session: FakeCodexRPCSession
@@ -164,7 +189,8 @@ extension CodexSourceTestHarness {
 
     func makeRig(
         session: FakeCodexRPCSession? = nil,
-        runtimeInspector: (any CodexRuntimeInspecting)? = nil
+        runtimeInspector: (any CodexRuntimeInspecting)? = nil,
+        scoper: any AccountScoper = FakeAccountScoper()
     ) -> CodexSourceRig {
         let session =
             session
@@ -176,7 +202,7 @@ extension CodexSourceTestHarness {
         let source = CodexAppServerSource(
             accountID: accountID, sourceVersion: "codex 0.164.0",
             factory: FakeCodexRPCSessionFactory(session: session),
-            scoper: FakeAccountScoper(), diagnostics: diagnostics, clock: clock,
+            scoper: scoper, diagnostics: diagnostics, clock: clock,
             runtimeInspector: runtimeInspector)
         return CodexSourceRig(
             source: source, session: session, clock: clock, diagnostics: diagnostics)

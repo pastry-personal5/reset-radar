@@ -68,6 +68,8 @@ public struct StoredCodexRuntimeInspector: CodexRuntimeInspecting, Sendable {
             metadata = try await metadataReader.read(
                 executable: executable, environment: configuration.environment,
                 workingDirectoryURL: workingDirectoryURL)
+        } catch CodexCommandError.timedOut, CodexCommandError.launchFailed {
+            throw CodexSourceFailure.temporarilyUnavailable
         } catch {
             throw CodexSourceFailure.incompatible
         }

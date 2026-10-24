@@ -105,10 +105,9 @@ public struct CodexExecutableLocator: Sendable {
 
     private static func parseDiscoveryOutput(_ data: Data) -> String? {
         guard var output = String(data: data, encoding: .utf8) else { return nil }
-        if output.hasSuffix("\r\n") {
-            output.removeLast(2)
-        } else if output.hasSuffix("\n") {
-            output.removeLast()
+        if output.unicodeScalars.last == "\n" {
+            output.unicodeScalars.removeLast()
+            if output.unicodeScalars.last == "\r" { output.unicodeScalars.removeLast() }
         }
         guard output.hasPrefix("/"), !output.isEmpty, !output.contains("\n"),
             !output.contains("\r"), !output.contains("\0")
