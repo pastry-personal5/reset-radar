@@ -33,7 +33,7 @@ This file is the overall plan. Each milestone gets its own overview file when it
 | P1-M9 Relay synthetic-data gate | M7, M8 | Relay, Transport | Cloudflare deployment, 30-minute measurement, billing check |
 | P1-M10 Codex adapter | M5, M7, M8 | ProviderAdapters, account contracts, refresh v2 | signed-in schema smoke test, profile selection |
 | P1-M11 Claude Code adapter | M5, M10 Checkpoint A | ProviderAdapters | signed-in status-line calibration |
-| P1-M12 Mac collector app | M6, M7, M10, M11 | Mac root | Keychain checks, eight-day re-read, timer drift |
+| P1-M12 Mac collector app | M6, M7, M10 and M11 code-complete | Mac root | Keychain checks, eight-day re-read, timer drift |
 | P1-M13 Mac UI | M12 | UI, Mac root | none |
 | P1-M14 iOS core app | M6, M7, M9, M13 | iOS root | Sideloadly seven-day re-sign |
 | P1-M15 Scheduling | M14 | Scheduling, widgets | widget, Live Activity, and background-timing checks on device |
@@ -130,12 +130,13 @@ Plan: [overview](milestone-11-claude-code-adapter-overview.md), [sequencing](mil
 
 ### P1-M12: Mac collector app
 Status: Planned
-Goal: Mac composition root, Keychain secret store, publish loop, launch-at-login opt-in, and Release signing check, with Mac Keychain validation and timer-drift measurement.
+Goal: Mac composition root, lifecycle and runtime drivers, Keychain secret store, publish loop, every owner flow (source setup, relay setup, pairing, paired devices, Keychain recovery) on functional unstyled screens, launch-at-login opt-in, and Release signing check, synthetic-only until M9 passes, with Mac Keychain validation and timer-drift measurement.
+Plan: [overview](milestone-12-mac-collector-overview.md), [sequencing](milestone-12-mac-collector-sequence.md), [Mac app](../architecture/mac-app.md)
+Notes: Mac reset notifications move to P1-M15.
 
 ### P1-M13: Mac UI
 Status: Planned
-Goal: Split Account List and Account Details, rings, sidebar, per-account menu-bar status, alias
-editing, and Settings.
+Goal: Polish the functional M12 screens without changing behavior: split Account List and Account Details, rings, sidebar, per-account menu-bar status, alias editing, and Settings styling.
 
 ### P1-M14: iOS core app
 Status: Planned
@@ -144,7 +145,7 @@ Setup Banner, and Main Toolbar screens; re-enables the iPhone and iPad test runs
 
 ### P1-M15: Scheduling
 Status: Planned
-Goal: Reset notifications, background refresh, widgets, and Live Activities, with their shared-state validation.
+Goal: Reset notifications (including the Mac `NotificationDriver` moved from P1-M12), background refresh, widgets, and Live Activities, with their shared-state validation.
 
 ### P1-M16: Watch
 Status: Planned
