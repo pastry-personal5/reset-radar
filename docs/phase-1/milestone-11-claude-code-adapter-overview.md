@@ -367,6 +367,18 @@ it lands first and is explicitly referenced from the M11 implementation record.
   and P1-M11 moves to `Done` only after every required item has evidence.
 - [x] The root `Makefile` exposes the documented local validation commands through named `.PHONY`
   targets, and its aggregate gate matches the contribution guide.
+- [x] The composed-command termination regression uses the launched child's process identifier
+  directly and proves termination reaps only that child without output or a filesystem race.
+  Evidence: the focused SwiftPM test passed 10 consecutive runs, and the named test passed in the
+  macOS Xcode test run.
+- [x] `make test` uses built-in quiet modes without hiding failures and passes repeated complete
+  macOS and relay test runs without a flaky failure. Evidence: the Codex privacy suite passed 10
+  consecutive focused runs, and three consecutive `make test` runs each passed 655 Swift tests,
+  both relay suites, and the composed-child termination regression with about 105 output lines.
+- [x] The Claude Code timeout, interrupted-restore, and helper-install regressions pass together
+  without being failed by the concurrent composed-child termination regression. Evidence: all
+  three passed together 10 consecutive times, the complete 655-test Mac suite passed 10
+  consecutive times, and the complete contribution-guide gate passed on 2026-10-25.
 - [ ] The `test_runner` passes the complete contribution-guide gate from the final reviewable
   worktree; focused ProviderAdapters/helper tests, `git diff --check`, and relative Markdown
   links also pass.

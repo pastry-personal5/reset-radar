@@ -206,28 +206,31 @@ struct StatusLineHelperTests {
         }
     }
 
-    @Test func terminationReapsOnlyTheChildAndPrintsNothing() async throws {
-        try await withAsyncTrustedHome { home in
+    @Test func terminationReapsOnlyTheChildAndPrintsNothing() throws {
+        try withTrustedHome { home in
             let validator = ExecutableIdentityValidator(homeDirectory: home)
-            let pidFile = home.appending(path: "pid")
-            let script = "#!/bin/sh\necho $$ > '\(pidFile.path)'\nexec sleep 30\n"
+            let script = "#!/bin/sh\nexec /bin/sleep 30\n"
             let line = try writeExecutable(script, at: home.appending(path: "slow"))
-            let out = openFile(home.appending(path: "o"))
-            let err = openFile(home.appending(path: "e"))
+            let outURL = home.appending(path: "o")
+            let errURL = home.appending(path: "e")
+            let out = openFile(outURL)
+            let err = openFile(errURL)
             let runner = try ComposedCommandRunner(
                 executablePath: line.path, validator: validator, environment: [:],
                 workingDirectory: nil, standardOutput: out, standardError: err)
-            for _ in 0..<200 where !FileManager.default.fileExists(atPath: pidFile.path) {
-                try await Task.sleep(for: .milliseconds(10))
-            }
-            let pid = pid_t(
-                try String(contentsOf: pidFile, encoding: .utf8).trimmingCharacters(
-                    in: .whitespacesAndNewlines))!
+            let pid = runner.processIdentifier
             runner.terminate()
             // After terminate returns the child is reaped: signalling it fails.
-            #expect(kill(pid, 0) == -1)
+            let signalResult = kill(pid, 0)
+            let signalError = errno
+            #expect(signalResult == -1)
+            #expect(signalError == ESRCH)
             #expect(runner.write(Data("x".utf8)) == false)
             #expect(runner.waitForExit() == 128 + SIGTERM)
+            try out.close()
+            try err.close()
+            #expect(try Data(contentsOf: outURL).isEmpty)
+            #expect(try Data(contentsOf: errURL).isEmpty)
         }
     }
 

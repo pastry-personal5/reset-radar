@@ -32,13 +32,13 @@ imports:
 	Scripts/check-imports.sh
 
 test-mac:
-	xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
+	@xcodebuild -quiet test -scheme ResetRadarMac -destination 'platform=macOS'
 
 relay-install:
 	npm --prefix relay ci
 
 relay-test:
-	npm --prefix relay test
+	@npm --prefix relay --silent test
 
 relay-typecheck:
 	npm --prefix relay run typecheck

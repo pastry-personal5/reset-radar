@@ -18,6 +18,8 @@ public final class ComposedCommandRunner: @unchecked Sendable {
     private var terminated = false
     private let exited = DispatchSemaphore(value: 0)
 
+    var processIdentifier: pid_t { process.processIdentifier }
+
     /// Revalidates `executablePath` with `validator`, then launches it.
     public init(
         executablePath: String, validator: ExecutableIdentityValidator,
