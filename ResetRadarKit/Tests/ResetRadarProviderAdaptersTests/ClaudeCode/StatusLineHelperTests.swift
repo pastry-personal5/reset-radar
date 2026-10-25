@@ -73,6 +73,20 @@ private let echoChild = "#!/bin/sh\ncat\nprintf 'child-err' >&2\nexit 7\n"
 
 @Suite("Claude Code status-line helper")
 struct StatusLineHelperTests {
+    @Test func helperSelectsTheAppDataDirectoryForEachBuildFlavor() {
+        let home = URL(filePath: "/Users/owner")
+        #expect(
+            StatusLineHelperConfiguration.applicationSupportRoot(
+                homeDirectory: home, isDevelopmentBuild: true
+            ).path
+                == "/Users/owner/Library/Application Support/ResetRadar.dev")
+        #expect(
+            StatusLineHelperConfiguration.applicationSupportRoot(
+                homeDirectory: home, isDevelopmentBuild: false
+            ).path
+                == "/Users/owner/Library/Application Support/ResetRadar")
+    }
+
     @Test func withoutACommandItRecordsPrintsNothingAndSucceeds() throws {
         try withTrustedHome { home in
             let rig = try HelperRig(home)

@@ -13,6 +13,17 @@ public struct StatusLineHelperConfiguration: Sendable {
     public let environment: [String: String]
     public let workingDirectory: URL?
 
+    /// The app and its embedded helper must select the same per-build data namespace.
+    public static func applicationSupportRoot(
+        homeDirectory: URL, isDevelopmentBuild: Bool
+    ) -> URL {
+        homeDirectory
+            .appending(path: "Library/Application Support", directoryHint: .isDirectory)
+            .appending(
+                path: isDevelopmentBuild ? "ResetRadar.dev" : "ResetRadar",
+                directoryHint: .isDirectory)
+    }
+
     public init(
         rootDirectory: URL, homeDirectory: URL, environment: [String: String],
         workingDirectory: URL? = nil

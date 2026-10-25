@@ -12,8 +12,14 @@ private func ownerHomeDirectory() -> URL {
 }
 
 private let home = ownerHomeDirectory()
+#if DEBUG
+    private let isDevelopmentBuild = true
+#else
+    private let isDevelopmentBuild = false
+#endif
 private let configuration = StatusLineHelperConfiguration(
-    rootDirectory: home.appending(path: "Library/Application Support/ResetRadar"),
+    rootDirectory: StatusLineHelperConfiguration.applicationSupportRoot(
+        homeDirectory: home, isDevelopmentBuild: isDevelopmentBuild),
     homeDirectory: home, environment: ProcessInfo.processInfo.environment,
     workingDirectory: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
 private let cancellation = StatusLineHelperCancellation()

@@ -184,7 +184,7 @@ The current-data window is fifteen minutes, confirmed by the 2026-10-25 two-prof
 
 ## Claude Code status line
 
-**Installation.** The Mac app embeds `ResetRadarStatusLine` and copies it to its flavor-specific Application Support `bin/reset-radar-statusline` path. On a normal launch it installs a missing copy or refreshes a content mismatch; preview retries that preparation after the existing settings pass the safety checks. An installation failure is reported without changing Claude Code settings. Claude Code settings reference the stable copy, not a path inside the app bundle, so a manual app update cannot break the command. Because the path contains a space, the recorded command is the quoted absolute path.
+**Installation.** The Mac app embeds `ResetRadarStatusLine` and copies it to its flavor-specific Application Support `bin/reset-radar-statusline` path. The helper uses the same build flavor to select its session-record root (`ResetRadar.dev` for Development and `ResetRadar` for Release), matching the collector's namespace. On a normal launch it installs a missing copy or refreshes a content mismatch; preview retries that preparation after the existing settings pass the safety checks. An installation failure is reported without changing Claude Code settings. Claude Code settings reference the stable copy, not a path inside the app bundle, so a manual app update cannot break the command. Because the path contains a space, the recorded command is the quoted absolute path.
 
 **Guided setup.** `ClaudeCodeConfigurator` is owner-confirmed. It detects the current settings,
 presents the exact change, stores only the prior `statusLine` setting in an owner-only,

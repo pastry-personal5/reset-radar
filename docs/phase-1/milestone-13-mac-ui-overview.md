@@ -16,6 +16,11 @@ the owner-facing Sources settings layout.
 
 ## Completion checklist
 
+- [x] Ensure the bundled status-line helper writes session records into the same Development or
+  Release Application Support directory that the Mac collector reads. Evidence: the focused
+  helper test passed for both paths, and the complete escalated `make gate` passed on 2026-10-25
+  (project generation, Swift format, strict lint, imports, Mac tests, relay tests, TypeScript, and
+  Wrangler dry run).
 - [x] Claude Code Sources accepts the owner's existing `bash $HOME/<script>` status line only
   when the script is trusted and its output matches direct execution on the synthetic payload;
   the confirmed Settings action edits only the user `statusLine` command, preserves the prior
