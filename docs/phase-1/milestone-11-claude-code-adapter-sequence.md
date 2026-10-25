@@ -50,7 +50,9 @@ contracts rather than deciding them twice. Set M11 to `Active` only when impleme
 M10 already added the direct local Domain/Application test dependencies; add only the approved
 CryptoKit dependency to the production target and its architecture note.
 Record public Swift, Xcode, and Claude Code version strings without executable paths, settings,
-session IDs, or account data. Have the `test_runner` execute the complete clean baseline gate.
+session IDs, or account data. The Claude Code version recorded here is owner-run milestone
+evidence, not a `ClaudeCodeConfigurator` input or runtime discovery contract. Have the
+`test_runner` execute the complete clean baseline gate.
 
 Done when the overview entry criteria contain concrete evidence and no open decision is embedded
 as an implementation assumption.
@@ -247,9 +249,10 @@ Implement these setup seams after the approved generic Application preview contr
   (decision 11); `remove(accountID:)` follows decision 11; and a restore conflict throws the typed
   error approved in decision 1. It reports rather than editing a custom/higher-precedence configuration the
   owner identifies or it can prove, discloses that it cannot establish the absence of project,
-  command-line, or managed overrides without forbidden discovery, and probes the public Claude Code
-  version under fixed time/output bounds, but never starts an interactive session or reads provider
-  state.
+  command-line, or managed overrides without forbidden discovery, and never invokes Claude Code,
+  probes its installed version, starts an interactive session, or reads provider state. Public
+  Claude Code version provenance comes only from the decoded version delivered in each status-line
+  observation and retained with that observation through recording and merging.
 
 For an absent status line, preview creation of `{ "type": "command", "command": <quoted stable
 helper> }`. For an accepted object, preview replacement of only `statusLine.command`, keeping every

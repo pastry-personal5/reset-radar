@@ -183,7 +183,15 @@ The current-data window is fifteen minutes, confirmed by the 2026-10-25 two-prof
 
 **Installation.** The Mac app embeds `ResetRadarStatusLine` and copies it to `~/Library/Application Support/ResetRadar/bin/reset-radar-statusline`. It refreshes the copy on launch when its version differs and reports a mismatch in Settings. Claude Code settings reference that stable copy, not a path inside the app bundle, so a manual app update cannot break the command. Because the path contains a space, the recorded command is the quoted absolute path.
 
-**Guided setup.** `ClaudeCodeConfigurator` is owner-confirmed. It detects the current settings and Claude Code version, presents the exact change, stores only the prior `statusLine` setting in an owner-only, timestamped restore record, and modifies that setting only after confirmation. It never makes a whole-settings backup, because unrelated settings may contain secrets. An atomic settings update preserves every unrelated field without exporting it to Reset Radar's storage or diagnostics. Restore changes only the `statusLine` setting back, leaving unrelated later edits intact.
+**Guided setup.** `ClaudeCodeConfigurator` is owner-confirmed. It detects the current settings,
+presents the exact change, stores only the prior `statusLine` setting in an owner-only,
+timestamped restore record, and modifies that setting only after confirmation. Setup neither
+invokes Claude Code nor probes its installed version. Each status-line observation supplies its
+actual public Claude Code version, which stays attached to that observation through recording and
+merging. It never makes a whole-settings backup, because unrelated settings may contain secrets.
+An atomic settings update preserves every unrelated field without exporting it to Reset Radar's
+storage or diagnostics. Restore changes only the `statusLine` setting back, leaving unrelated
+later edits intact.
 
 When a status-line command already exists, the configurator first parses it without invoking a shell. Automatic composition accepts only a single executable path, either absolute or beginning with `~/` for owner-home expansion, with no arguments, environment assignments, other variable expansion, redirection, pipe, or shell operator. The resolved file must be an existing regular executable owned by the user inside the owner's home directory, with every ancestor owned by the user or root and not writable by group or other; system-installed and root-owned executables are not composed. Any command that contains an inline token or whose shape cannot be proved safe is left untouched, and setup explains that automatic composition is unavailable. For an accepted command, the helper's `statusline-compose.json` stores only the resolved executable path, never a shell string. The installer runs the original executable and the composed helper against a synthetic payload and installs only if their visible output matches. The restore record is likewise written only after this safety check. If validation fails, Claude Code remains unavailable and the existing command is untouched.
 

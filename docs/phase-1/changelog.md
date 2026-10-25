@@ -6,6 +6,16 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Owner/Codex — Resolved the surfaced P1-M11 Claude Code version-discovery
+  inconsistency as a documentation correction. Guided setup does not invoke `claude --version` or
+  otherwise probe the installed Claude Code version because no setup contract consumes it. Each
+  decoded status-line observation supplies its actual public version, and recording and merging
+  preserve that observation provenance. Owner-run public version collection remains milestone
+  evidence only. Updated the binding ProviderAdapters architecture, M11 sequence, overview
+  decision 12, and completion evidence; no production behavior changed. The complete gate passed
+  project generation, Swift format, strict SwiftLint with zero violations across 286 files, import
+  checks, macOS tests, 28 Workers tests, 31 relay Node tests, TypeScript checks, and Wrangler
+  dry-run. Diff hygiene and relative links in all four changed documents passed.
 - 2026-10-25 — Codex — Reviewed and hardened the P1-M11 implementation. Setup now keeps its
   restore transaction pending until the Claude Code account row is durable, configuration
   inspection requires that row, same-preview recovery completes interrupted installs only after

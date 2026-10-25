@@ -294,9 +294,21 @@ it lands first and is explicitly referenced from the M11 implementation record.
     throws a typed error, changing no setting, while a Reset Radar installation is still active, so
     the owner restores first. Replace is not offered for Claude Code (there is one status line).
     The Mac app (M12) reads the `AccountID` from the catalog; the helper never does.
+12. **Setup-time Claude Code version discovery.** *Owner-approved 2026-10-25: documentation
+    correction, no probe.* Guided setup reads and edits only its approved settings and helper
+    artifacts; it does not invoke `claude --version` or otherwise discover the installed Claude
+    Code version. The decoder obtains the actual public version from each status-line observation,
+    and the recorder and merger preserve that version as observation provenance. Public version
+    strings gathered by owner-run milestone tooling remain evidence only and do not create a
+    runtime setup contract.
 
 ## Completion checklist
 
+- [x] The binding architecture and M11 sequence state that guided setup does not probe the
+  installed Claude Code version. Version provenance comes only from each decoded status-line
+  observation, so setup has no undefined `claude --version` discovery contract. Evidence: owner
+  decision 12, ProviderAdapters guided setup, sequence Tasks 0 and 4, the passing complete gate,
+  diff hygiene, and relative-link validation.
 - [x] Entry criteria hold with recorded owner decisions, baseline evidence, and no pre-existing
   M9/M10 work attributed to M11. Evidence: the entry criteria above; no M9/M10 work is attributed to M11.
 - [x] One status-line input pump forwards complete input byte-for-byte to an approved composed
