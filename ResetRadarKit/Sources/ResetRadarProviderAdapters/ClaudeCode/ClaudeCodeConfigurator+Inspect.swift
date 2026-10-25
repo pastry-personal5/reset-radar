@@ -59,7 +59,16 @@ extension ClaudeCodeConfigurator {
     /// The identity of a parseable, trusted existing command; throws for anything unprovable.
     func trustedExecutable(for command: String) throws -> ExecutableIdentity {
         let path = try ExistingStatusLineParser.parse(command, homeDirectory: paths.homeDirectory)
-        return try validator.identity(of: path)
+        let identity = try validator.identity(of: path)
+        if ExistingStatusLineParser.isBashHomeScript(command) {
+            let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: path))
+            defer { try? handle.close() }
+            guard try handle.read(upToCount: 12) == Data("#!/bin/bash\n".utf8) else {
+                throw ExistingStatusLineParseError.unsupported
+            }
+            _ = try validator.revalidate(identity)
+        }
+        return identity
     }
 
     /// Classifies the current setting for a preview: nil when the setting is absent or already
@@ -93,7 +102,9 @@ extension ClaudeCodeConfigurator {
             guard let identity = try? trustedExecutable(for: command) else {
                 throw ConfigureSourcesError.unsafeExistingConfiguration
             }
-            return Existing(rawCommand: command, identity: identity)
+            return Existing(
+                rawCommand: command, identity: identity,
+                runsThroughBash: ExistingStatusLineParser.isBashHomeScript(command))
         }
     }
 
@@ -137,7 +148,9 @@ extension ClaudeCodeConfigurator {
     }
 
     func requireCurrentHelper() throws {
-        guard (try? installer.state()) == .current else {
+        do {
+            try installer.ensureCurrent()
+        } catch {
             throw ClaudeCodeConfiguratorError.helperNotCurrent
         }
     }

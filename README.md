@@ -6,7 +6,20 @@ Reset Radar monitors Codex and Claude Code allowance usage across your Mac, iPho
 
 The Collector Mac reads coding-allowance data from Codex and Claude Code without copying provider credentials. Reset Radar shares encrypted, timestamped readings with the owner's iPhone, iPad, and Apple Watch, where it shows Percentage Used, Reset Times, and data state in apps, widgets, Reset Live Activities, and an Allowance Complication.
 
-The project is in its Foundation phase: the product and architecture are defined, and the Xcode project, `ResetRadarKit` package, and relay are scaffolded as empty-but-real targets with no product behavior yet. It is designed for personal sideloading with a free Apple account, not App Store or TestFlight distribution.
+The project is in its Foundation phase. The Mac collector, local package, and Cloudflare relay are implemented; mobile apps are still in progress. It is designed for personal sideloading with a free Apple account, not App Store or TestFlight distribution. The Mac main window and Settings share a Global Messages pane for collector and setup status, including the reason publication stops safely. Mac Settings offers a Codex source table with login-shell executable discovery and a Claude Code connection card; review the selected `CODEX_HOME` in the [installation guide](docs/mac-installation-and-recovery.md#configure-sources).
+Mac Settings groups each section's controls into titled cards above Global Messages.
+The Mac Home account list and selected details refresh as the collector commits new readings;
+alias edits from Home or Sources update both open views.
+Claude Code setup verifies its local helper, then directly edits `~/.claude/settings.json` from
+Settings after an exact preview and confirmation. It preserves a safe existing status-line
+command, including a trusted `bash $HOME/<script>` form, and explains when composition is blocked.
+Home rows show five-hour and weekly Percentage Used when those provider windows have readings.
+Local Mac readings do not require relay setup; the relay publishes them to other devices.
+
+The Mac app keeps a redacted troubleshooting history for up to eight days. Find its active folder
+in Settings → Diagnostics; Development uses `~/Library/Logs/ResetRadar.dev/` and Release uses
+`~/Library/Logs/ResetRadar/`. See the [contribution guide](docs/contribution-guide.md) for a
+local inspection command.
 
 ## Documentation
 

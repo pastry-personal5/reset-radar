@@ -85,7 +85,7 @@ Status: Done
 Goal: Create the Xcode project, all composition-root and test targets, the `ResetRadarKit` package, the relay package, SwiftLint and swift-format config, and a complete gate that passes with no deferrals and matches the P1-M2 architecture.
 Plan: [overview](milestone-03-scaffolding-overview.md), [sequencing](milestone-03-scaffolding-sequence.md), [repository layout](../architecture/repository-layout.md)
 
-The remaining milestones are planned only; each gets an overview file when it starts. The Mac is built before iOS. The iOS, iPad, and Watch `xcodebuild test` runs are suspended in the gate until P1-M14 re-enables the iOS and iPad runs and P1-M16 the Watch run.
+Milestones receive overview files when they start. The Mac is built before iOS. The iOS, iPad, and Watch `xcodebuild test` runs are suspended in the gate until P1-M14 re-enables the iOS and iPad runs and P1-M16 the Watch run.
 
 ### P1-M4: Domain model
 Status: Done
@@ -135,9 +135,10 @@ Plan: [overview](milestone-12-mac-collector-overview.md), [sequencing](milestone
 Notes: Mac reset notifications move to P1-M15.
 
 ### P1-M13: Mac UI
-Status: Planned
+Status: Active
 Goal: Polish the functional M12 screens without changing behavior: Account List and Account
 Details layout, rings, sidebar, per-account menu-bar status, alias editing, and Settings styling.
+Plan: [overview](milestone-13-mac-ui-overview.md), [implementation plan](milestone-13-mac-ui-architecture.md)
 
 ### P1-M14: iOS core app
 Status: Planned

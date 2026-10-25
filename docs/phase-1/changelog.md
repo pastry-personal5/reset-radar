@@ -6,6 +6,67 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Owner/Codex — Reset Radar Settings directly edits the default Claude Code user
+  settings file after exact preview and confirmation. The owner's current `bash $HOME/<script>`
+  status-line command exposed the previous single-path parser limit. The approved narrow form now
+  validates the owner-owned script and Bash shebang, compares the original Bash invocation with
+  direct helper execution on synthetic input, retains the original command for restore, and leaves
+  broader shell commands untouched. The installed command's synthetic Bash and direct executions
+  matched privately; the complete delegated gate passed 703 Mac tests, strict formatting and
+  lint, import checks, 59 relay tests, TypeScript, and Wrangler dry run.
+
+- 2026-10-25 — Codex — Fixed Claude Code Sources preview preparation. Production had created
+  a helper installer but never invoked it, so a missing helper blocked preview; the generic UI
+  error also hid an existing command that uses shell arguments and expansion. Normal Mac launch
+  and safe preview now install or refresh the verified helper, while preview explains helper and
+  existing-command failures separately. Unsafe owner settings remain untouched. The focused
+  configurator restore suite and delegated complete contribution-guide gate passed.
+
+- 2026-10-25 — Codex — Investigated unavailable Mac rings after source setup. The saved
+  Development `CODEX_HOME` had trailing whitespace, pointed to a missing directory, and the
+  Codex child exited before producing windows. Sources now rejects surrounding whitespace and
+  missing directories before discovery and offers confirmed Change Home replacement of an
+  existing account. The inactive-publication message now states that local readings remain on
+  the Mac and directs relay setup to Settings. Focused Mac tests, the complete delegated gate,
+  and diff hygiene passed.
+
+- 2026-10-25 — Codex — Fixed Mac Codex Add discovery for an owner-installed executable outside
+  the standard Homebrew paths. The Mac now supplies the current user's login shell to the
+  existing bounded `command -v codex` lookup while preserving the selected `CODEX_HOME`,
+  allowlisted launch environment, validator, and exact confirmation preview. Focused Mac tests,
+  the complete delegated contribution-guide gate, and diff hygiene passed.
+
+- 2026-10-25 — Codex — Added a Mac-only troubleshooting log with separate Development and
+  Release `~/Library/Logs` locations, typed startup/runtime/publication/diagnostic records,
+  owner-only permissions, daily and size rotation, and an eight-UTC-day limit. Diagnostics
+  Settings exposes the active folder so local coding agents can investigate failures. Log
+  fields omit provider identities, usage, paths, secrets, and raw error text. Four focused log
+  tests and the delegated full gate passed, including strict lint, Mac tests, 59 relay tests,
+  TypeScript, and the Wrangler dry run.
+
+- 2026-10-25 — Codex — The Mac Global Messages Pane now reports typed publication stop and
+  pause reasons, including relay conflict, authorization failure, rejected payload, incompatible
+  protocol, oversized envelope, unavailable secrets, and inactive publisher state. The Mac driver
+  reports only a changed blocking outcome and a later recovery for ordinary or reader-requested
+  publication; startup and relay activation also use fixed reason-specific copy rather than
+  exposing raw errors or relay responses. The delegated complete gate passed project generation,
+  format, strict lint, imports, Mac tests, relay tests, TypeScript, and the Wrangler dry run.
+
+- 2026-10-25 — Codex — Added the P1-M13 Global Messages Pane to the Mac main and Settings
+  detail columns. One bounded, session-local history follows collector lifecycle and curated
+  owner-flow messages across both windows and collector rebuilds; inline duplicate status text
+  moved into the pane. No provider responses or secret values are copied into it. The delegated
+  complete gate passed project generation, format, strict lint, imports, Mac tests, relay tests,
+  TypeScript, and the Wrangler dry run.
+
+- 2026-10-25 — Codex — Started P1-M13 Mac UI with the Sources settings layout. The Codex card
+  presents configured aliases and selected Home Folders in a table with a bitmap Add control and
+  an editable draft row. The Claude Code card groups its guided connection and restore actions.
+  Discovery, exact-change preview, confirmation, source limits, and local-only configuration are
+  retained; the Mac installation guide reflects the new flow. The delegated complete gate passed
+  project generation, format, strict lint, imports, Mac tests, relay tests, TypeScript, and the
+  Wrangler dry run.
+
 - 2026-10-25 — Codex — Post-implementation review hardened the M12 owner flows: pairing now
   stops activation polling and conditionally clears any copied pairing package when its screen
   hides, while an independent deadline remains armed for expiry revocation. Sources Settings now

@@ -108,6 +108,9 @@ The Application ports that Storage implements are transactional. `ReaderStore`, 
 **`DefaultsPreferenceStore`** wraps App Group or target-local `UserDefaults` with typed keys. Notification opt-in is stored per `AccountWindow` and per device, and is never synchronized. Device-local Account Details selection and widget configuration use stable `AccountID` values; removal makes a dependent surface unavailable rather than silently retargeting it.
 
 **`LogDiagnosticsSink`** forwards `DiagnosticEvent`s to unified logging with privacy markers, and keeps a bounded ring-buffer file for the confirmed diagnostics export. Because events carry no free-form strings (see [Domain](domain.md#records)), the sink cannot log a token, path, or payload.
+The Mac composition root supplies a build-specific OSLog subsystem and a typed-event callback
+to its separate [rotating troubleshooting log](mac-app.md#local-troubleshooting-log). The callback
+omits account and product fields even though the in-app diagnostic event can contain them.
 
 ## Facades and bounds
 

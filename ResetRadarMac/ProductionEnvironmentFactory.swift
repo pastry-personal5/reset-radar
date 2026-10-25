@@ -58,10 +58,13 @@ private actor SyntheticUsageSource: UsageSource {
 }
 
 private actor RuntimeEventRouter {
+    let log: MacRotatingLog
     var sources: SourceRuntime?
     var publication: PublicationDriver?
     var manual: ManualRequestDriver?
     var retry: SecretRetryDriver?
+
+    init(log: MacRotatingLog) { self.log = log }
 
     func configure(
         sources: SourceRuntime, publication: PublicationDriver, manual: ManualRequestDriver,
@@ -76,19 +79,24 @@ private actor RuntimeEventRouter {
     func workspace(_ event: WorkspaceEvent) async {
         switch event {
         case .woke:
+            await log.record(.lifecycle(.wake))
             await manual?.wake()
             await sources?.refresh(.wake)
             await publication?.trigger(.wake)
         case .sessionActive:
+            await log.record(.lifecycle(.sessionActive))
             await retry?.loginSessionBecameActive()
         case .foreground:
+            await log.record(.lifecycle(.foreground))
             await sources?.refresh(.foreground)
         case .sleeping:
+            await log.record(.lifecycle(.sleeping))
             await manual?.update(ready: true, hasReaders: true, sleeping: true)
         }
     }
 
     func networkRestored() async {
+        await log.record(.lifecycle(.networkRestored))
         await publication?.trigger(.networkRestored)
     }
 }
@@ -118,21 +126,24 @@ enum ProductionEnvironmentFactory {
     }
 
     @MainActor
-    static func make(mode: PublishingMode) async throws -> MacEnvironment {
-        let core = try makeCore()
+    static func make(
+        mode: PublishingMode, messages: GlobalMessageCenter, log: MacRotatingLog
+    ) async throws -> MacEnvironment {
+        let core = try makeCore(log: log)
+        if mode != .synthetic {
+            ClaudeCodeHelperPreparation.onLaunch(
+                rootDirectory: core.locations.directory, messages: messages)
+        }
         let selected = try await makeSources(mode: mode, core: core)
-        let runtime = try await makeRuntime(core: core, selected: selected)
-        return try await makeEnvironment(mode: mode, core: core, runtime: runtime)
+        let homeUpdates = HomeSnapshotUpdates()
+        let runtime = try await makeRuntime(
+            core: core, selected: selected, messages: messages, homeUpdates: homeUpdates)
+        return try await makeEnvironment(
+            mode: mode, core: core, runtime: runtime, log: log, homeUpdates: homeUpdates)
     }
 
-    private static func makeCore() throws -> Core {
-        let flavor: MacBuildFlavor = {
-            #if DEBUG
-                .development
-            #else
-                .release
-            #endif
-        }()
+    private static func makeCore(log: MacRotatingLog) throws -> Core {
+        let flavor = MacBuildFlavor.current
         let locations = flavor.storage
         try FileManager.default.createDirectory(
             at: locations.directory, withIntermediateDirectories: true,
@@ -140,7 +151,9 @@ enum ProductionEnvironmentFactory {
         let clock = SystemAppClock()
         let publisher = FilePublisherStore(locations: locations)
         let snapshots = FileSnapshotStore(locations: locations)
-        let diagnostics = LogDiagnosticsSink(locations: locations)
+        let diagnostics = LogDiagnosticsSink(
+            locations: locations, subsystem: flavor.logSubsystem,
+            onRecord: { event in await log.record(.diagnostic(event)) })
         let keychainBuild: KeychainSecretStore.Build = {
             if case .release = flavor { return .release }
             return .debug
@@ -164,7 +177,8 @@ enum ProductionEnvironmentFactory {
     }
 
     private static func makeRuntime(
-        core: Core, selected: SelectedSources
+        core: Core, selected: SelectedSources, messages: GlobalMessageCenter,
+        homeUpdates: HomeSnapshotUpdates
     ) async throws -> Runtime {
         let state = try await core.publisher.load()
         let collectorPublisherID: PublisherID
@@ -181,17 +195,27 @@ enum ProductionEnvironmentFactory {
             clock: core.clock, loadSnapshot: { try await core.snapshots.load() },
             publish: { snapshot, change, trigger in
                 await core.publishing.publish(snapshot, change: change, trigger: trigger)
+            },
+            reportOutcome: { outcome in
+                await messages.reportPublication(outcome)
             })
         let sourceRuntime = SourceRuntime(
             sources: selected.sources, ingest: { try await collector.ingest($0) },
-            didCollect: { await publication.collected($0) })
+            didCollect: { result in
+                await homeUpdates.didCollect(result.snapshot)
+                await publication.collected(result)
+            })
         let handler = HandleManualRefreshRequests(
             publisher: core.publisher, snapshots: core.snapshots, collector: collector,
             sources: selected.sources, publishing: core.publishing, secrets: core.secrets,
             relay: core.relay, clock: core.clock)
         let manual = ManualRequestDriver(
             poll: { await pollRequests(core: core) },
-            handle: { await handler.handle(pending: $0) })
+            handle: { pending in
+                let outcome = await handler.handle(pending: pending)
+                await publication.reportManualOutcome(outcome)
+                return outcome
+            })
         await manual.update(
             ready: state.lifecycle == .active, hasReaders: !state.devices.isEmpty, sleeping: false)
         return Runtime(sources: sourceRuntime, publication: publication, manual: manual)
@@ -199,9 +223,10 @@ enum ProductionEnvironmentFactory {
 
     @MainActor
     private static func makeEnvironment(
-        mode: PublishingMode, core: Core, runtime: Runtime
+        mode: PublishingMode, core: Core, runtime: Runtime, log: MacRotatingLog,
+        homeUpdates: HomeSnapshotUpdates
     ) async throws -> MacEnvironment {
-        let router = RuntimeEventRouter()
+        let router = RuntimeEventRouter(log: log)
         let retry = SecretRetryDriver { await runtime.publication.trigger(.heartbeat) }
         let wake = WakeMonitor(events: SystemWorkspaceEvents()) {
             await router.workspace($0)
@@ -217,7 +242,8 @@ enum ProductionEnvironmentFactory {
         let instanceLock = SingleInstanceLock(
             fileURL: lockURL,
             activator: DistributedFirstInstanceActivator(notificationName: activationName))
-        let ownerFlows = makeOwnerFlows(core: core, runtime: runtime)
+        let ownerFlows = makeOwnerFlows(
+            core: core, runtime: runtime, homeUpdates: homeUpdates)
         return MacEnvironment(
             publishingMode: mode, instanceLock: instanceLock,
             appNap: AppNapGuard(controller: SystemProcessActivityController()),
@@ -229,7 +255,9 @@ enum ProductionEnvironmentFactory {
 
     @MainActor
     // swiftlint:disable:next function_body_length
-    private static func makeOwnerFlows(core: Core, runtime: Runtime) -> OwnerFlowModels {
+    private static func makeOwnerFlows(
+        core: Core, runtime: Runtime, homeUpdates: HomeSnapshotUpdates
+    ) -> OwnerFlowModels {
         let runner = FoundationCodexCommandRunner(clock: core.clock)
         let selections = CodexDiscoverySelections(workingDirectory: core.locations.directory)
         let codex = CodexConfigurator(
@@ -260,12 +288,15 @@ enum ProductionEnvironmentFactory {
             catalogStore: core.catalog, snapshots: core.snapshots, clock: core.clock)
         let homeModel = HomeViewModel(
             catalog: core.catalog, snapshots: core.snapshots, aliases: aliases,
-            publication: runtime.publication)
+            publication: runtime.publication, updates: homeUpdates)
+        let sourceModel = SourceSetupViewModel(
+            selections: selections, configure: configure, catalog: core.catalog,
+            aliases: aliases, publication: runtime.publication,
+            codexConfigurations: core.catalog, updates: homeUpdates)
+        homeUpdates.connect(home: homeModel, sources: sourceModel)
         return OwnerFlowModels(
             home: homeModel, general: LoginItemViewModel(manager: SystemLoginItemManager()),
-            sources: SourceSetupViewModel(
-                selections: selections, configure: configure, catalog: core.catalog,
-                aliases: aliases, publication: runtime.publication),
+            sources: sourceModel,
             relay: RelaySetupViewModel(
                 setup: setup, publication: runtime.publication,
                 runningTeamIdentifier: {

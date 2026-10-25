@@ -223,6 +223,19 @@ The owner resolved the implementation choices on 2026-10-24. These are binding:
 
 ## Completion checklist
 
+- [x] A synthetic regression fixture modeled on the sanitized live owner-selected Codex response
+  passes the inbound frame decoder, account-status decoder, rate-limit decoder, and normalizer;
+  ignored additive fields cannot cause an `incompatible` result. Evidence: the bounded live
+  one-read probe stayed within every frame and structure limit, the focused observed-shape test
+  passed, and the complete contribution-guide gate passed with zero SwiftLint violations.
+- [x] Live Codex app-server replies without a `jsonrpc` member are accepted after bounded
+  structural validation, while an explicit wrong version and malformed envelopes still fail
+  closed. A regression test covers the installed response shape and the Mac setup preview makes
+  the selected `CODEX_HOME` visible before apply. Evidence: a sanitized live probe of the
+  installed Codex 0.164.0 response shapes, five protocol and six client tests, the complete
+  contribution-guide gate, and a signed Release build with a matching helper and installed-app
+  team identity. After installation, the previously incompatible saved Codex source reported
+  `reporting` in the Release snapshot.
 - [ ] Entry criteria hold with recorded owner decisions, baseline evidence, and no unrelated
   work attributed to M10.
 - [ ] Owner-confirmed discovery selects at most two approved executable/profile environments,

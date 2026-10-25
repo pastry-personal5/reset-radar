@@ -48,8 +48,61 @@ private final class FakePairingPasteboard: PairingPasteboard {
     }
 }
 
+private struct FailingClaudePreviewConfigurator: SourceConfigurator {
+    enum Failure: CaseIterable, Sendable { case existingCommand, helper }
+
+    let product = ProductID.claudeCode
+    let option = ConfigurationOption(
+        id: ConfigurationOptionID(), product: .claudeCode,
+        launch: ConfigurationLaunchPreview(executablePath: "/synthetic/helper", environment: []))
+    let failure: Failure
+
+    func inspect(accountID: AccountID?) async -> ConfigurationState { .notConfigured }
+    func discover() async throws -> [ConfigurationOption] { [option] }
+    func preview(
+        optionID: ConfigurationOptionID, intent: ConfigurationIntent
+    ) async throws -> ConfigurationPreview {
+        switch failure {
+        case .existingCommand: throw ConfigureSourcesError.unsafeExistingConfiguration
+        case .helper: throw ClaudeCodeConfiguratorError.helperNotCurrent
+        }
+    }
+    func apply(_ preview: ConfigurationPreview) async throws {}
+    func remove(accountID: AccountID) async throws {}
+    func restore() async throws {}
+}
+
 @Suite("Owner-flow view models")
 struct OwnerFlowViewModelTests {
+    @MainActor
+    @Test func committedSourceReportRefreshesHomeWithoutReopeningTheWindow() async throws {
+        let clock = FakeAppClock()
+        let initial = try runtimeSnapshot(at: clock.now)
+        let catalog = FakeAccountCatalogStore(accounts: initial.accounts)
+        let snapshots = FakeSnapshotStore(snapshot: initial)
+        let publication = PublicationDriver(
+            clock: clock, loadSnapshot: { try await snapshots.load() },
+            publish: { _, _, _ in .published(sequence: 1) })
+        let home = HomeViewModel(
+            catalog: catalog, snapshots: snapshots,
+            aliases: UpdateAccountAlias(
+                catalogStore: catalog, snapshots: snapshots, clock: clock),
+            publication: publication)
+        let updates = HomeSnapshotUpdates()
+        let sources = SourceSetupViewModel(
+            selections: CodexDiscoverySelections(
+                workingDirectory: FileManager.default.temporaryDirectory),
+            configure: ConfigureSources(configurators: []), catalog: catalog)
+        updates.connect(home: home, sources: sources)
+        await home.load()
+
+        let committed = try runtimeSnapshot(at: clock.now.addingTimeInterval(60))
+        updates.didCollect(committed)
+
+        #expect(home.snapshot?.generatedAt == committed.generatedAt)
+        #expect(home.accounts == AccountDisplayOrder.sorted(committed.accounts))
+    }
+
     @MainActor
     @Test func sourceRequiresPreviewAndConfirmation() async throws {
         let source = FakeSourceConfigurator(product: .claudeCode)
@@ -67,27 +120,24 @@ struct OwnerFlowViewModelTests {
         #expect(model.preview == nil)
     }
 
-    @Test func codexSelectionsExposeOnlyAllowlistedEnvironment() async throws {
-        let selections = CodexDiscoverySelections(
-            homeDirectory: URL(fileURLWithPath: "/Users/synthetic"),
-            workingDirectory: URL(fileURLWithPath: "/tmp/reset-radar"))
-        await selections.update([
-            .init(
-                codexHome: URL(fileURLWithPath: "/Users/synthetic/.codex-a"),
-                executablePath: "/opt/homebrew/bin/codex"),
-            .init(
-                codexHome: URL(fileURLWithPath: "/Users/synthetic/.codex-b"),
-                executablePath: nil),
-            .init(
-                codexHome: URL(fileURLWithPath: "/Users/synthetic/.codex-ignored"),
-                executablePath: nil),
-        ])
-        let contexts = await selections.contexts()
-        let context = try #require(contexts.first)
-        #expect(contexts.count == AccountCatalog.maximumCodexAccounts)
-        #expect(Set(context.environment.keys) == CodexProcessLaunchConfiguration.allowedEnvironment)
-        #expect(context.environment["CODEX_HOME"] == "/Users/synthetic/.codex-a")
-        #expect(context.explicitExecutablePath == "/opt/homebrew/bin/codex")
+    @MainActor
+    @Test func claudePreviewExplainsTheSpecificBlocker() async throws {
+        for failure in FailingClaudePreviewConfigurator.Failure.allCases {
+            let source = FailingClaudePreviewConfigurator(failure: failure)
+            let model = SourceSetupViewModel(
+                selections: CodexDiscoverySelections(
+                    workingDirectory: FileManager.default.temporaryDirectory),
+                configure: ConfigureSources(configurators: [source]))
+            await model.discoverClaudeCode()
+            await model.prepare(try #require(model.options.first))
+            #expect(model.preview == nil)
+            switch failure {
+            case .existingCommand:
+                #expect(model.message?.contains("trusted executable path or a simple") == true)
+            case .helper:
+                #expect(model.message?.contains("helper could not be installed") == true)
+            }
+        }
     }
 
     @MainActor
@@ -110,7 +160,7 @@ struct OwnerFlowViewModelTests {
     }
 
     @MainActor
-    @Test func sourceSettingsAliasPublishesMetadataUpdate() async throws {
+    @Test func aliasEditsRefreshBothOpenMacViews() async throws {
         let clock = FakeAppClock()
         let snapshot = try runtimeSnapshot(at: clock.now)
         let catalog = FakeAccountCatalogStore(accounts: snapshot.accounts)
@@ -118,19 +168,32 @@ struct OwnerFlowViewModelTests {
         let publication = PublicationDriver(
             clock: clock, loadSnapshot: { try await snapshots.load() },
             publish: { _, _, _ in .published(sequence: 1) })
+        let aliases = UpdateAccountAlias(
+            catalogStore: catalog, snapshots: snapshots, clock: clock)
+        let updates = HomeSnapshotUpdates()
+        let home = HomeViewModel(
+            catalog: catalog, snapshots: snapshots, aliases: aliases,
+            publication: publication, updates: updates)
         let model = SourceSetupViewModel(
             selections: CodexDiscoverySelections(
                 workingDirectory: FileManager.default.temporaryDirectory),
             configure: ConfigureSources(configurators: [FakeSourceConfigurator(product: .codex)]),
             catalog: catalog,
-            aliases: UpdateAccountAlias(
-                catalogStore: catalog, snapshots: snapshots, clock: clock),
-            publication: publication)
+            aliases: aliases, publication: publication, updates: updates)
+        updates.connect(home: home, sources: model)
+        await home.load()
 
         await model.updateAlias(accountID: snapshot.accounts[0].id, input: "Work Mac")
 
         #expect(model.configuredAccounts[0].alias?.value == "Work Mac")
+        #expect(home.accounts[0].alias?.value == "Work Mac")
+        #expect(home.snapshot?.accounts[0].alias?.value == "Work Mac")
         #expect(model.message == nil)
+
+        await home.updateAlias(accountID: snapshot.accounts[0].id, input: "Personal Mac")
+
+        #expect(home.accounts[0].alias?.value == "Personal Mac")
+        #expect(model.configuredAccounts[0].alias?.value == "Personal Mac")
     }
 
     @MainActor

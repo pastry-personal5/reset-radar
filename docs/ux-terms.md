@@ -69,6 +69,7 @@ These labels describe a Usage Reading. Transport and source explanations may add
 | Fourth Main Toolbar destination | **Insight** | `insight` | Uses an insight bitmap icon and currently contains no content. |
 | Fifth Main Toolbar destination | **All** | `all` | Uses a three-horizontal-bars bitmap icon and currently contains no content. |
 | macOS top-level navigation | **Main Sidebar** | `mainSidebar` | Contains Home, Benefits, Community, Insight, and All in the same order as the iOS Main Toolbar. |
+| Shared Mac status area | **Global Messages Pane** | `globalMessagesPane` | A session-local history of important collector and setup messages, shared by the Mac main window and Settings and placed below each detail pane. |
 | Application configuration destination | **Settings** | `settings` | Opens from the top-right Settings button on iOS All and from the standard macOS Settings scene. |
 | Watch-face presentation | **Allowance Complication** | `allowanceComplication` | Shows one user-selected account window from the Watch cache. |
 | User-started short-window activity | **Reset Live Activity** | `resetLiveActivity` | Shows one eligible five-hour account window on iPhone until reset, invalidation, or account removal. |

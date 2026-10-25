@@ -113,7 +113,10 @@ these limits; a legitimate over-limit result returns the bound to review rather 
 truncating windows.
 
 `JSONRPCClient` uses monotonically increasing positive integer request IDs through `2^53 - 1` and
-refuses exhaustion instead of reusing an ID.
+refuses exhaustion instead of reusing an ID. Requests include `jsonrpc: "2.0"`; the installed
+Codex app-server omits that member from replies, so inbound responses and notifications accept
+its absence. A present member must equal `"2.0"`; request IDs, result/error exclusivity, and
+notification shape remain strictly validated.
 
 ### Account status
 
@@ -181,7 +184,7 @@ The current-data window is fifteen minutes, confirmed by the 2026-10-25 two-prof
 
 ## Claude Code status line
 
-**Installation.** The Mac app embeds `ResetRadarStatusLine` and copies it to `~/Library/Application Support/ResetRadar/bin/reset-radar-statusline`. It refreshes the copy on launch when its version differs and reports a mismatch in Settings. Claude Code settings reference that stable copy, not a path inside the app bundle, so a manual app update cannot break the command. Because the path contains a space, the recorded command is the quoted absolute path.
+**Installation.** The Mac app embeds `ResetRadarStatusLine` and copies it to its flavor-specific Application Support `bin/reset-radar-statusline` path. On a normal launch it installs a missing copy or refreshes a content mismatch; preview retries that preparation after the existing settings pass the safety checks. An installation failure is reported without changing Claude Code settings. Claude Code settings reference the stable copy, not a path inside the app bundle, so a manual app update cannot break the command. Because the path contains a space, the recorded command is the quoted absolute path.
 
 **Guided setup.** `ClaudeCodeConfigurator` is owner-confirmed. It detects the current settings,
 presents the exact change, stores only the prior `statusLine` setting in an owner-only,
@@ -193,7 +196,7 @@ An atomic settings update preserves every unrelated field without exporting it t
 storage or diagnostics. Restore changes only the `statusLine` setting back, leaving unrelated
 later edits intact.
 
-When a status-line command already exists, the configurator first parses it without invoking a shell. Automatic composition accepts only a single executable path, either absolute or beginning with `~/` for owner-home expansion, with no arguments, environment assignments, other variable expansion, redirection, pipe, or shell operator. The resolved file must be an existing regular executable owned by the user inside the owner's home directory, with every ancestor owned by the user or root and not writable by group or other; system-installed and root-owned executables are not composed. Any command that contains an inline token or whose shape cannot be proved safe is left untouched, and setup explains that automatic composition is unavailable. For an accepted command, the helper's `statusline-compose.json` stores only the resolved executable path, never a shell string. The installer runs the original executable and the composed helper against a synthetic payload and installs only if their visible output matches. The restore record is likewise written only after this safety check. If validation fails, Claude Code remains unavailable and the existing command is untouched.
+When a status-line command already exists, the configurator first parses it without invoking a shell. Automatic composition accepts a single executable path, either absolute or beginning with `~/` for owner-home expansion. It also accepts the exact `bash $HOME/<script>` form when the suffix is a simple path and the script has an exact `#!/bin/bash` shebang. The resolved file must be an existing regular executable owned by the user inside the owner's home directory, with every ancestor owned by the user or root and not writable by group or other; system-installed and root-owned executables are not composed. Additional arguments, assignments, other expansion, redirection, pipes, shell operators, inline tokens, and unprovable commands remain blocked. For an accepted command, the helper's `statusline-compose.json` stores only the resolved executable path, never a shell string. The installer compares the original invocation and the composed helper against a synthetic payload and installs only if their visible output matches. For the Bash form, the original check invokes Bash with the trusted script while the helper executes the script directly. The restore record is likewise written only after this safety check. If validation fails, Claude Code remains unavailable and the existing command is untouched.
 
 ### Helper composition
 

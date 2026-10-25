@@ -225,14 +225,12 @@ struct ClaudeCodeConfiguratorRestoreTests {
         }
     }
 
-    @Test func aMissingOrMismatchedHelperBlocksPreviewAndReplaceIsNotOffered() async throws {
+    @Test func previewRepairsMissingOrMismatchedHelperButNeverChangesUnsafeSettings() async throws {
         try await withAsyncTrustedHome { home in
             let rig = try SetupRig(home, installHelper: false)
             let option = try #require(try await rig.configurator.discover().first)
-            await #expect(throws: ClaudeCodeConfiguratorError.helperNotCurrent) {
-                try await rig.configurator.preview(optionID: option.id, intent: .add)
-            }
-            try rig.installer.install()
+            _ = try await rig.configurator.preview(optionID: option.id, intent: .add)
+            #expect(try rig.installer.state() == .current)
             await #expect(throws: ClaudeCodeConfiguratorError.invalidIntent) {
                 try await rig.configurator.preview(
                     optionID: option.id,
@@ -242,9 +240,18 @@ struct ClaudeCodeConfiguratorRestoreTests {
                 try await rig.configurator.preview(optionID: ConfigurationOptionID(), intent: .add)
             }
             try Data("#!/bin/sh\nprintf stale\n".utf8).write(to: rig.installer.installedURL)
-            await #expect(throws: ClaudeCodeConfiguratorError.helperNotCurrent) {
+            #expect(try rig.installer.state() == .mismatch)
+            _ = try await rig.configurator.preview(optionID: option.id, intent: .add)
+            #expect(try rig.installer.state() == .current)
+
+            let existing = settingsJSON(command: "sh $HOME/status-line.sh")
+            try rig.write(existing)
+            try FileManager.default.removeItem(at: rig.installer.installedURL)
+            await #expect(throws: ConfigureSourcesError.unsafeExistingConfiguration) {
                 try await rig.configurator.preview(optionID: option.id, intent: .add)
             }
+            #expect(try rig.text() == existing)
+            #expect(try rig.installer.state() == .missing)
         }
     }
 

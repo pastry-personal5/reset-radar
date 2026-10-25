@@ -62,9 +62,34 @@ final class RelaySetupViewModel: ObservableObject {
             message = "Prepare the relay first."
         case .secretsUnavailable:
             message = "Keychain secrets are unavailable. Unlock the login keychain and retry."
-        case .wipeFailed, .bindFailed:
-            message = "Activation was interrupted. Publication remains paused; retry activation."
+        case .wipeFailed(let outcome):
+            message = wipeFailureMessage(outcome)
+        case .bindFailed(let outcome):
+            message = bindingFailureMessage(outcome)
         }
+    }
+
+    private func wipeFailureMessage(_ outcome: RelayOutcome) -> String {
+        switch outcome {
+        case .unauthorized:
+            "Relay activation paused: the admin token was rejected."
+        case .offline:
+            "Relay activation paused: the relay is unreachable."
+        case .quotaLimited:
+            "Relay activation paused: the relay quota was reached."
+        case .unsupportedVersion:
+            "Relay activation paused: the relay protocol is incompatible."
+        default:
+            "Relay activation paused: the relay wipe was rejected."
+        }
+    }
+
+    private func bindingFailureMessage(_ outcome: PublishOutcome) -> String {
+        if case .backoff = outcome {
+            return "Relay activation paused: publication is backing off after a relay failure."
+        }
+        return PublicationFailureCopy.text(for: outcome)
+            ?? "Relay activation paused: the snapshot could not be bound; retry activation."
     }
 }
 

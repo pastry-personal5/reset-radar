@@ -18,6 +18,15 @@ struct JSONRPCProtocolTests {
     @Test("decodes one valid result or error and routes only the allowlisted notification")
     func validMessages() throws {
         #expect(
+            try decode("{\"id\":1,\"result\":{\"platformFamily\":\"unix\"}}")
+                == .response(id: 1, result: .object(["platformFamily": .string("unix")])))
+        #expect(
+            try decode("{\"id\":2,\"error\":{\"code\":-32603}}")
+                == .error(id: 2, code: -32603))
+        #expect(
+            try decode("{\"method\":\"account/rateLimits/updated\",\"params\":{}}")
+                == .rateLimitsUpdated)
+        #expect(
             try decode("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"ok\":true}}")
                 == .response(id: 1, result: .object(["ok": .boolean(true)])))
         #expect(
@@ -38,6 +47,9 @@ struct JSONRPCProtocolTests {
     func invalidMessages() {
         for message in [
             "{\"jsonrpc\":\"1.0\",\"id\":1,\"result\":{}}",
+            "{\"jsonrpc\":null,\"id\":1,\"result\":{}}",
+            "{\"id\":1,\"result\":{},\"error\":{\"code\":-1}}",
+            "{\"id\":1,\"method\":\"server/request\",\"params\":{}}",
             "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{},\"error\":{\"code\":-1}}",
             "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"server/request\",\"params\":{}}",
             "{\"jsonrpc\":\"2.0\",\"id\":0,\"result\":{}}",

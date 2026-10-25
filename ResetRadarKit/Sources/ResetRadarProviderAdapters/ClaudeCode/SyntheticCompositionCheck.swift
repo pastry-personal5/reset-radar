@@ -45,7 +45,9 @@ public struct SyntheticCompositionCheck: Sendable {
         let standardError: Data
     }
 
-    public func verify(executablePath: String) throws(SyntheticCompositionError) {
+    public func verify(
+        executablePath: String, originalBashScript: Bool = false
+    ) throws(SyntheticCompositionError) {
         let scratch = FileManager.default.temporaryDirectory.appending(
             path: "reset-radar-synthetic-\(UUID().uuidString)")
         guard mkdir(scratch.path, 0o700) == 0 else { throw .unavailable }
@@ -56,13 +58,14 @@ public struct SyntheticCompositionCheck: Sendable {
             (try? ComposeRecordStore(rootDirectory: root).save(record)) != nil
         else { throw .unavailable }
 
-        let alone = try runAlone(executablePath, scratch: scratch)
+        let alone = try runAlone(
+            executablePath, scratch: scratch, originalBashScript: originalBashScript)
         let composed = try runComposed(root: root, scratch: scratch)
         guard alone == composed else { throw .mismatch }
     }
 
     private func runAlone(
-        _ path: String, scratch: URL
+        _ path: String, scratch: URL, originalBashScript: Bool
     ) throws(SyntheticCompositionError) -> Outcome {
         let out = scratch.appending(path: "alone.out")
         let err = scratch.appending(path: "alone.err")
@@ -77,7 +80,8 @@ public struct SyntheticCompositionCheck: Sendable {
         do {
             runner = try ComposedCommandRunner(
                 executablePath: path, validator: validator, environment: environment,
-                workingDirectory: scratch, standardOutput: outHandle, standardError: errHandle)
+                workingDirectory: scratch, standardOutput: outHandle, standardError: errHandle,
+                syntheticBashInvocation: originalBashScript)
         } catch ComposedCommandError.notTrusted {
             throw .notTrusted
         } catch {

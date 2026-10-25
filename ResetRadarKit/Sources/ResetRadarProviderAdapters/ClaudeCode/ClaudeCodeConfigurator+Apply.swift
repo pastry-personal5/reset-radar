@@ -81,7 +81,9 @@ extension ClaudeCodeConfigurator {
             throw ClaudeCodeConfiguratorError.stalePreview
         }
         do {
-            try check.verify(executablePath: existing.identity.canonicalPath)
+            try check.verify(
+                executablePath: existing.identity.canonicalPath,
+                originalBashScript: existing.runsThroughBash)
         } catch SyntheticCompositionError.mismatch {
             throw ClaudeCodeConfiguratorError.compositionMismatch
         } catch {

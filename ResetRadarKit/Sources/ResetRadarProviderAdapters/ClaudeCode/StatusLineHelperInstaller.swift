@@ -53,6 +53,16 @@ public struct StatusLineHelperInstaller: Sendable {
         return try digest(of: installedURL) == source ? .current : .mismatch
     }
 
+    /// Keeps the stable helper current without rewriting an already verified copy.
+    public func ensureCurrent() throws {
+        switch try state() {
+        case .current:
+            return
+        case .missing, .mismatch:
+            try install()
+        }
+    }
+
     /// Installs or refreshes the helper and verifies the installed copy's public version.
     public func install() throws {
         let sourceData = try readSource()

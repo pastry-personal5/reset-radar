@@ -14,31 +14,41 @@ final class HomeViewModel: ObservableObject {
     private let snapshots: any LocalSnapshotCommitting
     private let aliases: UpdateAccountAlias
     private let publication: PublicationDriver
+    private let updates: HomeSnapshotUpdates?
 
     init(
         catalog: any AccountCatalogStore, snapshots: any LocalSnapshotCommitting,
-        aliases: UpdateAccountAlias, publication: PublicationDriver
+        aliases: UpdateAccountAlias, publication: PublicationDriver,
+        updates: HomeSnapshotUpdates? = nil
     ) {
         self.catalog = catalog
         self.snapshots = snapshots
         self.aliases = aliases
         self.publication = publication
+        self.updates = updates
     }
 
     func load() async {
         do {
-            accounts = try await catalog.loadCatalog().accounts
-            snapshot = try await snapshots.load()
+            let configured = try await catalog.loadCatalog().accounts
+            let current = try await snapshots.load()
+            accounts = AccountDisplayOrder.sorted(configured)
+            snapshot = current
             message = nil
         } catch {
             message = "Local collector data could not be read. Quit and reopen Reset Radar."
         }
     }
 
+    func didCollect(_ current: UsageSnapshot) {
+        accounts = AccountDisplayOrder.sorted(current.accounts)
+        snapshot = current
+    }
+
     func updateAlias(accountID: AccountID, input: String) async {
         do {
             let update = try await aliases.update(accountID: accountID, input: input)
-            await load()
+            if let updates { await updates.aliasDidChange() } else { await load() }
             if let snapshot = update.snapshot {
                 await publication.collected(
                     CollectResult(snapshot: snapshot, change: update.change))
@@ -47,6 +57,26 @@ final class HomeViewModel: ObservableObject {
         } catch {
             message = "The alias must be unique, visible text no longer than 32 bytes."
         }
+    }
+}
+
+/// Bridges a committed collector report into the process-owned Home model. SourceRuntime is
+/// created before OwnerFlowModels, so the binding is installed when composition finishes.
+@MainActor
+final class HomeSnapshotUpdates {
+    private weak var home: HomeViewModel?
+    private weak var sources: SourceSetupViewModel?
+
+    func connect(home: HomeViewModel, sources: SourceSetupViewModel) {
+        self.home = home
+        self.sources = sources
+    }
+
+    func didCollect(_ snapshot: UsageSnapshot) { home?.didCollect(snapshot) }
+
+    func aliasDidChange() async {
+        await home?.load()
+        await sources?.loadConfiguredAccounts()
     }
 }
 

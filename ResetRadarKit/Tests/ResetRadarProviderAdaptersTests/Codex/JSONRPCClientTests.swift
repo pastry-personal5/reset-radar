@@ -100,7 +100,7 @@ struct JSONRPCClientTests {
             methods.first(where: { $0.value == "account/rateLimits/read" })?.key)
         transport.emit(response(id: limitsID, result: "{\"limit\":2}"))
         transport.emit(
-            "{\"jsonrpc\":\"2.0\",\"method\":\"account/rateLimits/updated\",\"params\":{}}\n")
+            "{\"method\":\"account/rateLimits/updated\",\"params\":{}}\n")
         transport.emit(response(id: statusID, result: "{\"status\":1}"))
 
         #expect(try await status.value == .object(["status": .integer(1)]))
@@ -200,7 +200,7 @@ struct JSONRPCClientTests {
     }
 
     private func response(id: Int64, result: String) -> String {
-        "{\"jsonrpc\":\"2.0\",\"id\":\(id),\"result\":\(result)}\n"
+        "{\"id\":\(id),\"result\":\(result)}\n"
     }
 
     private func requestID(in data: Data) -> Int64 {

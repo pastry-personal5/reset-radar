@@ -83,10 +83,38 @@ only spaces shows a validation error instead.
 Throughout source, relay, and pairing setup, the Mac keeps the Account List visible. A Setup
 Banner offers the next action and coexists with already configured rows; the list is empty only
 when no account is configured.
+The Codex Sources table rejects a Home Folder with surrounding whitespace or a missing directory
+before discovery. Each configured Codex row offers Change Home, which previews and confirms an
+exact replacement without removing the account or its alias.
+Claude Code setup identifies whether preview failed because its helper could not be verified or
+the existing status-line command cannot be safely composed. Neither failure changes Claude Code
+settings. Sources states that confirmation directly edits `~/.claude/settings.json`; a trusted
+`bash $HOME/<script>` command can be composed while retaining its current visible output.
 
 Closing the main window leaves the menu-bar collector running. Its menu shows one status line per
 account, followed by Refresh All, Open Reset Radar, Settings, and Quit. Settings opens through the
 standard macOS Settings scene and Command-comma.
+
+In Mac Settings, the main detail pane groups settings by purpose into separate, clearly titled
+cards. Each section uses the same inset, rounded card treatment and vertical spacing; the cards
+scroll above the persistent Global Messages Pane. Keep related controls and explanatory text
+together in their card; show transient setup feedback in a card as well. General separates
+launch-at-login controls from signing and Keychain recovery; Sources separates Codex and Claude
+Code; Relay & Pairing separates relay setup, reader pairing, and paired devices; Diagnostics
+separates the log location from diagnostic events; About separates app information from license
+information.
+
+Main and Settings share one Global Messages history. A pane at the bottom of each detail column,
+to the right of its sidebar, shows a boxed **Global Messages** tab title above a scrollable area
+about eight text lines tall. Message text is two points smaller than normal body text; newer
+messages follow older ones and the view follows the latest entry. The pane shows curated
+collector, source, relay, pairing, device, and recovery messages. Its bounded history lives only
+for the current app session and contains no provider responses or secret values.
+When publication stops or pauses safely, the pane names the typed reason, such as a publisher
+conflict, rejected write token, incompatible payload, oversized envelope, unavailable secrets, or
+inactive relay state. Repeated attempts do not repeat an unchanged reason; a later successful
+publication reports recovery. The inactive-relay message explains that local readings remain
+available without relay setup.
 
 ## Apple Watch app
 

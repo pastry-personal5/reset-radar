@@ -11,6 +11,11 @@ test scheduling.
 
 Run `make run-mac` to generate, build, and open the Development Mac collector with its normal
 live-source mode. Use Xcode to supply launch arguments such as `--synthetic` for fixture work.
+For local root-cause analysis, read Development's bounded JSON Lines in
+`~/Library/Logs/ResetRadar.dev/` (shown in Settings → Diagnostics). Release has a separate
+`~/Library/Logs/ResetRadar/` directory. For example, inspect recent Development events with
+`tail -n 100 "$HOME/Library/Logs/ResetRadar.dev"/events-*.jsonl`; these logs contain typed,
+redacted events and retain at most eight UTC days. Do not copy the logs into the repository.
 
 ## Setup and development
 

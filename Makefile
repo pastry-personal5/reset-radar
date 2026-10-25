@@ -1,4 +1,4 @@
-.PHONY: help generate run-mac format format-check lint imports test-mac relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
+.PHONY: help generate run run-mac format format-check lint imports test-mac relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
 
 help:
 	@printf '%s\n' \
@@ -19,6 +19,8 @@ help:
 
 generate:
 	Scripts/generate-project.sh
+
+run: run-mac
 
 run-mac: generate
 	@xcodebuild -quiet build -scheme ResetRadarMac -configuration Development \

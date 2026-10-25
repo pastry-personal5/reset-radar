@@ -12,6 +12,7 @@ struct ExistingStatusLineParserTests {
         let cases: [(String, String)] = [
             ("/Users/owner/bin/line", "/Users/owner/bin/line"),
             ("~/bin/line", "/Users/owner/bin/line"),
+            ("bash $HOME/bin/line.sh", "/Users/owner/bin/line.sh"),
             ("\"/Users/owner/My Scripts/status line\"", "/Users/owner/My Scripts/status line"),
             ("'/Users/owner/My Scripts/line'", "/Users/owner/My Scripts/line"),
         ]
@@ -30,6 +31,8 @@ struct ExistingStatusLineParserTests {
             "/bin/line\n", "/bin/line\u{0}", "/bin/../line", "/bin//line", "/bin/./line", "/",
             "\"\"", "/bin/line/", "/bin/line *", "/tmp/a=b", "TOKEN=abc123 /bin/line",
             "bash -c 'curl x'", "/bin/line #c",
+            "bash $HOME/bin/line.sh --flag", "bash ${HOME}/bin/line.sh",
+            "bash $HOME/bin/../line.sh", "bash $HOME/bin/line.sh; curl x",
         ]
         for command in refused {
             #expect(throws: ExistingStatusLineParseError.unsupported, "\(command)") {
@@ -39,6 +42,10 @@ struct ExistingStatusLineParserTests {
         #expect(throws: ExistingStatusLineParseError.unsupported) {
             try ExistingStatusLineParser.parse(
                 "/" + String(repeating: "a", count: 4_100), homeDirectory: home)
+        }
+        #expect(throws: ExistingStatusLineParseError.unsupported) {
+            try ExistingStatusLineParser.parse(
+                "bash $HOME/bin/line.sh", homeDirectory: URL(filePath: "/Users/my home"))
         }
     }
 }

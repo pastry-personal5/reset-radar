@@ -10,34 +10,36 @@ public final class LogDiagnosticsSink: DiagnosticsSink {
         var events: [DiagnosticEvent]
     }
 
-    private static let logger = Logger(
-        subsystem: "com.unidentifiedstealthstartup.ResetRadar", category: "diagnostics")
-
     private let file: TransactionalFile<Ring>
     private let capacity: Int
+    private let logger: Logger
+    private let onRecord: (@Sendable (DiagnosticEvent) async -> Void)?
 
     public init(
         locations: StorageLocations, capacity: Int = 200,
-        writer: AtomicFileWriter = AtomicFileWriter()
+        writer: AtomicFileWriter = AtomicFileWriter(),
+        subsystem: String = "com.unidentifiedstealthstartup.ResetRadar",
+        onRecord: (@Sendable (DiagnosticEvent) async -> Void)? = nil
     ) {
         file = TransactionalFile(
             locations: locations, name: "diagnostics", writer: writer,
             makeDefault: { Ring(events: []) })
         self.capacity = max(1, capacity)
+        logger = Logger(subsystem: subsystem, category: "diagnostics")
+        self.onRecord = onRecord
     }
 
     public func record(_ event: DiagnosticEvent) async {
         let category = event.category.rawValue
-        let product = event.product?.rawValue ?? "none"
         let transport = event.transportStatus?.rawValue ?? "none"
         let httpClass = event.httpStatusClass ?? 0
         let failureClass = event.providerFailureClass?.rawValue ?? "none"
-        Self.logger.info("diagnostic category=\(category, privacy: .public)")
-        Self.logger.info("diagnostic failure=\(failureClass, privacy: .public)")
-        Self.logger.info("diagnostic product=\(product, privacy: .public)")
-        Self.logger.info(
+        logger.info("diagnostic category=\(category, privacy: .public)")
+        logger.info("diagnostic failure=\(failureClass, privacy: .public)")
+        logger.info(
             "diagnostic transport=\(transport, privacy: .public) http=\(httpClass)"
         )
+        await onRecord?(event)
         let limit = capacity
         do {
             try await file.transact { ring in
@@ -47,7 +49,7 @@ public final class LogDiagnosticsSink: DiagnosticsSink {
                 }
             }
         } catch {
-            Self.logger.error("diagnostic history could not be written")
+            logger.error("diagnostic history could not be written")
         }
     }
 

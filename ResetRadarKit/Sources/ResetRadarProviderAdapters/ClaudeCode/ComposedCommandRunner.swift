@@ -24,7 +24,7 @@ public final class ComposedCommandRunner: @unchecked Sendable {
     public init(
         executablePath: String, validator: ExecutableIdentityValidator,
         environment: [String: String], workingDirectory: URL?, standardOutput: FileHandle,
-        standardError: FileHandle
+        standardError: FileHandle, syntheticBashInvocation: Bool = false
     ) throws(ComposedCommandError) {
         let canonical: String
         do {
@@ -40,8 +40,11 @@ public final class ComposedCommandRunner: @unchecked Sendable {
         _ = fcntl(descriptors[0], F_SETFD, FD_CLOEXEC)
         stdinWriteDescriptor = descriptors[1]
         let reader = FileHandle(fileDescriptor: descriptors[0], closeOnDealloc: true)
-        process.executableURL = URL(fileURLWithPath: canonical)
-        process.arguments = []
+        // The synthetic parity check can reproduce the owner's narrow `bash $HOME/script`
+        // invocation. Persisted composition still launches the trusted script directly.
+        process.executableURL = URL(
+            fileURLWithPath: syntheticBashInvocation ? "/usr/bin/env" : canonical)
+        process.arguments = syntheticBashInvocation ? ["bash", canonical] : []
         process.environment = environment
         if let workingDirectory { process.currentDirectoryURL = workingDirectory }
         process.standardInput = reader

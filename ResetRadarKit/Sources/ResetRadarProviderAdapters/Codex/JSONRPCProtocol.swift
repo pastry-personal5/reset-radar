@@ -82,7 +82,9 @@ public enum JSONRPCMessageDecoder {
         } catch {
             throw JSONRPCProtocolError.invalidEnvelope
         }
-        guard object["jsonrpc"] == .string("2.0") else {
+        // The installed Codex app-server omits this member in its replies. Accept that
+        // observed form, but reject a present version that is not JSON-RPC 2.0.
+        guard object["jsonrpc"] == nil || object["jsonrpc"] == .string("2.0") else {
             throw JSONRPCProtocolError.invalidEnvelope
         }
         if let method = object["method"] {

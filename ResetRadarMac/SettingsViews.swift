@@ -10,23 +10,82 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
     case about = "About"
 
     var id: Self { self }
+
+    var symbol: String {
+        switch self {
+        case .general: "gearshape"
+        case .sources: "externaldrive"
+        case .relay: "network"
+        case .diagnostics: "waveform.path.ecg"
+        case .about: "info.circle"
+        }
+    }
 }
 
 struct SettingsRootView: View {
     let models: OwnerFlowModels?
+    @ObservedObject var messages: GlobalMessageCenter
     let rebuildCollector: @MainActor () async -> Void
     @State private var selection = SettingsSection.general
 
+    private let headerHeight: CGFloat = 60
+    private let messagesHeight: CGFloat = 180
+
     var body: some View {
-        NavigationSplitView {
-            List(SettingsSection.allCases, selection: $selection) { section in
-                Text(section.rawValue).tag(section)
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                sidebar
+                Divider()
+                VStack(spacing: 0) {
+                    Text(selection.rawValue)
+                        .font(.title2.weight(.semibold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
+                        .frame(height: headerHeight)
+                    Group {
+                        if let models {
+                            detail(models)
+                        } else {
+                            ProgressView("Starting collector…")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: max(0, geometry.size.height - headerHeight - messagesHeight))
+                    .clipped()
+                    GlobalMessagesPane(messages: messages)
+                        .frame(height: messagesHeight, alignment: .bottom)
+                }
+                .frame(maxWidth: .infinity)
             }
-            .navigationTitle("Settings")
-        } detail: {
-            if let models { detail(models) } else { ProgressView("Starting collector…") }
         }
         .frame(minWidth: 1300, minHeight: 800)
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(SettingsSection.allCases) { section in
+                Button {
+                    selection = section
+                } label: {
+                    Label(section.rawValue, systemImage: section.symbol)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .foregroundStyle(selection == section ? Color.white : Color.primary)
+                .background(
+                    selection == section ? Color.accentColor : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 8)
+                )
+                .accessibilityAddTraits(selection == section ? .isSelected : [])
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(width: 220)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(Color(nsColor: .controlBackgroundColor))
     }
 
     @ViewBuilder
@@ -49,164 +108,20 @@ private struct GeneralSettingsView: View {
     @ObservedObject var recovery: RecoveryViewModel
 
     var body: some View {
-        Form {
-            Toggle(
-                "Launch at login",
-                isOn: Binding(get: { model.isEnabled }, set: { model.setEnabled($0) }))
-            LabeledContent("Registration", value: String(describing: model.state))
-            if let error = model.errorMessage {
-                Text(error)
-                    .wrapsInMainPane()
-                    .foregroundStyle(.red)
+        SettingsCardColumn {
+            SettingsCard(title: "Launch at login") {
+                Toggle(
+                    "Launch at login",
+                    isOn: Binding(get: { model.isEnabled }, set: { model.setEnabled($0) }))
+                LabeledContent("Registration", value: String(describing: model.state))
             }
-            Section("Signing and Keychain") {
+            SettingsCard(title: "Signing and Keychain") {
                 Text(recovery.recoveryCopy).wrapsInMainPane()
                 Button("Retry") { Task { await recovery.refresh() } }
             }
         }
-        .padding()
         .navigationTitle("General")
         .task { await recovery.refresh() }
-    }
-}
-
-private struct SourcesSettingsView: View {
-    @ObservedObject var model: SourceSetupViewModel
-    let rebuildCollector: @MainActor () async -> Void
-    @State private var firstCodexHome = ""
-    @State private var secondCodexHome = ""
-    @State private var showRestoreConfirmation = false
-    @State private var showRemovalConfirmation = false
-    @State private var removalCandidate: AccountMetadata?
-
-    var body: some View {
-        Form {
-            Section("Codex") {
-                TextField("First CODEX_HOME folder", text: $firstCodexHome)
-                TextField("Second CODEX_HOME folder (optional)", text: $secondCodexHome)
-                TextField("Optional codex executable", text: $model.codexExecutable)
-                Button("Discover Codex") {
-                    model.codexHomes = [firstCodexHome, secondCodexHome]
-                    Task { await model.discoverCodex() }
-                }
-            }
-            Section("Claude Code") {
-                Button("Preview guided status-line setup") {
-                    Task { await model.discoverClaudeCode() }
-                }
-                Button("Restore prior status-line setting") { showRestoreConfirmation = true }
-            }
-            ForEach(model.options, id: \.id) { option in
-                VStack(alignment: .leading) {
-                    Text(option.launch.executablePath).wrapsInMainPane()
-                    ForEach(option.launch.environment, id: \.key) { value in
-                        Text("\(value.key.rawValue)=\(value.value)")
-                            .font(.caption.monospaced())
-                            .wrapsInMainPane()
-                    }
-                    Button("Preview") { Task { await model.prepare(option) } }
-                }
-            }
-            if let preview = model.preview {
-                Section("Confirm exact change") {
-                    Text(preview.launch.executablePath)
-                        .font(.body.monospaced())
-                        .wrapsInMainPane()
-                    if let status = preview.statusLine {
-                        Text("Settings: \(status.settingsPath)").wrapsInMainPane()
-                        Text("Helper: \(status.helperPath)").wrapsInMainPane()
-                    }
-                    Button("Confirm and Apply") {
-                        Task {
-                            if await model.confirmPreview() { await rebuildCollector() }
-                        }
-                    }
-                }
-            }
-            if !model.configuredAccounts.isEmpty {
-                Section("Configured sources") {
-                    ForEach(model.configuredAccounts, id: \.id) { account in
-                        ConfiguredSourceRow(
-                            account: account, model: model,
-                            remove: {
-                                removalCandidate = account
-                                showRemovalConfirmation = true
-                            })
-                    }
-                }
-            }
-            if let message = model.message {
-                Text(message)
-                    .wrapsInMainPane()
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding()
-        .navigationTitle("Sources")
-        .task { await model.loadConfiguredAccounts() }
-        .confirmationDialog(
-            "Restore the prior Claude Code status-line setting?",
-            isPresented: $showRestoreConfirmation
-        ) {
-            Button("Restore", role: .destructive) {
-                Task {
-                    if await model.restoreClaudeCode(confirmed: true) {
-                        await rebuildCollector()
-                    }
-                }
-            }
-        }
-        .confirmationDialog(
-            "Remove this configured source?",
-            isPresented: $showRemovalConfirmation,
-            presenting: removalCandidate
-        ) { account in
-            Button("Remove", role: .destructive) {
-                Task {
-                    if await model.remove(account.id, product: account.product, confirmed: true) {
-                        await rebuildCollector()
-                    }
-                    removalCandidate = nil
-                }
-            }
-        } message: { account in
-            Text(
-                "Removing \(account.effectiveDisplayLabel) stops its local source. "
-                    + "It does not change relay data."
-            )
-        }
-    }
-}
-
-private struct ConfiguredSourceRow: View {
-    let account: AccountMetadata
-    @ObservedObject var model: SourceSetupViewModel
-    let remove: () -> Void
-    @State private var alias: String
-
-    init(account: AccountMetadata, model: SourceSetupViewModel, remove: @escaping () -> Void) {
-        self.account = account
-        self.model = model
-        self.remove = remove
-        _alias = State(initialValue: account.alias?.value ?? "")
-    }
-
-    var body: some View {
-        VStack(alignment: .leading) {
-            HStack {
-                Text(account.effectiveDisplayLabel)
-                Spacer()
-                Text(account.product == .codex ? "Codex" : "Claude Code")
-                    .foregroundStyle(.secondary)
-                Button("Remove", role: .destructive, action: remove)
-            }
-            HStack {
-                TextField("Alias", text: $alias)
-                Button("Save Alias") {
-                    Task { await model.updateAlias(accountID: account.id, input: alias) }
-                }
-            }
-        }
     }
 }
 
@@ -218,12 +133,11 @@ private struct RelaySettingsView: View {
     @State private var showDestroyConfirmation = false
 
     var body: some View {
-        Form {
+        SettingsCardColumn {
             relaySetup
             pairingSetup
             pairedDevices
         }
-        .padding()
         .navigationTitle("Relay & Pairing")
         .task { await devices.refresh() }
         .onAppear { pairing.pairingViewAppeared() }
@@ -245,8 +159,9 @@ private struct RelaySettingsView: View {
     }
 
     private var relaySetup: some View {
-        Section("Relay setup") {
+        SettingsCard(title: "Relay setup") {
             TextField("https://name.account.workers.dev", text: $relay.origin)
+                .textFieldStyle(.roundedBorder)
             Button("Prepare Relay") { Task { await relay.prepare() } }
             if let write = relay.writeDigest {
                 LabeledContent("WRITE_TOKEN_DIGEST", value: write).textSelection(.enabled)
@@ -255,17 +170,13 @@ private struct RelaySettingsView: View {
                 LabeledContent("ADMIN_TOKEN_DIGEST", value: admin).textSelection(.enabled)
             }
             if relay.isPending { Button("Activate Relay") { Task { await relay.activate() } } }
-            if let message = relay.message {
-                Text(message)
-                    .wrapsInMainPane()
-                    .foregroundStyle(.secondary)
-            }
         }
     }
 
     private var pairingSetup: some View {
-        Section("Pair a reader") {
+        SettingsCard(title: "Pair a reader") {
             TextField("Device name", text: $pairing.deviceName)
+                .textFieldStyle(.roundedBorder)
             Button("Create QR Pairing Code") { Task { await pairing.begin() } }
             if let encoded = pairing.encodedPackage {
                 PairingCodeView(encoded: encoded)
@@ -274,16 +185,11 @@ private struct RelaySettingsView: View {
                 }
                 Button("Copy pairing package…") { showCopyWarning = true }
             }
-            if let message = pairing.message {
-                Text(message)
-                    .wrapsInMainPane()
-                    .foregroundStyle(.secondary)
-            }
         }
     }
 
     private var pairedDevices: some View {
-        Section("Paired devices") {
+        SettingsCard(title: "Paired devices") {
             Button("Refresh") { Task { await devices.refresh() } }
             ForEach(devices.roster, id: \.readerID) { entry in
                 HStack {
@@ -293,11 +199,6 @@ private struct RelaySettingsView: View {
                 }
             }
             Button("Destroy Relay…", role: .destructive) { showDestroyConfirmation = true }
-            if let message = devices.message {
-                Text(message)
-                    .wrapsInMainPane()
-                    .foregroundStyle(.secondary)
-            }
         }
     }
 }
@@ -318,26 +219,48 @@ private struct DiagnosticsSettingsView: View {
     @ObservedObject var model: DiagnosticsViewModel
 
     var body: some View {
-        List(model.events, id: \.self) { event in Text(event.category.rawValue) }
-            .navigationTitle("Diagnostics")
-            .task { await model.refresh() }
+        SettingsCardColumn {
+            SettingsCard(title: "Troubleshooting log folder") {
+                Text(MacBuildFlavor.current.logDirectory.path)
+                    .textSelection(.enabled)
+                    .font(.system(.callout, design: .monospaced))
+                    .wrapsInMainPane()
+            }
+            SettingsCard(title: "Diagnostic events") {
+                if model.events.isEmpty {
+                    Text("No diagnostic events.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(model.events.indices, id: \.self) { index in
+                            Text(model.events[index].category.rawValue)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Diagnostics")
+        .task { await model.refresh() }
     }
 }
 
 private struct AboutSettingsView: View {
     var body: some View {
-        Form {
-            Text("Reset Radar")
-            Text("Personal allowance monitoring for Codex and Claude Code.")
-            Text("Apache License 2.0")
+        SettingsCardColumn {
+            SettingsCard(title: "Reset Radar") {
+                Text("Personal allowance monitoring for Codex and Claude Code.")
+            }
+            SettingsCard(title: "License") {
+                Text("Apache License 2.0")
+            }
         }
-        .padding()
         .navigationTitle("About")
     }
 }
 
 extension View {
-    fileprivate func wrapsInMainPane() -> some View {
+    func wrapsInMainPane() -> some View {
         multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
     }

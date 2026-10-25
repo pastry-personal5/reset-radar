@@ -62,9 +62,16 @@ The owner also approved installing Scriptable temporarily on the iPhone solely f
 
 Use local development signing for the Mac collector. The first version does not require Developer ID notarization or an automatic updater; P1-M2 must instead define and validate installation, Gatekeeper handling, launch at login, CLI child-process access, update safety, and uninstall cleanup for the owner's Mac.
 
-The collector continues as a menu-bar companion after its main window closes. Launch at login is an explicit setup opt-in backed by `SMAppService.mainApp`. Claude Code integration uses a guided, owner-confirmed installer that previews the change, stores the prior status-line setting for restoration, and preserves a validated existing status-line command.
+The collector continues as a menu-bar companion after its main window closes. Launch at login is an explicit setup opt-in backed by `SMAppService.mainApp`. In Reset Radar Settings, Claude Code integration directly edits the default user `~/.claude/settings.json` after an exact preview and owner confirmation. It changes only `statusLine.command`, stores the prior status-line setting for restoration, and preserves a validated existing status-line command.
 
 On 2026-10-20 the owner resolved the existing-command security case: if a current status-line command could contain an inline secret or cannot be proved safe for composition, Reset Radar leaves it untouched and reports that automatic composition is unavailable. The installer backs up only the prior status-line setting, never the whole Claude Code settings file.
+
+On 2026-10-25 the owner allowed one narrow extension for an existing `bash $HOME/<script>`
+command. Reset Radar may compose it when the suffix is a simple path, the resolved script is a
+trusted executable in the owner's home with an exact `#!/bin/bash` shebang, and synthetic output
+from the original Bash invocation matches direct script execution through the helper. The
+original command remains in the status-line-only restore record. Other arguments, expansions,
+shell syntax, and untrusted scripts remain blocked.
 
 ## Interface and tooling decisions
 

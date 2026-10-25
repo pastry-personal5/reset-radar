@@ -2,6 +2,11 @@
 
 Status: Done
 
+The 2026-10-25 owner decision in [owner-decisions.md](owner-decisions.md) adds a narrow
+`bash $HOME/<script>` composition form during P1-M13. The original M11 single-path acceptance
+criteria below record the completed M11 baseline; the current binding rule is in
+[ProviderAdapters](../architecture/provider-adapters.md#claude-code-status-line).
+
 Implement the macOS-only Claude Code status-line half of
 `ResetRadarProviderAdapters` and the `ResetRadarStatusLine` helper. The
 [sequence](milestone-11-claude-code-adapter-sequence.md) orders the bounded helper and session

@@ -58,6 +58,10 @@ Settings is a separate standard macOS scene. Closing the main window does not st
 the menu-bar companion owns one status item per account and commands to reopen the window,
 refresh all accounts, open Settings, or quit.
 
+The Global Messages Pane sits at the bottom of the detail area in both the main window and
+Settings, to the right of each window's sidebar. Both panes display the same session-local message
+history, independent of the selected account or Settings section.
+
 ## Apple Watch app
 
 Watch Home contains an N-by-two Allowance Ring matrix: one row per configured account in Home's

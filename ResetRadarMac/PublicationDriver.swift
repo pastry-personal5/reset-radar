@@ -2,23 +2,35 @@ import Foundation
 import ResetRadarApplication
 import ResetRadarDomain
 
+enum PublicationStatusEvent: Sendable, Equatable {
+    case blocked(PublishOutcome)
+    case recovered
+}
+
 actor PublicationDriver {
     typealias LoadSnapshot = @Sendable () async throws -> UsageSnapshot?
     typealias Publish =
         @Sendable (UsageSnapshot, ChangeClass, PublishTrigger) async -> PublishOutcome
+    typealias ReportOutcome = @Sendable (PublicationStatusEvent) async -> Void
 
     private let clock: any AppClock
     private let loadSnapshot: LoadSnapshot
     private let publish: Publish
+    private let reportOutcome: ReportOutcome
     private var timer: Task<Void, Never>?
     private(set) var scheduledDate: Date?
     private var suspended = false
     private var lastChange = ChangeClass.none
+    private var lastReportedBlock: PublishOutcome?
 
-    init(clock: any AppClock, loadSnapshot: @escaping LoadSnapshot, publish: @escaping Publish) {
+    init(
+        clock: any AppClock, loadSnapshot: @escaping LoadSnapshot, publish: @escaping Publish,
+        reportOutcome: @escaping ReportOutcome = { _ in }
+    ) {
         self.clock = clock
         self.loadSnapshot = loadSnapshot
         self.publish = publish
+        self.reportOutcome = reportOutcome
     }
 
     func collected(_ result: CollectResult) async {
@@ -29,6 +41,17 @@ actor PublicationDriver {
     func trigger(_ trigger: PublishTrigger) async {
         guard !suspended, let snapshot = try? await loadSnapshot() else { return }
         await attempt(snapshot: snapshot, change: lastChange, trigger: trigger)
+    }
+
+    func reportManualOutcome(_ outcome: HandleOutcome) async {
+        switch outcome {
+        case .publicationFailed(let failure):
+            await reportBlockChange(failure)
+        case .handled:
+            await reportRecovery()
+        case .idle, .waiting:
+            break
+        }
     }
 
     func setSuspended(_ value: Bool) {
@@ -57,6 +80,26 @@ actor PublicationDriver {
         case .paused, .secretsUnavailable, .envelopeTooLarge, .stopped:
             cancelTimer()
         }
+        await reportBlockChange(outcome)
+    }
+
+    private func reportBlockChange(_ outcome: PublishOutcome) async {
+        switch outcome {
+        case .paused, .secretsUnavailable, .envelopeTooLarge, .stopped:
+            guard lastReportedBlock != outcome else { return }
+            lastReportedBlock = outcome
+            await reportOutcome(.blocked(outcome))
+        case .published:
+            await reportRecovery()
+        case .notDue, .backoff:
+            break
+        }
+    }
+
+    private func reportRecovery() async {
+        guard lastReportedBlock != nil else { return }
+        lastReportedBlock = nil
+        await reportOutcome(.recovered)
     }
 
     private func arm(for date: Date) {

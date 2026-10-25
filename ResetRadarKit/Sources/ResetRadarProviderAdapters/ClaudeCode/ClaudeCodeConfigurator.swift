@@ -54,6 +54,7 @@ public actor ClaudeCodeConfigurator: SourceConfigurator {
     struct Existing {
         let rawCommand: String
         let identity: ExecutableIdentity
+        let runsThroughBash: Bool
     }
 
     let paths: ClaudeCodeConfiguratorPaths
@@ -145,10 +146,10 @@ public actor ClaudeCodeConfigurator: SourceConfigurator {
         guard requested == optionID else { throw ClaudeCodeConfiguratorError.unknownOption }
         guard intent == .add else { throw ClaudeCodeConfiguratorError.invalidIntent }
         try automaticSetupBlocker()
-        try requireCurrentHelper()
         try prepareSetupDirectory()
         let snapshot = try readSettings()
         let existing = try classifyExisting(snapshot, record: try loadRestoreRecord())
+        try requireCurrentHelper()
         let preview = ConfigurationPreview(
             product: .claudeCode, optionID: optionID, revision: ConfigurationPreviewRevision(),
             intent: .add,

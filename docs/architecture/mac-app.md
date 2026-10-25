@@ -94,7 +94,15 @@ The Mac app must never show a Keychain prompt.
 ## Collector runtime
 
 - **Sources.** `SourceRuntime` starts each configured `UsageSource` after launch, routes their update streams into `CollectUsage`, and forwards `wake`, `foreground`, and `manual` refresh reasons.
-- **Publication.** `PublicationDriver` arms one timer for the instant `PublicationPolicy` next allows, and calls `PublishSnapshot` when it fires or when a `transition` change arrives.
+- **Publication.** `PublicationDriver` arms one timer for the instant `PublicationPolicy` next allows, and calls `PublishSnapshot` when it fires or when a `transition` change arrives. It forwards changed blocked outcomes from ordinary and manual-request publication to the session-local Global Messages Pane, preserving the `StopReason` category but never forwarding raw relay responses or secrets; it reports recovery after a later successful publish.
+- **Home updates.** After `CollectUsage` commits a source report, the composition root forwards its
+  snapshot to the process-owned Home model on the main actor. Alias edits from Home or Sources
+  reload both view models. The account list and selected details refresh while the window stays
+  open; accounts use the shared localized display order.
+- **Home usage rows.** Each configured account resolves its default five-hour and weekly windows
+  by account ID and duration. A presentable reading shows provider-reported Percentage Used in
+  its ring; stale readings keep the value with a status symbol, while waiting and unavailable
+  windows show no percentage. The row reevaluates presentation as time advances.
 - **Manual reader requests.** While collection and relay setup are active and at least one reader is paired, `ManualRequestDriver` polls the relay every 15 seconds for pending IDs, coalesces them through `HandleManualRefreshRequests`, and publishes their encrypted result immediately. Polling stops with no readers, or during setup, destruction, or `secretsUnavailable`. A sleeping Mac cannot receive or satisfy a request; the driver resumes on wake. The result is acknowledged at the relay only after publication succeeds.
 - **Relay lifecycle.** Setup and destruction persist a non-active lifecycle state and pause `PublicationDriver` before any credential or remote-state change. A pending setup is recoverable after an interrupted provisioning step; publication resumes only after the new publisher binds. A failed or interrupted remote destroy leaves publication paused and the prior local state available for an explicit retry.
 - **Notifications.** M12 exposes a post-commit `ResetNotificationHook` seam but starts no
@@ -102,11 +110,34 @@ The Mac app must never show a Keychain prompt.
   `UNUserNotificationCenter`. P1-M15 owns `NotificationDriver` and reset notifications.
 - **Quit.** Stops sources and publication cleanly and releases the instance lock.
 
+## Local troubleshooting log
+
+The Mac composition root writes structured JSON Lines for startup, collector lifecycle, changed
+publication blocks and recovery, and redacted diagnostics. A log line has a UTC timestamp, a
+per-launch session ID, a fixed event name, and only applicable typed reason, transport, HTTP
+status class, schema, or sequence fields. It never includes account IDs, provider names,
+aliases, home or executable paths, usage values, tokens, provider responses, or raw error text.
+This is the agent-facing root-cause trail; the existing diagnostics ring remains the in-app
+summary. `LogDiagnosticsSink` receives the build-specific OSLog subsystem and forwards typed
+events to the Mac log. The same build-specific subsystem is used for the Mac log's generic write
+failure notice.
+
+Development writes to `~/Library/Logs/ResetRadar.dev/`; Release writes to
+`~/Library/Logs/ResetRadar/`. These paths are outside the app bundle and readable by coding
+agents running under the owner's macOS account. The directories are `0700` and the files `0600`.
+Files are named `events-YYYY-MM-DD-N.jsonl` in UTC. The logger holds only the current UTC day
+and seven previous days, rotates at 1 MiB, keeps at most four segments per day, and prunes at
+startup, on writes, and at UTC midnight. File creation rejects symlinks and unsafe ownership or
+permissions; writes are locked across processes. Critical startup and publication blocks are
+synced. If the directory is unsafe or unavailable, the app still runs and emits an OSLog
+write-failure category without raw error text. Diagnostics Settings displays the active log
+directory.
+
 ## Owner flows
 
 | Flow | Behavior |
 |---|---|
-| Source setup | Up to two Codex account discoveries and one Claude Code guided status-line setup, through `ConfigureSources`; every add or replacement shows a preview, removal requires confirmation, and aliases are editable from Home or Sources. A confirmed add, removal, or Claude Code restore rebuilds the collector immediately from the persisted catalog. An unsafe existing status-line command is left untouched. |
+| Source setup | Sources Settings has a Codex card with an Alias/Home Folder table and an Add row for up to two accounts, plus a Claude Code card that directly edits the default Claude Code user settings file after exact preview and confirmation. The Mac rejects a Codex Home Folder with surrounding whitespace or a missing directory, then passes the selected `CODEX_HOME` and current user's login shell to discovery so a safe executable outside standard Homebrew paths can be offered. A configured Codex row can replace its Home Folder through the same exact preview and confirmation while retaining its account identity and alias. Both products use `ConfigureSources`; removal requires confirmation, and aliases are editable from Home or Sources. A confirmed add, replacement, removal, or Claude Code restore rebuilds the collector immediately from the persisted catalog. Normal launch and preview prepare the verified Claude Code helper; a blocked preview distinguishes helper failure from an unprovable existing command. The narrow trusted `bash $HOME/<script>` form can be composed; other unsafe existing commands remain untouched. |
 | Relay setup | Show the provisioning digests for copy; then wipe and bind through `SetUpRelay`. |
 | Pairing | Show the QR package, poll reader activation every five seconds while visible, hide it only after the reader confirms its local save, and revoke at the relay-assigned expiry. Manual Copy is a separate warned action with conditional pasteboard cleanup; QR is the default. |
 | Paired devices | List names, pairing dates, and unknown readers; Revoke; Destroy Relay. |
@@ -117,11 +148,15 @@ The Mac app must never show a Keychain prompt.
 [ux-gui.md](../ux-gui.md) and [ux-information-architecture.md](../ux-information-architecture.md) are authoritative.
 
 - **Main window.** Contains the Main Sidebar. Home uses a split Account List and Account Details
-  view; the list restores its last valid selection and permits inline alias editing. Its minimum
-  size is 1,400 by 900 points; overflowing detail text wraps.
+  view; the list restores its last valid selection and permits inline alias editing. A shared
+  Global Messages Pane occupies the bottom of the detail column, to the right of the sidebar.
+  Its minimum size is 1,400 by 900 points; overflowing detail text wraps.
 - **Settings.** The standard Settings scene, opened with Command-comma, with General, Sources,
-  Relay & Pairing, Diagnostics, and About. Its minimum size is 1,300 by 800 points; overflow in
-  the detail pane wraps rather than truncating.
+  Relay & Pairing, Diagnostics, and About. The same Global Messages history appears below every
+  Settings detail section, to the right of the sidebar. Its minimum size is 1,300 by 800 points;
+  overflow in the detail pane wraps rather than truncating. The sidebar stays visible at that
+  size, and opening Settings directly triggers the same idempotent collector startup as the main
+  window.
 - **Menu-bar extra.** Provides Refresh All, Open Reset Radar, Settings, and Quit; closing the main
   window leaves it running. P1-M13 owns per-account state and last-publication presentation.
 - **Login launch.** Starts the menu-bar extra without bringing the main window forward.

@@ -70,6 +70,10 @@ The owner resolved these choices on 2026-10-25; the record is in
 
 ## Completion checklist
 
+- [x] Review and strengthen the owner-facing [Mac installation and recovery](../mac-installation-and-recovery.md)
+  guide with an ordered local-build, relay-provisioning, verification, update, uninstall, and
+  recovery procedure. Evidence: implementation paths, Worker provisioning script contract, and
+  current P1-M14 reader availability reviewed on 2026-10-25.
 - [x] Post-implementation review: pairing stops activation polling and clears a copied package when
   its view hides, while an independent deadline still revokes expiry; Sources Settings now edits
   and immediately publishes aliases. The phase remains `Active` while later milestones are

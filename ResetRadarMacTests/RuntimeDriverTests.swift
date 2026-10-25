@@ -31,6 +31,16 @@ private actor RuntimeRecorder {
     func recordHandle() { handled += 1 }
 }
 
+private actor PublicationOutcomeQueue {
+    private var pending: [PublishOutcome]
+    private(set) var reported = [PublicationStatusEvent]()
+
+    init(_ pending: [PublishOutcome]) { self.pending = pending }
+
+    func next() -> PublishOutcome { pending.removeFirst() }
+    func record(_ event: PublicationStatusEvent) { reported.append(event) }
+}
+
 @Suite("Collector runtime")
 struct RuntimeDriverTests {
     @Test func normalLaunchIsLiveAndFlagSelectsSynthetic() {
@@ -104,6 +114,51 @@ struct RuntimeDriverTests {
         await driver.setSuspended(false)
         await driver.trigger(.networkRestored)
         #expect(await recorder.publishes == [.networkRestored])
+        await driver.stop()
+    }
+
+    @Test func publicationReportsNewFailClosedReasonsAndRecoveryOnce() async throws {
+        let clock = FakeAppClock()
+        let snapshot = try runtimeSnapshot(at: clock.now)
+        let queue = PublicationOutcomeQueue([
+            .stopped(.authorizationRequired), .stopped(.authorizationRequired),
+            .envelopeTooLarge, .envelopeTooLarge, .published(sequence: 1),
+            .stopped(.snapshotConflict),
+        ])
+        let driver = PublicationDriver(
+            clock: clock, loadSnapshot: { snapshot },
+            publish: { _, _, _ in await queue.next() },
+            reportOutcome: { await queue.record($0) })
+
+        for _ in 0..<6 { await driver.trigger(.wake) }
+
+        #expect(
+            await queue.reported == [
+                .blocked(.stopped(.authorizationRequired)), .blocked(.envelopeTooLarge),
+                .recovered, .blocked(.stopped(.snapshotConflict)),
+            ])
+        await driver.stop()
+    }
+
+    @Test func manualPublicationFailureReportsReasonAndRecovery() async throws {
+        let clock = FakeAppClock()
+        let snapshot = try runtimeSnapshot(at: clock.now)
+        let queue = PublicationOutcomeQueue([])
+        let driver = PublicationDriver(
+            clock: clock, loadSnapshot: { snapshot },
+            publish: { _, _, _ in .notDue(next: nil) },
+            reportOutcome: { await queue.record($0) })
+
+        await driver.reportManualOutcome(.publicationFailed(.stopped(.payloadRejected)))
+        await driver.reportManualOutcome(.publicationFailed(.stopped(.payloadRejected)))
+        await driver.reportManualOutcome(.handled(count: 1))
+        await driver.reportManualOutcome(.publicationFailed(.stopped(.payloadRejected)))
+
+        #expect(
+            await queue.reported == [
+                .blocked(.stopped(.payloadRejected)), .recovered,
+                .blocked(.stopped(.payloadRejected)),
+            ])
         await driver.stop()
     }
 
