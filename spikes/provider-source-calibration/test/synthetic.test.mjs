@@ -10,6 +10,11 @@ import { fileURLToPath } from "node:url";
 const testRoot = path.dirname(fileURLToPath(import.meta.url));
 const spikeRoot = path.dirname(testRoot);
 
+const standardCompatibility = {
+  primary: { durationClass: "300" },
+  secondary: { durationClass: "10080" },
+};
+
 async function execute(command, arguments_, options = {}) {
   return await new Promise((resolve, reject) => {
     const child = spawn(command, arguments_, { ...options, stdio: ["pipe", "pipe", "pipe"] });
@@ -66,6 +71,8 @@ test("Codex report is sanitized for unique and compatibility-only buckets", asyn
       assert.equal(read.bounds.withinBucketEntryBound, true);
       assert.equal(read.bounds.withinWindowBound, true);
       assert.equal(read.accountIdentifierClassification, "present-string");
+      assert.equal(read.compatibility.primary.durationClass, "300");
+      assert.equal(read.compatibility.secondary.durationClass, "10080");
       const accountRead = report.events.find((event) => event.kind === "account-read");
       assert.equal(accountRead.accountKind, "chatgpt");
       assert.equal(accountRead.requiresOpenaiAuth, true);
@@ -144,6 +151,7 @@ test("report verifier accepts a complete sanitized observation", async () => {
       latencyMs: 12 + index,
       accountIdentifierClassification: "present-string",
       defaultBucket: { status: "unique", candidateCount: 1, basis: ["complete-snapshot-equality"] },
+      compatibility: standardCompatibility,
       bounds: {
         frameBytes: 512,
         maxStringBytes: 20,
@@ -282,6 +290,7 @@ test("Codex-only verifier does not require or inspect Claude reports", async () 
       latencyMs: 10,
       accountIdentifierClassification: "present-string",
       defaultBucket: { status: "compatibility-only", candidateCount: 0, basis: [] },
+      compatibility: standardCompatibility,
       bounds: {
         frameBytes: 100,
         maxStringBytes: 10,
@@ -332,3 +341,69 @@ test("Codex-only verifier does not require or inspect Claude reports", async () 
   }
 });
 
+
+test("duration-class check accepts one initial read and rejects a missing weekly window", async () => {
+  const root = await mkdtemp(path.join("/private/tmp", "reset-radar-source-calibration.test."));
+  try {
+    const base = Date.parse("2026-01-01T00:00:00.000Z");
+    const report = (compatibility) => JSON.stringify({
+      formatVersion: 2,
+      startedAt: new Date(base).toISOString(),
+      limits: {},
+      events: [{
+        at: new Date(base).toISOString(),
+        kind: "account-read",
+        latencyMs: 9,
+        frameBytes: 100,
+        topLevelKeys: ["account", "requiresOpenaiAuth"],
+        accountType: "string",
+        accountKind: "chatgpt",
+        requiresOpenaiAuthType: "boolean",
+        requiresOpenaiAuth: true,
+        bounds: { withinFrameBound: true, withinStringBound: true, withinDepthBound: true },
+      }, {
+        at: new Date(base).toISOString(),
+        elapsedMs: 0,
+        kind: "rate-limit-read",
+        reason: "initial",
+        latencyMs: 10,
+        accountIdentifierClassification: "present-string",
+        defaultBucket: { status: "compatibility-only", candidateCount: 0, basis: [] },
+        compatibility,
+        bounds: {
+          frameBytes: 100, maxStringBytes: 10, maxDepth: 4, bucketEntryCount: 0,
+          candidateWindowCount: 2, withinFrameBound: true, withinStringBound: true,
+          withinDepthBound: true, withinBucketEntryBound: true, withinWindowBound: true,
+        },
+      }],
+      failures: [],
+      stderrBytesDiscarded: 0,
+      stdinClosedAt: new Date(base + 1_000).toISOString(),
+      exitedAfterStdinClose: true,
+      childExit: { code: 0, signal: null },
+      finishedAt: new Date(base + 1_000).toISOString(),
+    });
+    const verify = (extra = []) => execute(process.execPath, [
+      path.join(spikeRoot, "verify-reports.mjs"), "--mode", "codex", "--root", root, ...extra,
+    ]);
+    const file = path.join(root, "codex-1-report.json");
+
+    await writeFile(file, report(standardCompatibility), { mode: 0o600 });
+    const accepted = await verify(["--duration-class-check"]);
+    assert.equal(accepted.code, 0, accepted.stderr);
+    const summary = JSON.parse(accepted.stdout);
+    assert.equal(summary.codex.allProfileTechnicalChecks, "duration-class-only");
+    assert.equal(summary.codex.profiles[0].durationClassCheck, "pass");
+    // The full 30-minute check still demands seven reads.
+    assert.notEqual((await verify()).code, 0);
+
+    for (const weekly of ["other", "absent", "300"]) {
+      await writeFile(file, report({
+        primary: { durationClass: "300" }, secondary: { durationClass: weekly },
+      }), { mode: 0o600 });
+      assert.notEqual((await verify(["--duration-class-check"])).code, 0, weekly);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

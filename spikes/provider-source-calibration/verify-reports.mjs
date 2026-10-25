@@ -75,16 +75,21 @@ const RAW_VALUE_KEYS = new Set([
 ]);
 
 function parseArguments(argv) {
-  if (argv.length !== 4 || argv[0] !== "--mode" || argv[2] !== "--root"
-      || !["codex", "combined", "claude"].includes(argv[1])) {
-    throw new Error("usage: node verify-reports.mjs --mode codex|combined|claude --root ROOT");
+  const durationClassCheck = argv[4] === "--duration-class-check";
+  if ((argv.length !== 4 && !(argv.length === 5 && durationClassCheck))
+      || argv[0] !== "--mode" || argv[2] !== "--root"
+      || !["codex", "combined", "claude"].includes(argv[1])
+      || (durationClassCheck && argv[1] !== "codex")) {
+    throw new Error(
+      "usage: node verify-reports.mjs --mode codex|combined|claude --root ROOT "
+      + "[--duration-class-check (codex only)]");
   }
   const mode = argv[1];
   const root = path.resolve(argv[3]);
   if (!root.startsWith("/private/tmp/reset-radar-source-calibration.")) {
     throw new Error("--root must be a Reset Radar source-calibration directory under /private/tmp");
   }
-  return { mode, root };
+  return { mode, root, durationClassCheck };
 }
 
 function assert(condition, message) {
@@ -120,7 +125,7 @@ async function readJsonLines(filePath) {
   });
 }
 
-function verifyCodex(report) {
+function verifyCodex(report, { durationClassCheck = false } = {}) {
   exactKeys(report, CODEX_TOP_LEVEL_KEYS, "Codex report");
   rejectRawValueKeys(report, "Codex report");
   assert(report.formatVersion === 2, "unexpected Codex report version");
@@ -140,7 +145,12 @@ function verifyCodex(report) {
   assert(accountRead.requiresOpenaiAuthType === "boolean", "Codex authentication discriminator has the wrong type");
     assert(Object.values(accountRead.bounds).every((value) => value === true), "Codex account read exceeded a safety bound");
   const scheduled = reads.filter((event) => event.reason === "initial" || event.reason === "scheduled-poll");
-  assert(scheduled.length === 7, "Codex report must contain one initial and six scheduled reads");
+  if (durationClassCheck) {
+    assert(scheduled.length === 1 && scheduled[0].reason === "initial",
+      "Codex duration-class check must contain exactly one initial read");
+  } else {
+    assert(scheduled.length === 7, "Codex report must contain one initial and six scheduled reads");
+  }
   for (const read of reads) {
     assert(read.accountIdentifierClassification === "present-string", "Codex rate-limit account identifier is absent or malformed");
     assert(Number.isFinite(read.latencyMs) && read.latencyMs <= 10_000, "Codex read exceeded timeout");
@@ -152,11 +162,23 @@ function verifyCodex(report) {
     assert(read.bounds?.withinStringBound === true, "Codex string bound failed");
     assert(read.bounds?.withinDepthBound === true, "Codex depth bound failed");
     assert(read.bounds?.withinWindowBound === true, "Codex window bound failed");
+    const classes = [read.compatibility?.primary, read.compatibility?.secondary]
+      .map((window) => window?.durationClass);
+    assert(classes.filter((value) => value === "300").length === 1
+        && classes.filter((value) => value === "10080").length === 1,
+      "Codex default bucket lacks exactly one five-hour and one weekly window");
   }
   for (let index = 1; index < scheduled.length; index += 1) {
     assert(scheduled[index].elapsedMs - scheduled[index - 1].elapsedMs <= 15 * 60_000, "Codex read gap exceeded 15 minutes");
   }
   const latencies = reads.map((read) => read.latencyMs);
+  if (durationClassCheck) {
+    return {
+      durationClassCheck: "pass",
+      defaultBucketStatuses: [...new Set(reads.map((read) => read.defaultBucket.status))].sort(),
+      standardWindowClasses: ["300", "10080"],
+    };
+  }
   return {
     readCount: reads.length,
     scheduledReadCount: scheduled.length,
@@ -170,6 +192,7 @@ function verifyCodex(report) {
     accountIdentifierClassifications: [...new Set(reads.map((read) => read.accountIdentifierClassification))],
     accountStatusChecks: "pass",
     defaultBucketStatuses: [...new Set(reads.map((read) => read.defaultBucket.status))].sort(),
+    standardWindowClasses: ["300", "10080"],
     updateNotificationObserved: report.events.some((event) => event.kind === "rate-limit-update-notification"),
     currentDataWindowMinutes: 15,
     currentDataWindowTechnicalChecks: "pass",
@@ -218,7 +241,7 @@ function verifySixtyMinutes(events, increased) {
 }
 
 async function run() {
-  const { mode, root } = parseArguments(process.argv.slice(2));
+  const { mode, root, durationClassCheck } = parseArguments(process.argv.slice(2));
   const summary = { formatVersion: 2, mode, privacyShapeChecks: "pass" };
   if (mode !== "claude") {
     const codexReportNames = (await readdir(root))
@@ -231,14 +254,16 @@ async function run() {
     const codexSummaries = [];
     for (const name of codexReportNames) {
       const report = JSON.parse(await readFile(path.join(root, name), "utf8"));
-      codexSummaries.push(verifyCodex(report));
+      codexSummaries.push(verifyCodex(report, { durationClassCheck }));
     }
     summary.codex = {
       profileCount: codexSummaries.length,
       profiles: codexSummaries,
-      allProfileTechnicalChecks: codexSummaries.every((profile) => profile.updateNotificationObserved)
-        ? "pass"
-        : "deferred",
+      allProfileTechnicalChecks: durationClassCheck
+        ? "duration-class-only"
+        : codexSummaries.every((profile) => profile.updateNotificationObserved)
+          ? "pass"
+          : "deferred",
     };
   }
   if (mode !== "codex") {

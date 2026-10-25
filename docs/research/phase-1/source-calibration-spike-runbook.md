@@ -73,6 +73,7 @@ The live harness may hold one raw source message in memory while classifying it.
 - field names, JSON value types, presence, validity, account-identifier presence/type (never its
   value), approved account-kind/authentication discriminators, and timestamp plausibility classes;
 - `unique`, `compatibility-only`, `not-found`, or `ambiguous` as the Codex default-bucket result;
+- `300`, `10080`, `other`, `absent`, or `invalid` as the coarse duration class of each decoded Codex window (an exact value outside the two standard durations is never recorded);
 - `absent`, `first-observed`, `increased`, `unchanged`, `decreased`, or `invalid` as the Claude activity result;
 - the public Claude Code window kinds and the owner's accept/reject decision for each freshness candidate.
 
@@ -258,6 +259,40 @@ For every selected profile, the 15-minute current-data candidate is technically 
 7. app-server exits within five seconds after the harness closes stdin.
 
 The final verifier checks every ordinal report and fails the combined Codex result if any selected profile fails. The owner records `15 minutes confirmed` or `15 minutes rejected` for each private ordinal; the verifier cannot make the product-policy decision for the owner. A profile-specific rejection returns the production profile-selection behavior to the owner rather than silently dropping that profile.
+
+### Codex duration-class re-check
+
+The original 30-minute run recorded window counts but not durations. To prove that every selected
+profile reports exactly one five-hour (`300`) and one weekly (`10080`) default-bucket window, run a
+short owner-present check from a new clean, owner-approved revision that contains the duration-class
+harness. Never reuse the earlier disposable session. Repeat sections 5, 6 and 7 (offline tests,
+`prepare.zsh --mode codex`, preflight), then run each profile window with `--duration-minutes 0`,
+which performs the initial read only:
+
+```zsh
+codex_calibration_index=1
+(
+  cd "$source_calibration_root"
+  "$source_calibration_node" "$source_calibration_root/harness/codex-calibration.mjs" \
+    --codex "${source_calibration_codex_launchers[$codex_calibration_index]}" \
+    --report "${source_calibration_codex_reports[$codex_calibration_index]}" \
+    --duration-minutes 0
+)
+```
+
+Repeat with `codex_calibration_index=2`, then verify and clean up as in sections 10 and 11, adding
+`--duration-class-check` to the verifier:
+
+```zsh
+"$source_calibration_node" "$source_calibration_root/harness/verify-reports.mjs" \
+  --mode codex --root "$source_calibration_root" --duration-class-check
+```
+
+It fails unless every profile's initial read shows exactly one `300` and one `10080` window in the
+default bucket and the existing frame, account, and default-bucket checks pass. No turn is needed
+and no notification is expected. Do not record a 15-minute decision again; append a short sanitized
+result to the existing Codex entry in [spike-results.md](spike-results.md) after cleanup. A failure
+returns the five-hour and weekly mapping to the owner rather than changing it.
 
 ## 9. Run the Claude Code observation
 

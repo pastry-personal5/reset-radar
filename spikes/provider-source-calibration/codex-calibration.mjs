@@ -83,6 +83,15 @@ function accountStatusShape(result) {
   };
 }
 
+const STANDARD_DURATION_MINUTES = new Set([300, 10_080]);
+
+// Coarse class only: an exact value outside the two standard durations is never retained.
+function durationClass(minutes) {
+  if (minutes === null || minutes === undefined) return "absent";
+  if (!Number.isInteger(minutes) || minutes <= 0) return "invalid";
+  return STANDARD_DURATION_MINUTES.has(minutes) ? String(minutes) : "other";
+}
+
 function windowShape(window) {
   if (window === null || typeof window !== "object" || Array.isArray(window)) {
     return { type: jsonType(window), validObject: false };
@@ -95,6 +104,7 @@ function windowShape(window) {
     usedPercentValid:
       Number.isInteger(window.usedPercent) && window.usedPercent >= 0 && window.usedPercent <= 100,
     durationType: jsonType(window.windowDurationMins),
+    durationClass: durationClass(window.windowDurationMins),
     resetType: jsonType(window.resetsAt),
     resetPlausibility:
       window.resetsAt === null || window.resetsAt === undefined
