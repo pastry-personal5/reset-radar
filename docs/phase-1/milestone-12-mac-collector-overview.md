@@ -1,6 +1,6 @@
 # P1-M12: Mac collector app overview
 
-Status: Planned
+Status: Active
 
 Build `ResetRadarMac` as the collector's composition root: object graph, lifecycle drivers, Keychain-backed secrets, publish loop, and every owner flow in [Mac app](../architecture/mac-app.md) except reset notifications. The [sequence](milestone-12-mac-collector-sequence.md) orders a signed-build tracer first, then the synthetic end-to-end loop, reactive drivers, flows, and owner-run validation.
 
@@ -57,10 +57,10 @@ These are newly exposed M12 choices. Implementation is blocked until the owner a
 
 ## Completion checklist
 
-- [ ] Plan reviewed against the binding architecture; decisions above answered and recorded in [changelog.md](changelog.md).
-- [ ] Entry: M10 and M11 code-complete on `main`; baseline gate evidence and branch/commit/worktree state recorded.
-- [ ] Release post-action rejects ad-hoc signing (tested with a fake signature reader) and the first signed Release build exists with its team identifier recorded.
-- [ ] Keychain `SecretStore` reads non-interactively; development, test, and installed-app stores are isolated; `interactionRequired` pauses publication and retries.
+- [x] Plan reviewed against the binding architecture; decisions above answered and recorded in [changelog.md](changelog.md).
+- [x] Entry: M10 and M11 code-complete on `main`; baseline revision `abaf26e9973432976745251913dcc07da7d94c46`, clean worktree, and sandbox limitations recorded.
+- [x] Release post-action rejects ad-hoc signing (tested with a fake signature reader) and a signed Release build exists with sanitized signing evidence recorded.
+- [x] Keychain `SecretStore` reads non-interactively; development, test, and installed-app stores are isolated; `interactionRequired` pauses publication and retries.
 - [ ] `MacEnvironment`, single-instance lock, App Nap guard, session secret cache, wake and network monitors are covered by `ResetRadarMacTests`.
 - [ ] Synthetic source to `PublishSnapshot` to relay passes end to end; `live` mode is refused without the M9 marker.
 - [ ] `ManualRequestDriver` polling, coalescing, publish-before-acknowledge, and sleep/wake behavior are tested.

@@ -10,6 +10,7 @@ if [[ "${CONFIGURATION:-}" != "Release" ]]; then
 fi
 
 app="${TARGET_BUILD_DIR:?}/${FULL_PRODUCT_NAME:?}"
+expected_team=""
 for item in "$app" "$app/Contents/Helpers/ResetRadarStatusLine"; do
   [[ -e $item ]] || { print -u2 "Mac signing check: missing $item"; exit 1; }
   details=$(codesign --display --verbose=4 "$item" 2>&1) || {
@@ -17,6 +18,12 @@ for item in "$app" "$app/Contents/Helpers/ResetRadarStatusLine"; do
   team=$(print -r -- "$details" | sed -n 's/^TeamIdentifier=//p')
   if print -r -- "$details" | grep -q 'Signature=adhoc' || [[ -z $team || $team == "not set" ]]; then
     print -u2 "Mac signing check: $item is ad-hoc signed or has no team identifier."
+    exit 1
+  fi
+  if [[ -z $expected_team ]]; then
+    expected_team=$team
+  elif [[ $team != $expected_team ]]; then
+    print -u2 "Mac signing check: app and helper use different team identifiers."
     exit 1
   fi
 done

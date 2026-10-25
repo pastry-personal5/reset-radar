@@ -73,6 +73,11 @@ public actor KeychainSecretStore: SecretStore {
             policy = .iosDataProtection(accessGroup: accessGroup)
         }
     #else
+        public static let macReleaseService =
+            "com.unidentifiedstealthstartup.ResetRadarMac.transport"
+        public static let macDevelopmentService =
+            "com.unidentifiedstealthstartup.ResetRadarMac.transport.dev"
+
         public init(
             backend: any SecItemBackend = SystemSecItemBackend(),
             build: Build = {
@@ -86,8 +91,8 @@ public actor KeychainSecretStore: SecretStore {
             self.backend = backend
             service =
                 build == .debug
-                ? "com.unidentifiedstealthstartup.ResetRadar.transport.debug"
-                : "com.unidentifiedstealthstartup.ResetRadar.transport"
+                ? Self.macDevelopmentService
+                : Self.macReleaseService
             policy = .macLogin
         }
     #endif

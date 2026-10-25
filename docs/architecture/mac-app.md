@@ -10,7 +10,7 @@ The Mac app is the collector's composition root in the [software architecture](.
 |---|---|
 | Layer | Composition root (frameworks and drivers) |
 | Targets | `ResetRadarMac`, with `ResetRadarStatusLine` embedded in its helpers directory (see [ProviderAdapters](provider-adapters.md#helper-composition)) |
-| Imports | [Domain](domain.md), [Application](application.md), [Storage](storage.md), [Transport](transport.md), [Scheduling](scheduling.md), [ProviderAdapters](provider-adapters.md), and [UI](ui.md) |
+| Imports | [Domain](domain.md), [Application](application.md), [Storage](storage.md), [Transport](transport.md), [ProviderAdapters](provider-adapters.md), and [UI](ui.md) |
 
 Rules:
 

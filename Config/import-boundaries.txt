@@ -6,11 +6,11 @@ ResetRadar: Domain Application Storage Transport Scheduling WatchSync UI
 ResetRadarWidgets: Domain Application Storage Transport Scheduling(scoped) UI
 ResetRadarWatch: Domain Application Storage WatchSync UI
 ResetRadarWatchWidgets: Domain Application Storage UI
-ResetRadarMac: Domain Application Storage Transport Scheduling ProviderAdapters UI
+ResetRadarMac: Domain Application Storage Transport ProviderAdapters UI
 ResetRadarStatusLine: Domain ProviderAdapters
 ResetRadarTests: Domain Application Storage Transport Scheduling WatchSync UI TestSupport
 ResetRadarUITests:
-ResetRadarMacTests: Domain Application Storage Transport Scheduling ProviderAdapters UI TestSupport
+ResetRadarMacTests: Mac Domain Application Storage Transport ProviderAdapters UI TestSupport
 ResetRadarWatchTests: Domain Application Storage WatchSync UI TestSupport
 [scoped-symbols]
 ResetRadarWidgets/ResetRadarScheduling: ResetActivityAttributes

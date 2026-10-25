@@ -261,8 +261,6 @@ targets:
       - package: ResetRadarKit
         product: ResetRadarTransport
       - package: ResetRadarKit
-        product: ResetRadarScheduling
-      - package: ResetRadarKit
         product: ResetRadarProviderAdapters
       - package: ResetRadarKit
         product: ResetRadarUI

@@ -40,7 +40,7 @@ struct StorageLocationsTests {
             let release = StorageLocations.macApplicationSupport(flavor: .release)
             let debug = StorageLocations.macApplicationSupport(flavor: .debug)
             #expect(release.directory.lastPathComponent == "ResetRadar")
-            #expect(debug.directory.path == release.directory.appending(path: "Debug").path)
+            #expect(debug.directory.lastPathComponent == "ResetRadar.dev")
         }
     #endif
 }

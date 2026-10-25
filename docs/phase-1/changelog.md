@@ -6,6 +6,21 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Codex — Completed P1-M12 Checkpoint A. The exact Release and `.dev`
+  Application Support and Keychain namespaces, injected signing outcomes, non-interactive
+  session cache, one-minute/session-active recovery seam, and matching app/helper Release signing
+  enforcement are implemented. The complete delegated gate passed. A signed Release build passed
+  the post-action on 2026-10-25; the signing team identifier's SHA-256 fingerprint is
+  `45e2f26cab945f930afb4916a8ca8d0ebead7a36e9b6bc6ed040c805e431c5ab`. No raw team identifier is
+  tracked.
+- 2026-10-25 — Owner/Codex — Started P1-M12 from clean baseline
+  `abaf26e9973432976745251913dcc07da7d94c46`. Locked M12 to live-by-default publishing with
+  `--synthetic`/injection for fixtures (no M9 gate), `.dev` Development namespaces, temporary
+  test storage and in-memory secrets, sidebar Settings, local Miniflare integration, explicitly
+  selected `CODEX_HOME` folders, hashed-only signing evidence, and automated close-out with the
+  owner-run reboot, eight-day Keychain, and 24-hour drift gates waived as accepted risk. Baseline
+  sandbox limitations include Xcode caches, CoreSimulator, Wrangler logs, and localhost binding;
+  affected commands require escalation rather than changing the validation contract.
 - 2026-10-25 — Owner/Codex — Completed P1-M11 Task 7 from clean revision `f6c3300` after the
   timer-trigger repair passed its offline and complete gates. Two isolated Claude Code 2.1.310
   sessions supplied exactly four owner-entered ordinary turns; response-linked activity, both

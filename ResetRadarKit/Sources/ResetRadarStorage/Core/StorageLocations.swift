@@ -36,10 +36,11 @@ public struct StorageLocations: Sendable, Equatable {
 
     #if os(macOS)
         public static func macApplicationSupport(flavor: Flavor) -> StorageLocations {
-            StorageLocations(
+            let name = flavor == .release ? "ResetRadar" : "ResetRadar.dev"
+            return StorageLocations(
                 root: URL.applicationSupportDirectory.appending(
-                    path: "ResetRadar", directoryHint: .isDirectory),
-                flavor: flavor)
+                    path: name, directoryHint: .isDirectory),
+                flavor: .release)
         }
     #endif
 }
