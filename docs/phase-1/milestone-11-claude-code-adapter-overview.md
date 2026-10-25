@@ -304,6 +304,16 @@ it lands first and is explicitly referenced from the M11 implementation record.
 
 ## Completion checklist
 
+- [x] The owner-facing M11 Task 7 calibration runbook gives one unambiguous Claude Code-only path from
+  prerequisites and clean-revision approval through the three-terminal observation, private
+  verification, exact cleanup, sanitized evidence handoff, and post-run close-out. Every command,
+  expected safe output, stop condition, permitted deferral, and prohibited evidence field is
+  explicit; the documented procedure and offline harness tests pass before the live run begins.
+  Evidence: the Task 7 owner route and sections 3 through 6 and 9 through 12 of the
+  [source-calibration runbook](../research/phase-1/source-calibration-spike-runbook.md); on
+  2026-10-25 the delegated offline suite passed six synthetic tests plus preparation isolation,
+  the complete gate passed, `git diff --check` passed, and 727 fenced-code-aware relative links
+  were valid. No signed-in provider process or external deployment ran.
 - [x] The binding architecture and M11 sequence state that guided setup does not probe the
   installed Claude Code version. Version provenance comes only from each decoded status-line
   observation, so setup has no undefined `claude --version` discovery contract. Evidence: owner

@@ -383,9 +383,11 @@ tests, and the complete gate pass and are committed.
 
 ## Task 7: Owner calibration and close-out
 
-After Checkpoint B is reviewable, the owner follows the repaired Claude Code-only runbook on the
-owner's Mac. The agent may prepare and review commands but never types a prompt, handles raw
-reports, changes the real settings, starts a signed-in Claude Code process, or receives raw output.
+After Checkpoint B is reviewable, the owner follows the
+[detailed Task 7 owner route](../research/phase-1/source-calibration-spike-runbook.md#p1-m11-task-7-owner-route)
+on the owner's Mac. The agent may prepare and review commands but never types a prompt, handles
+raw reports, changes the real settings, starts a signed-in Claude Code process, or receives raw
+output.
 
 The owner runs two isolated temporary-settings sessions, enters exactly four ordinary turns,
 performs idle redraw checks in both, proves B activity cannot make idle A fresh, and records an A

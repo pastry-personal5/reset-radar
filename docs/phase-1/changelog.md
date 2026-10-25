@@ -6,6 +6,16 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Codex — Expanded P1-M11 Task 7 into one explicit owner route from clean-revision
+  approval through the three-terminal Claude Code observation, 65-minute idle check, redacted
+  verification, owner decision, exact cleanup, sanitized evidence handoff, and agent close-out.
+  The runbook now distinguishes the one optional early idle deferral from the response, B-idle,
+  cross-session, and 60-minute evidence required to pass. The delegated offline calibration suite
+  passed six synthetic tests plus preparation isolation; the complete gate passed project
+  generation, Swift format, strict SwiftLint with zero violations across 286 files, import checks,
+  the macOS suite, 28 Workers tests, 31 relay Node tests, TypeScript checks, and Wrangler dry-run.
+  Diff hygiene and 727 fenced-code-aware relative Markdown links passed. No signed-in provider
+  process, real usage, or external deployment was accessed.
 - 2026-10-25 — Owner/Codex — Resolved the surfaced P1-M11 Claude Code version-discovery
   inconsistency as a documentation correction. Guided setup does not invoke `claude --version` or
   otherwise probe the installed Claude Code version because no setup contract consumes it. Each

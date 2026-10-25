@@ -2,10 +2,10 @@
 
 Status: Active
 
-This owner-run procedure validates the installed, signed-in Codex app-server independently, or
-Codex and Claude Code together during the later Claude Code milestone. It uses reviewed tracked
-programs from an owner-approved clean revision and retains only privacy-safe structural and timing
-evidence.
+This owner-run procedure validates the installed, signed-in Codex app-server, Claude Code status
+line, or both. It uses reviewed tracked programs from an
+owner-approved clean revision and retains only privacy-safe structural and timing evidence. The
+P1-M11 route below is Claude Code-only; it does not inspect or start Codex.
 
 ## 1. Authority, scope, and revision
 
@@ -28,6 +28,37 @@ delete Claude data. `--mode combined` still requires Codex profiles. `--mode cla
 Claude Code-only mode for P1-M11: it takes no profile count, never inspects Codex profiles,
 requires neither `codex-profile` nor a Codex report, and creates no Codex launcher, report, or
 state.
+
+### P1-M11 Task 7 owner route
+
+Budget about 75 to 90 minutes with the owner present. Most of that time is the required 65-minute
+idle interval. Use Terminal.app or another ordinary shell terminal, not a terminal pane inside
+Claude Code. The owner performs the live provider actions; an agent may prepare or review commands
+but must not start Claude Code, type a prompt, inspect a raw report, or receive private output.
+
+Follow this exact route for M11:
+
+1. Read sections 3 and 4, close screen sharing and terminal recording, choose a private worksheet,
+   and close every Claude Code process.
+2. Choose one reviewed commit. Confirm that `git rev-parse HEAD` equals it and that
+   `git status --short` prints nothing.
+3. Run the offline test in section 5. Stop if it does not pass.
+4. Run the Claude Code-only preparation in section 6.1. Record only the printed public macOS,
+   Node.js, and Claude Code versions; never record the disposable path.
+5. Open exactly three ordinary terminals and perform sections 9.1 through 9.5 in order. Submit
+   exactly four ordinary, non-sensitive turns: A twice and B twice. Send no fifth turn.
+6. Exit both Claude Code sessions and stop Observer exactly as section 9.6 says.
+7. Run the Claude Code verifier in section 10. Copy only its redacted JSON summary into the
+   private worksheet and make the explicit `60 minutes confirmed` or `60 minutes rejected`
+   decision.
+8. Close every Claude Code process and run the exact Claude Code cleanup in section 11. Do not
+   edit repository evidence until cleanup reports success.
+9. Give the agent only the sanitized handoff listed in section 12. The agent records the evidence,
+   applies a confirmed or rejected decision, runs the post-run gate, and closes M11 only if every
+   required criterion passed.
+
+Sections 7 and 8 are Codex-only and do not apply to M11. A failed or deferred required M11 check
+is still useful evidence, but it does not complete M11 and must never be relabeled as a pass.
 
 The spike files are:
 
@@ -133,11 +164,47 @@ This syntax-checks every script, exercises the Codex and Claude recorders only w
 
 ## 6. Prepare the live run
 
-Save all work and commit the reviewed M10 implementation. Keep Codex closed until the Codex
-instruction below asks for one separate owner-controlled turn per profile. Count the initialized,
-signed-in `codex-profile` profiles that Reset Radar must validate; M10 permits at most two.
+Save and commit the reviewed implementation first. Preparation refuses a dirty worktree, a commit
+other than the approved revision, or a running Claude Code process.
 
-Run:
+### 6.1 Claude Code-only preparation for P1-M11
+
+From the repository root, keep the approved commit hash in memory and run:
+
+```zsh
+approved_revision="$(git rev-parse HEAD)"
+test -z "$(git status --short)" || exit 1
+zsh spikes/provider-source-calibration/prepare.zsh \
+  --mode claude \
+  --expected-revision "$approved_revision"
+```
+
+The script prompts for nothing. It prints public macOS, Node.js, and Claude Code versions, then a
+private disposable directory and a quoted `source` command. Record only the three public versions
+and approved commit in the private worksheet. Do not record or send the directory or `source`
+command. Paste the printed `source` command into the current terminal, then confirm the attached
+state without printing identifiers:
+
+```zsh
+case "$source_calibration_root" in
+  /private/tmp/reset-radar-source-calibration.*) ;;
+  *) printf 'Unexpected calibration root. Stop.\n' >&2; exit 1 ;;
+esac
+test -f "$source_calibration_root/session.zsh"
+test "$source_calibration_mode" = claude
+printf 'Claude calibration session attached.\n'
+```
+
+The last line must be `Claude calibration session attached.` Keep this terminal available until
+the three dedicated terminals in section 9 are attached. The temporary settings files are passed
+only to the two calibration processes; preparation does not edit the owner's real Claude Code
+settings.
+
+### 6.2 Codex preparation for P1-M10
+
+Keep Codex closed until section 8 asks for one separate owner-controlled turn per profile. Count
+the initialized, signed-in `codex-profile` profiles that Reset Radar must validate; M10 permits at
+most two. Run:
 
 ```zsh
 approved_revision="$(git rev-parse HEAD)"
@@ -160,10 +227,6 @@ esac
 test -f "$source_calibration_root/session.zsh"
 printf 'Disposable session attached.\n'
 ```
-
-For the Claude Code observation, prepare with `zsh spikes/provider-source-calibration/prepare.zsh
---mode claude --expected-revision "$approved_revision"` instead; it prompts for nothing, refuses a
-running Claude Code process, and prints the same disposable directory and `source` command.
 
 Codex-only preparation does not read or edit anything under `~/.claude`, locate `claude`, or
 create Claude artifacts. It copies only the Codex harness and verifier into the disposable
@@ -299,11 +362,9 @@ returns the five-hour and weekly mapping to the owner rather than changing it.
 
 ## 9. Run the Claude Code observation
 
-M10 Codex-only calibration skips this section. M11 must repeat sections 5 through 8 from a new
-clean, separately approved revision, substituting `--mode claude --expected-revision COMMIT`
-(not `--mode combined`, which needs Codex) during preparation, then skip section 7 and the
-Codex part of section 8, and follow the steps below. Never reuse a Codex-only disposable
-session.
+M10 Codex-only calibration skips this section. M11 reaches this section only after sections 1
+through 5 and the Claude Code-only preparation in section 6.1. Do not run sections 6.2, 7, or 8,
+and do not use `--mode combined`. Never reuse a Codex disposable session.
 
 This part uses three Terminal windows at the same time. Keep every unrelated Claude Code process closed. Do not run the following commands in a terminal pane inside Claude Code.
 
@@ -431,6 +492,11 @@ A “prompt” below means one short, ordinary, non-sensitive request typed manu
 
 There are exactly four allowance-spending turns: A twice and B twice. Resizing a terminal is not a turn. Multiple Observer events may appear during one response; judge the response by the first matching event that shows the required activity transition. Stop if a response completes but no matching event appears after ten seconds, or if any transition has the wrong label or classification.
 
+The early idle check after A's first response may be deferred because the later cross-session and
+60-minute A checks can still supply A's required idle evidence. B must produce at least one idle
+event. A response-linked event, B's required idle event, cross-session isolation, or the 60-minute
+event cannot be deferred and still pass the verifier.
+
 ### 9.5 Perform the 65-minute A check
 
 Keep A, B, and Observer open. Send no more prompts. Wait until at least 65 minutes after the `at` time privately noted for A's second response in step 3. The extra five minutes avoids failing the check because of clock or observation delay.
@@ -442,7 +508,8 @@ activity:"unchanged"
 advanceObservedAt:false
 ```
 
-If no A event appears after several resizes, record the 60-minute idle observation as deferred. Do not send a fifth prompt to provoke the status line.
+If no A event appears after several resizes, record the 60-minute idle observation as deferred. Do not send a fifth prompt to provoke the status line. The verifier will not pass, M11 will remain
+active, and the deferral must be recorded honestly.
 
 ### 9.6 End the observation
 
@@ -468,7 +535,36 @@ This does not promise that Claude Code obtains remote-account changes within 60 
 
 ## 10. Verify and privately capture the summary
 
-Before editing any repository file, run:
+Before editing any repository file, run the command for the active mode.
+
+For P1-M11 Claude Code-only verification:
+
+```zsh
+"$source_calibration_node" "$source_calibration_root/harness/verify-reports.mjs" \
+  --mode claude \
+  --root "$source_calibration_root"
+```
+
+The command must exit successfully and print one redacted JSON object with `mode: "claude"`,
+`privacyShapeChecks: "pass"`, aggregate event counts, public `windowKinds`,
+`currentDataWindowMinutes: 60`, `currentDataWindowTechnicalChecks: "pass"`, and
+`crossSessionIsolationChecks: "pass"`. It also writes that same sanitized object inside the
+disposable directory. Copy only the printed redacted object into the private worksheet. Do not
+open either `claude-*-report.jsonl` file.
+
+The verifier proves the technical criteria but does not make the owner's policy decision. After
+reviewing the redacted result, write exactly one of these in the private worksheet:
+
+```text
+60 minutes confirmed
+60 minutes rejected
+```
+
+A verifier failure is not a rejection decision by itself. Record the named criterion as failed or
+deferred, do not inspect a raw report, and continue to the exact cleanup after both Claude Code
+sessions are closed.
+
+For P1-M10 Codex verification:
 
 ```zsh
 "$source_calibration_node" "$source_calibration_root/harness/verify-reports.mjs" \
@@ -478,8 +574,7 @@ Before editing any repository file, run:
 
 The Codex-mode verifier fails unless every selected Codex profile has all required technical
 observations. It neither opens nor requires a Claude report. Its printed JSON is redacted and may
-be transcribed into the private worksheet. Do not copy an underlying report. M11 substitutes
-`--mode claude` (no Codex report needed) for its Claude Code verification.
+be transcribed into the private worksheet. Do not copy an underlying report.
 
 `updateNotificationObserved: false` in any ordinal profile summary is an explicit Codex deferral, even if every other technical check passes. The owner still decides whether each current-data window is confirmed or rejected.
 
@@ -488,7 +583,29 @@ be transcribed into the private worksheet. Do not copy an underlying report. M11
 Save the redacted verifier summary in the private worksheet, because cleanup permanently removes
 the disposable reports. Codex-only cleanup does not inspect or delete Claude data.
 
-The following command removes only the validated Codex-mode
+For P1-M11, first exit A and B, stop Observer, and close every other Claude Code process. Keep an
+ordinary shell with the session attached, then run:
+
+```zsh
+zsh spikes/provider-source-calibration/cleanup.zsh \
+  --mode claude \
+  --confirm-delete-calibration-sessions \
+  "$source_calibration_root/session.zsh"
+```
+
+Cleanup proves the repository revision and worktree are unchanged, verifies the real settings
+checksum, restores the exact pre-run history prefix, removes only the two generated session UUIDs
+from the bounded Claude Code stores, scans `~/.claude` for either UUID, and removes the validated
+disposable directory. Successful output is:
+
+```text
+claude calibration disposable files removed and repository unchanged: PASS
+```
+
+Only after this line appears may repository evidence be edited. The shell variables may still
+name the removed path; do not reuse them or rerun cleanup.
+
+For P1-M10, the following command removes only the validated Codex-mode
 `/private/tmp/reset-radar-source-calibration.*` directory after proving the repository is still at
 the recorded revision and status:
 
@@ -498,20 +615,9 @@ zsh spikes/provider-source-calibration/cleanup.zsh \
   "$source_calibration_root/session.zsh"
 ```
 
-The cleanup script refuses if the repository revision or status changed, the session mode differs,
-or the target directory is outside the exact expected `/private/tmp` prefix. Claude-mode and
-combined-mode cleanup require `--confirm-delete-calibration-sessions` and additionally retain the
-narrow Claude process, UUID, history-prefix, and settings checks:
-
-```zsh
-zsh spikes/provider-source-calibration/cleanup.zsh \
-  --mode claude --confirm-delete-calibration-sessions \
-  "$source_calibration_root/session.zsh"
-```
-
 If cleanup refuses, do not broaden its path, delete by age, truncate an unverified history file, or use a wildcard over `~/.claude`. Preserve the disposable directory and investigate privately.
 
-Successful output is:
+Successful Codex output is:
 
 ```text
 codex calibration disposable files removed and repository unchanged: PASS
@@ -519,7 +625,41 @@ codex calibration disposable files removed and repository unchanged: PASS
 
 ## 12. Record project evidence
 
-Only after successful cleanup, append one dated entry to [spike-results.md](spike-results.md):
+Only after successful cleanup, append one dated entry for the active mode to
+[spike-results.md](spike-results.md).
+
+For P1-M11, give the agent only:
+
+- the UTC date and the public macOS, Node.js, and Claude Code versions;
+- the exact reviewed public commit hash and whether the offline tests passed;
+- the verifier's redacted aggregate JSON object;
+- `60 minutes confirmed` or `60 minutes rejected`;
+- whether cleanup printed its exact success line; and
+- any failed or deferred criterion named without a raw value, path, identifier, prompt, or
+  response.
+
+Do not send the private `source` command, disposable path, session UUIDs, raw reports, terminal
+screenshots, prompts, responses, usage values, reset times, activity-counter values, settings
+content, or Claude Code history. The agent turns the permitted handoff into this project entry:
+
+```markdown
+### Claude Code source calibration — YYYY-MM-DD
+
+- **Attendance:** Owner-present. No raw response, credential, account/session identifier, prompt, response content, percentage, reset timestamp, activity-counter value, or project path was retained in Reset Radar evidence.
+- **Question:** Does the installed Claude Code status-line source satisfy the approved field shape, response-linked activity, two-session isolation, idle non-advancement, and 60-minute current-data assumptions?
+- **Method and versions:** Public macOS, Node.js, and Claude Code versions; exact reviewed revision; passing offline synthetic tests; two isolated temporary-settings sessions; exactly four owner-entered ordinary turns; and the 65-minute idle procedure.
+- **Claude Code measurements:** Redacted aggregate event, advancing, increased, and idle counts; public window kinds and the presence of at least one non-spend kind; privacy-shape result; cross-session-isolation result; 60-minute technical result; and the owner's `60 minutes confirmed` or `60 minutes rejected` decision.
+- **Privacy and cleanup:** Repository revision and status unchanged; real settings unchanged; original history prefix restored; both generated session UUIDs absent after the bounded scan; disposable directory removed.
+- **Result:** Pass, fail, or deferred, with each blocker named. A rejected threshold, source-shape contradiction, required deferral, or cleanup failure leaves M11 active and returns that rule to the owner.
+```
+
+After a passing, confirmed result, the agent removes Claude Code's candidate wording from
+`CurrentDataWindow` and affected active docs without changing Codex claims, updates the M11
+checklist, phase plan, research evidence, and changelog, and delegates the focused and complete
+gate to `test_runner`. M11 becomes `Done` only after that evidence exists and every remaining
+required checklist item is satisfied.
+
+For P1-M10, use this Codex entry:
 
 ```markdown
 ### Codex source calibration — YYYY-MM-DD
