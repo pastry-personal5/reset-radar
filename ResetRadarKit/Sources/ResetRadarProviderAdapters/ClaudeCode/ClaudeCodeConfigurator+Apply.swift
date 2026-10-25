@@ -15,13 +15,12 @@ extension ClaudeCodeConfigurator {
         try requireCurrentHelper()
         try prepareSetupDirectory()
         let snapshot = try readSettings()
+        if try await completeInterruptedInstall(snapshot: snapshot, prepared: prepared) { return }
         guard snapshot.revision == prepared.settingsRevision else {
             throw ClaudeCodeConfiguratorError.stalePreview
         }
-        if try await completeInterruptedInstall(snapshot: snapshot, prepared: prepared) { return }
         let plan = try makePlan(prepared, snapshot: snapshot)
-        try await commit(plan, snapshot: snapshot)
-        try await ensureAccountRow(prepared)
+        try await commit(plan, snapshot: snapshot, prepared: prepared)
     }
 
     /// Idempotent reapply, or completion of a transaction interrupted after the settings write.
@@ -29,13 +28,43 @@ extension ClaudeCodeConfigurator {
         snapshot: ClaudeSettingsSnapshot, prepared: Pending
     ) async throws -> Bool {
         guard var record = try loadRestoreRecord(),
+            record.state == .pending,
             case .command(let current) = snapshot.statusLine,
-            current == record.installedCommand
+            current == record.installedCommand,
+            current == helperCommand
         else { return false }
+        try validateInterruptedArtifacts(record)
+        try await ensureAccountRow(prepared)
         record.state = .installed
         try saveRestore(record)
-        try await ensureAccountRow(prepared)
         return true
+    }
+
+    /// A pending record is completable only when its compose artifact still exactly represents
+    /// the prior safe command. Missing, orphaned, or untrusted artifacts need owner recovery.
+    private func validateInterruptedArtifacts(_ record: StatusLineRestoreRecord) throws {
+        let compose: ComposeRecord?
+        do {
+            compose = try composeStore.load()
+        } catch {
+            throw ClaudeCodeConfiguratorError.setupFailed
+        }
+        switch record.prior {
+        case .absent:
+            guard compose == nil else { throw ClaudeCodeConfiguratorError.setupFailed }
+        case .command(let prior):
+            let canonicalPriorPath: String
+            do {
+                let priorPath = try ExistingStatusLineParser.parse(
+                    prior, homeDirectory: paths.homeDirectory)
+                canonicalPriorPath = try validator.validatePath(priorPath)
+            } catch {
+                throw ClaudeCodeConfiguratorError.setupFailed
+            }
+            guard let compose, compose.executablePath == canonicalPriorPath else {
+                throw ClaudeCodeConfiguratorError.setupFailed
+            }
+        }
     }
 
     private func makePlan(_ prepared: Pending, snapshot: ClaudeSettingsSnapshot) throws -> Plan {
@@ -76,7 +105,9 @@ extension ClaudeCodeConfigurator {
     }
 
     /// Order: restore record, compose record, settings, then the installed mark.
-    private func commit(_ plan: Plan, snapshot: ClaudeSettingsSnapshot) async throws {
+    private func commit(
+        _ plan: Plan, snapshot: ClaudeSettingsSnapshot, prepared: Pending
+    ) async throws {
         var record = StatusLineRestoreRecord(
             prior: plan.prior, installedCommand: helperCommand, transactionID: UUID(),
             createdAt: clock(), state: .pending)
@@ -84,6 +115,10 @@ extension ClaudeCodeConfigurator {
         try writeComposeRecord(for: plan.existingExecutable)
         do {
             try editor.replace(expecting: snapshot, with: plan.newBytes)
+        } catch ClaudeSettingsError.postWriteConflict {
+            // Settings changed after our rename. Preserve both recovery artifacts so the owner can
+            // resolve the conflict without losing the prior safe command.
+            throw ClaudeCodeConfiguratorError.settingsUnsafe
         } catch {
             recoverFromFailedReplace()
             if case ClaudeSettingsError.conflict = error {
@@ -91,6 +126,9 @@ extension ClaudeCodeConfigurator {
             }
             throw ClaudeCodeConfiguratorError.settingsUnsafe
         }
+        // The installed mark is the public commit point. Keep the transaction pending until the
+        // account row is durable so `inspect` can never claim a source that collection cannot use.
+        try await ensureAccountRow(prepared)
         record.state = .installed
         try saveRestore(record)
     }

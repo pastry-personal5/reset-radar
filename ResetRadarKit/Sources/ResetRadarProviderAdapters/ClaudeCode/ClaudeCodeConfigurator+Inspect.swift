@@ -29,9 +29,10 @@ extension ClaudeCodeConfigurator {
         guard case .command(let current) = snapshot.statusLine,
             current == record.installedCommand
         else {
-            // A transaction interrupted before the settings write, or a later owner edit: either
-            // way Reset Radar's command is not installed, so setup can simply run again.
-            return .notConfigured
+            // Only a pending transaction still at its exact prior value can safely start over.
+            // Any other value may be a post-write owner edit and needs explicit resolution.
+            return record.state == .pending && Self.matchesPrior(record.prior, snapshot.statusLine)
+                ? .notConfigured : .incompatible
         }
         switch record.prior {
         case .absent:
@@ -66,6 +67,16 @@ extension ClaudeCodeConfigurator {
     func classifyExisting(
         _ snapshot: ClaudeSettingsSnapshot, record: StatusLineRestoreRecord?
     ) throws -> Existing? {
+        let canRestartPendingTransaction =
+            record.map {
+                $0.state == .pending && Self.matchesPrior($0.prior, snapshot.statusLine)
+            } ?? false
+        let hasBlockingRestoreRecord =
+            record != nil && snapshot.statusLine != .command(helperCommand)
+            && !canRestartPendingTransaction
+        if hasBlockingRestoreRecord {
+            throw SourceConfigurationError.restoreConflict
+        }
         switch snapshot.statusLine {
         case .absent:
             return nil
@@ -83,6 +94,16 @@ extension ClaudeCodeConfigurator {
                 throw ConfigureSourcesError.unsafeExistingConfiguration
             }
             return Existing(rawCommand: command, identity: identity)
+        }
+    }
+
+    private static func matchesPrior(
+        _ prior: StatusLineRestoreRecord.Prior, _ statusLine: ExistingStatusLine
+    ) -> Bool {
+        switch (prior, statusLine) {
+        case (.absent, .absent): true
+        case (.command(let prior), .command(let current)): prior == current
+        default: false
         }
     }
 

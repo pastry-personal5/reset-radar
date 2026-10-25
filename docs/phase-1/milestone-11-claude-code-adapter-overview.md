@@ -215,7 +215,8 @@ it lands first and is explicitly referenced from the M11 implementation record.
 2. **Resource bounds and composition validation.** *Owner-approved as proposed 2026-10-25.* Recommend the calibration harness's 1 MiB
    Reset Radar capture ceiling; 4 KiB decoded-key and allowlisted-string ceilings; 128-byte ASCII
    grammars for the public version and unknown window kinds; 32-level nesting; duplicate-member
-   rejection; 128 total `rate_limits` members before `spend_limit` or invalid entries are discarded;
+   rejection; 128 total `rate_limits` members before `spend_limit` is ignored or an invalid entry
+   is rejected;
    a 64 KiB session/compose/restore-record ceiling; a 1 MiB settings-file ceiling; a 64 MiB streamed
    executable-identity ceiling; a one-second session-record lock timeout; at most 1,024 recognized
    session records and 4,096 total directory entries visited per scan; and exact numeric parsing
@@ -385,9 +386,18 @@ it lands first and is explicitly referenced from the M11 implementation record.
   sequential/concurrent runs improved median wall time from 14.40 to 13.43 seconds (6.7%); 10
   consecutive concurrent runs passed all 655 Mac and 31 relay tests with a 12.87-second median;
   the complete contribution-guide gate passed on 2026-10-25.
-- [ ] The `test_runner` passes the complete contribution-guide gate from the final reviewable
+- [x] Whole-milestone review follow-up keeps setup non-configured until the Claude Code account row
+  is durable, preserves recovery artifacts after post-write conflicts, validates every
+  interrupted-install artifact before completing it, and binds trusted executable identity to
+  stable descriptor and path metadata across hashing. Focused regression tests and the complete
+  contribution-guide gate passed on 2026-10-25.
+- [x] The `test_runner` passes the complete contribution-guide gate from the final reviewable
   worktree; focused ProviderAdapters/helper tests, `git diff --check`, and relative Markdown
-  links also pass.
+  links also pass. Evidence: the 2026-10-25 review run passed XcodeGen generation, Swift format,
+  strict SwiftLint with zero violations across 286 files, import boundaries, the macOS scheme,
+  28 Workers tests, 31 relay Node tests, TypeScript checks, Wrangler dry-run, focused Claude Code
+  configurator/catalog/settings tests, the complete ProviderAdapters target, diff hygiene, and the
+  fenced-code-aware relative-link check.
 
 ## Implementation status
 
@@ -397,8 +407,13 @@ the helper composition root. Checkpoint C needs the owner: the signed-in calibra
 decision, cleanup, and the sanitized evidence entry cannot be performed or fabricated by an agent,
 so P1-M11 stays `Active`. After the whole-branch review fixes, the complete gate passed on
 2026-10-25 (189 Swift tests, 28 relay tests, 5 calibration-harness tests, lint, import check, and
-`git diff --check`); the relative-Markdown-link check and the owner-run items remain open. The calibration commands are in
+`git diff --check`); the owner-run items remained open. The calibration commands are in
 [the runbook](../research/phase-1/source-calibration-spike-runbook.md) (`--mode claude`).
+
+The 2026-10-25 whole-milestone implementation review additionally fixed the setup commit point,
+catalog-aware configuration inspection, interrupted-install artifact validation, post-write
+conflict recovery, and executable identity stability. Focused and complete validation plus the
+relative-link check passed; only the owner-run Checkpoint C items above remain open.
 
 ## Checkpoints
 

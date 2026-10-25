@@ -26,6 +26,13 @@ struct ClaudeCodeCatalogTests {
             #expect(again.number == 1)
             #expect(again.alias == alias)
             #expect(try await store.loadCatalog().accounts.count == 1)
+            #expect(try await store.loadClaudeCodeAccount() == again)
+            #expect(try await store.claudeCodeConfigurationState(accountID: nil) == .configured)
+            #expect(
+                try await store.claudeCodeConfigurationState(accountID: again.id) == .configured)
+            #expect(
+                try await store.claudeCodeConfigurationState(accountID: id(0xEE))
+                    == .notConfigured)
         }
     }
 
@@ -39,6 +46,11 @@ struct ClaudeCodeCatalogTests {
             }
             try await store.removeClaudeCodeAccount(accountID: row.id)
             #expect(try await store.loadCatalog().accounts.isEmpty)
+            #expect(
+                try await store.claudeCodeConfigurationState(accountID: nil) == .notConfigured)
+            await #expect(throws: ProviderAccountCatalogStoreError.accountNotFound) {
+                try await store.loadClaudeCodeAccount()
+            }
             let recreated = try await store.ensureClaudeCodeAccount(
                 id: id(0xC3), revision: ConfigurationPreviewRevision())
             #expect(recreated.number == 1)

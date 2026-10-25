@@ -6,6 +6,17 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Codex — Reviewed and hardened the P1-M11 implementation. Setup now keeps its
+  restore transaction pending until the Claude Code account row is durable, configuration
+  inspection requires that row, same-preview recovery completes interrupted installs only after
+  validating compose artifacts, and post-write settings conflicts preserve recovery evidence and
+  block a new preview until the owner resolves them. Added the planned Claude Code catalog load and
+  state operations, and bound executable hashing to stable descriptor and path metadata. Focused
+  Claude Code tests and the complete ProviderAdapters target passed; the complete gate passed
+  project generation, Swift format, strict SwiftLint (zero violations across 286 files), import
+  boundaries, macOS tests, 28 Workers tests, 31 relay Node tests, TypeScript checks, and Wrangler
+  dry-run. Diff hygiene and the fenced-code-aware relative Markdown link check passed. Owner-run
+  Claude Code calibration and cleanup remain open, so M11 stays `Active`.
 - 2026-10-25 — Owner/Claude — Completed the Codex duration-class re-check. Profile 1 reports five-hour and weekly windows; profile 2 reports weekly only. The owner relaxed the criterion from "exactly one five-hour and one weekly window" to "at least one distinct standard window, none unclassified", since an account may have no five-hour window (cause unverified: no five-hour limit on that account, or its weekly limit reached). Reset Radar never invents a five-hour value; that ring is unavailable.
 - 2026-10-25 — Owner/Claude — Added an open P1-M10 item: calibrate that each Codex profile reports a five-hour and a weekly default-bucket window by recording only a coarse duration class (`300`, `10080`, `other`) per decoded window. The 2026-10-25 calibration recorded window counts but not durations, so the mapping is currently synthetic-only evidence.
 - 2026-10-25 — Owner/Claude — Completed the P1-M10 owner-present Codex calibration for two profiles: all technical checks passed, the owner confirmed the 15-minute Codex current-data window, and the update-notification path is deferred to M12 operational observation. The installed Codex reports `requiresOpenaiAuth: true` for a signed-in ChatGPT account, contradicting the planned `== false` rule, so the owner relaxed it: a ChatGPT account object with any boolean `requiresOpenaiAuth` is authenticated, a null account with `true` is `signedOut`, anything else is `incompatible`. This also fixed a production decoder defect that would have marked healthy accounts incompatible. M10 stays `Active` until the remaining checklist items have recorded evidence.

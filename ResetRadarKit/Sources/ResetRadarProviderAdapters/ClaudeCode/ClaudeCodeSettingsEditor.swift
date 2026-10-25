@@ -9,8 +9,10 @@ public enum ClaudeSettingsError: Error, Equatable, Sendable {
     /// Invalid JSON, a duplicate member, or nesting past the bound.
     case malformed
     case unavailable
-    /// The bytes changed between inspection and replacement (or verification).
+    /// The bytes changed before replacement.
     case conflict
+    /// Replacement occurred, but the installed bytes no longer matched during verification.
+    case postWriteConflict
 }
 
 public enum ExistingStatusLine: Equatable, Sendable {
@@ -39,12 +41,23 @@ public struct ClaudeCodeSettingsEditor: Sendable {
     private let transactionFiles: OwnerOnlyConfigurationFiles
     private let ownerID: UInt32
     private let transactionRoot: URL
+    private let afterReplacement: @Sendable () throws -> Void
 
     /// `transactionDirectory` holds the one fixed settings-transaction lock.
     public init(settingsURL: URL, transactionDirectory: URL, ownerID: UInt32 = getuid()) {
+        self.init(
+            settingsURL: settingsURL, transactionDirectory: transactionDirectory, ownerID: ownerID,
+            afterReplacement: {})
+    }
+
+    init(
+        settingsURL: URL, transactionDirectory: URL, ownerID: UInt32 = getuid(),
+        afterReplacement: @escaping @Sendable () throws -> Void
+    ) {
         self.settingsURL = settingsURL.standardizedFileURL
         transactionRoot = transactionDirectory.standardizedFileURL
         self.ownerID = ownerID
+        self.afterReplacement = afterReplacement
         transactionFiles = OwnerOnlyConfigurationFiles(
             directoryURL: transactionDirectory, maximumBytes: StatusLineLimits.maximumRecordBytes,
             lockTimeout: StatusLineLimits.lockTimeout)
@@ -239,7 +252,13 @@ public struct ClaudeCodeSettingsEditor: Sendable {
             throw ClaudeSettingsError.unavailable
         }
         cleanup = false
-        try requireRevision(SHA256.hash(data: newBytes).map { String(format: "%02x", $0) }.joined())
+        do {
+            try afterReplacement()
+            try requireRevision(
+                SHA256.hash(data: newBytes).map { String(format: "%02x", $0) }.joined())
+        } catch {
+            throw ClaudeSettingsError.postWriteConflict
+        }
     }
 
     private static func existingMode(_ url: URL) -> mode_t {

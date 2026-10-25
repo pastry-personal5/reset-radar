@@ -34,6 +34,10 @@ struct ClaudeCodeConfiguratorRestoreTests {
             }
             #expect(try rig.text() == theirs)
             #expect(rig.restoreFileExists && rig.composeFileExists)
+            let option = try #require(try await rig.configurator.discover().first)
+            await #expect(throws: SourceConfigurationError.restoreConflict) {
+                try await rig.configurator.preview(optionID: option.id, intent: .add)
+            }
         }
     }
 
@@ -132,6 +136,57 @@ struct ClaudeCodeConfiguratorRestoreTests {
             #expect(await rig.configurator.inspect(accountID: nil) == .configured)
             try await rig.configurator.restore()
             #expect(try rig.text() == original)
+        }
+    }
+
+    @Test func interruptedCompletionRefusesAMissingComposeArtifact() async throws {
+        try await withAsyncTrustedHome { home in
+            let rig = try SetupRig(home)
+            let line = try writeExecutable(
+                "#!/bin/sh\ncat >/dev/null\n", at: home.appending(path: "line"))
+            try rig.write(settingsJSON(command: line.path))
+            _ = try await rig.install()
+            let store = StatusLineRestoreStore(
+                directory: rig.root.appending(path: "claude-setup"))
+            var record = try #require(try store.load())
+            record.state = .pending
+            try store.save(record)
+            try ComposeRecordStore(rootDirectory: rig.root).remove()
+
+            #expect(await rig.configurator.inspect(accountID: nil) == .incompatible)
+            let option = try #require(try await rig.configurator.discover().first)
+            let preview = try await rig.configurator.preview(optionID: option.id, intent: .add)
+            await #expect(throws: ClaudeCodeConfiguratorError.setupFailed) {
+                try await rig.configurator.apply(preview)
+            }
+            #expect(try store.load()?.state == .pending)
+            #expect(!rig.composeFileExists)
+        }
+    }
+
+    @Test func aPendingPostWriteOwnerEditCannotBeMistakenForAPreWriteInterruption() async throws {
+        try await withAsyncTrustedHome { home in
+            let rig = try SetupRig(home)
+            let original = try writeExecutable(
+                "#!/bin/sh\ncat >/dev/null\n", at: home.appending(path: "original"))
+            let replacement = try writeExecutable(
+                "#!/bin/sh\ncat >/dev/null\n", at: home.appending(path: "replacement"))
+            try rig.write(settingsJSON(command: original.path))
+            _ = try await rig.install()
+            let store = StatusLineRestoreStore(
+                directory: rig.root.appending(path: "claude-setup"))
+            var record = try #require(try store.load())
+            record.state = .pending
+            try store.save(record)
+            try rig.write(settingsJSON(command: replacement.path))
+
+            #expect(await rig.configurator.inspect(accountID: nil) == .incompatible)
+            let option = try #require(try await rig.configurator.discover().first)
+            await #expect(throws: SourceConfigurationError.restoreConflict) {
+                try await rig.configurator.preview(optionID: option.id, intent: .add)
+            }
+            #expect(try store.load() == record)
+            #expect(rig.composeFileExists)
         }
     }
 

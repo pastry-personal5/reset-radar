@@ -172,6 +172,31 @@ struct ClaudeCodeSettingsEditorTests {
         }
     }
 
+    @Test func postWriteConflictIsDistinctAndLeavesTheReplacementEvidenceInPlace() throws {
+        try withTrustedHome { home in
+            let claude = home.appending(path: ".claude")
+            #expect(mkdir(claude.path, 0o700) == 0)
+            #expect(mkdir(home.appending(path: "ResetRadar").path, 0o700) == 0)
+            let settings = claude.appending(path: "settings.json")
+            try Data("{\"a\":1}".utf8).write(to: settings)
+            #expect(chmod(settings.path, 0o600) == 0)
+            let editor = ClaudeCodeSettingsEditor(
+                settingsURL: settings,
+                transactionDirectory: home.appending(path: "ResetRadar/claude-setup"),
+                afterReplacement: {
+                    try Data("{\"a\":3}".utf8).write(to: settings)
+                    guard chmod(settings.path, 0o600) == 0 else {
+                        throw ClaudeSettingsError.unavailable
+                    }
+                })
+            let snapshot = try editor.read()
+            #expect(throws: ClaudeSettingsError.postWriteConflict) {
+                try editor.replace(expecting: snapshot, with: Data("{\"a\":2}".utf8))
+            }
+            #expect(try String(contentsOf: settings, encoding: .utf8) == "{\"a\":3}")
+        }
+    }
+
     @Test func refusesUnsafeFilesAndCreatesAMissingOneOwnerOnly() throws {
         try withTrustedHome { home in
             let claude = home.appending(path: ".claude")

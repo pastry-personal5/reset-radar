@@ -108,8 +108,16 @@ public actor ClaudeCodeConfigurator: SourceConfigurator {
 
     public func inspect(accountID: AccountID?) async -> ConfigurationState {
         do {
-            return try inspectState()
+            let settingsState = try inspectState()
+            guard settingsState == .configured else { return settingsState }
+            // An installed setting without its catalog row is an interrupted transaction, not a
+            // configured source. A different explicit account is simply not configured here.
+            let account = try await catalog.loadClaudeCodeAccount()
+            guard let accountID else { return .configured }
+            return account.id == accountID ? .configured : .notConfigured
         } catch is StatusLineRestoreError {
+            return .incompatible
+        } catch is ProviderAccountCatalogStoreError {
             return .incompatible
         } catch {
             return .unsafe
@@ -193,8 +201,11 @@ public actor ClaudeCodeConfigurator: SourceConfigurator {
         if let newBytes = try restoredBytes(record: record, snapshot: snapshot) {
             do {
                 try editor.replace(expecting: snapshot, with: newBytes)
-            } catch ClaudeSettingsError.conflict {
-                throw SourceConfigurationError.restoreConflict
+            } catch let error as ClaudeSettingsError {
+                if error == .conflict || error == .postWriteConflict {
+                    throw SourceConfigurationError.restoreConflict
+                }
+                throw ClaudeCodeConfiguratorError.settingsUnsafe
             } catch {
                 throw ClaudeCodeConfiguratorError.settingsUnsafe
             }

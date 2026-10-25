@@ -31,6 +31,37 @@ extension ProviderAccountCatalogStore {
         }
     }
 
+    /// Loads the one Claude Code row. The catalog schema enforces the one-row product cap.
+    public func loadClaudeCodeAccount() throws -> AccountMetadata {
+        try files.withLock {
+            let index = try loadIndex()
+            guard let catalog = index.catalog else {
+                throw ProviderAccountCatalogStoreError.incompatibleCatalog
+            }
+            guard let account = catalog.accounts.first(where: { $0.product == .claudeCode }) else {
+                throw ProviderAccountCatalogStoreError.accountNotFound
+            }
+            return account
+        }
+    }
+
+    /// Reports the Claude Code row state independently from status-line installation state.
+    public func claudeCodeConfigurationState(
+        accountID: AccountID?
+    ) throws -> ConfigurationState {
+        try files.withLock {
+            let index = try loadIndex()
+            guard let catalog = index.catalog else {
+                throw ProviderAccountCatalogStoreError.incompatibleCatalog
+            }
+            guard let account = catalog.accounts.first(where: { $0.product == .claudeCode }) else {
+                return .notConfigured
+            }
+            guard let accountID else { return .configured }
+            return account.id == accountID ? .configured : .notConfigured
+        }
+    }
+
     public func removeClaudeCodeAccount(accountID: AccountID) throws {
         try files.withLock {
             var index = try loadIndex()

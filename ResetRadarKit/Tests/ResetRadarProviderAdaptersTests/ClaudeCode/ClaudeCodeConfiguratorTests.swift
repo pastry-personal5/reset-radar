@@ -132,6 +132,39 @@ struct ClaudeCodeConfiguratorTests {
         }
     }
 
+    @Test func catalogFailureKeepsTheTransactionPendingAndTheSamePreviewCanRecover() async throws {
+        try await withAsyncTrustedHome { home in
+            let rig = try SetupRig(home)
+            let option = try #require(try await rig.configurator.discover().first)
+            let preview = try await rig.configurator.preview(optionID: option.id, intent: .add)
+            let blockedCatalog = rig.root.appending(path: "accounts.json")
+            #expect(mkdir(blockedCatalog.path, 0o700) == 0)
+
+            await #expect(throws: ClaudeCodeConfiguratorError.setupFailed) {
+                try await rig.configurator.apply(preview)
+            }
+            #expect(
+                try ClaudeCodeSettingsEditor.snapshot(of: Data(try rig.text().utf8)).statusLine
+                    == .command(rig.configurator.helperCommand))
+            let store = StatusLineRestoreStore(
+                directory: rig.root.appending(path: "claude-setup"))
+            #expect(try store.load()?.state == .pending)
+            #expect(await rig.configurator.inspect(accountID: nil) == .incompatible)
+
+            try FileManager.default.removeItem(at: blockedCatalog)
+            try await rig.configurator.apply(preview)
+            #expect(try store.load()?.state == .installed)
+            let row = try await rig.catalog.loadClaudeCodeAccount()
+            #expect(await rig.configurator.inspect(accountID: nil) == .configured)
+            #expect(await rig.configurator.inspect(accountID: row.id) == .configured)
+            let another = AccountID(data: Data(repeating: 0xEE, count: 16))!
+            #expect(await rig.configurator.inspect(accountID: another) == .notConfigured)
+            try await rig.catalog.removeClaudeCodeAccount(accountID: row.id)
+            #expect(await rig.configurator.inspect(accountID: nil) == .incompatible)
+            #expect(await rig.configurator.inspect(accountID: row.id) == .incompatible)
+        }
+    }
+
     @Test func aCommandWhoseOutputDiffersWhenComposedIsRefused() async throws {
         try await withAsyncTrustedHome { home in
             let rig = try SetupRig(home)
