@@ -11,12 +11,12 @@ This file is the overall plan. Each milestone gets its own overview file when it
 - Research findings are written down and the product scope in [product-behavior.md](../product-behavior.md) is filled in from them.
 - The software architecture is documented and every related "Undecided" item in [AGENTS.md](../../AGENTS.md) is resolved or consciously deferred.
 - An Xcode project targeting iOS and iPadOS 26.1+, watchOS 26.6+, and macOS 26.7.1+ builds with the `ResetRadar`, `ResetRadarMac`, and `ResetRadarWatch` schemes, and the full gate passes with empty-but-real app, watch app, and test targets.
-- The Mac collector, relay, and both provider adapters work end to end on synthetic data and, after the relay's synthetic-data gate passes, on real data; the iOS, iPad, and Watch apps, widgets, and Live Activities display it. Open work in [P1-M2 open work](../archive/p1-m2-open-work.md) is verified by its owning milestones.
+- The Mac collector, relay, and both provider adapters work end to end on synthetic and real data; the iOS, iPad, and Watch apps, widgets, and Live Activities display it. Open work in [P1-M2 open work](../archive/p1-m2-open-work.md) is verified by its owning milestones.
 
 ## Approach
 
 - **Bottom-up, Mac first.** Milestones follow the `ResetRadarKit` dependency rule (Domain ← Application ← adapters and UI ← composition roots) from [software architecture](../architecture.md). The Mac collector is the only real data source, so it and its UI come before the iOS and Watch apps.
-- **Synthetic before real.** No real usage reaches the relay until P1-M9 passes. Adapters and the Mac collector are built and tested locally against fixtures first; nothing live is published before then.
+- **Fixtures first.** Adapters and the Mac collector are built and tested locally against fixtures. P1-M9 no longer gates real usage.
 - **Tests travel with code.** Each milestone adds its tests and carries the [P1-M2 open work](../archive/p1-m2-open-work.md) rows for its modules, as ordinary tests or owner-run runbooks.
 - **Gate scope.** The Mac, lint, import, and relay checks run in every milestone. The iPhone, iPad, and Watch test runs are suspended (see the [changelog](changelog.md)) and return with P1-M14 and P1-M16.
 - **Stop on contradiction.** A result that contradicts an accepted decision goes back to the owner; behavior is not adjusted to fit (see [owner decisions](owner-decisions.md)).
@@ -114,7 +114,7 @@ Plan: [overview](milestone-08-relay-implementation-overview.md), [sequencing](mi
 
 ### P1-M9: Relay synthetic-data gate
 Status: Active
-Goal: Owner-run Cloudflare spike on synthetic data covering the conformance criteria and a US$0 billing check; real usage stays blocked until it passes.
+Goal: Owner-run Cloudflare spike on synthetic data covering the conformance criteria and a US$0 billing check. It no longer gates real usage on the relay.
 Plan: [overview](milestone-09-relay-synthetic-gate-overview.md), [sequencing](milestone-09-relay-synthetic-gate-sequence.md), [relay](../architecture/relay.md)
 
 ### P1-M10: Codex adapter

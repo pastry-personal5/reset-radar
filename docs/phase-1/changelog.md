@@ -6,6 +6,7 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Owner/Claude — Removed the synthetic-data gate as a requirement: real usage and provider adapters may use the relay without waiting for P1-M9 to close. The M9 overview, sequence, runbook, harness, and evidence stay as history and optional validation. Updated AGENTS.md, owner decisions, product behavior, the phase plan, and the M2 out-of-scope list.
 - 2026-10-25 — Owner/Claude — Planned P1-M12 ([overview](milestone-12-mac-collector-overview.md), [sequence](milestone-12-mac-collector-sequence.md)). Decided: M12 delivers all of [Mac app](../architecture/mac-app.md) except `NotificationDriver`, with functional unstyled screens, and P1-M13 becomes GUI polish only; M12 is synthetic-only behind a `PublishingMode` guard until M9 passes; code-complete M10 and M11 on `main` start M12 and their open calibration gates only the final real-data step; reset notifications on the Mac move to P1-M15; the Personal Team identity exists, so the first signed Release build starts the eight-day Keychain clock; tracer-first sequencing. Four implementation decisions remain open in the overview.
 - 2026-10-25 — Claude — Implemented P1-M11 Checkpoints A and B on branch
   `m11-claude-code-adapter`: the Claude Code-only calibration mode, the bounded status-line

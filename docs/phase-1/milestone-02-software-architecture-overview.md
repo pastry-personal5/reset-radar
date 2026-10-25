@@ -25,7 +25,6 @@ Produce an architecture that P1-M3 can scaffold without inventing product behavi
 - New product scope, provider credentials, private consumer endpoints, API-key mode, APNs, multiple publishing Macs, analytics, or paid services.
 - Manual percentage entry, manual reset rules, recurrence calculation, and general ChatGPT or Claude consumer-usage tracking.
 - Visual styling and branding assets beyond architecture-affecting interface structure.
-- Real usage data in the Cloudflare relay before its synthetic-data gate passes.
 
 ## Deliverables
 

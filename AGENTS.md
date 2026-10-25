@@ -21,7 +21,7 @@ Start with the [documentation index](docs/README.md). Product scope lives in [pr
 
 The following sources are binding:
 
-- **Scope and security:** [product behavior](docs/product-behavior.md) and [owner decisions](docs/phase-1/owner-decisions.md). Never copy provider credentials, use private consumer endpoints or API-key mode, invent manual values or reset rules, or send real usage through the relay before its synthetic-data gate passes.
+- **Scope and security:** [product behavior](docs/product-behavior.md) and [owner decisions](docs/phase-1/owner-decisions.md). Never copy provider credentials, use private consumer endpoints or API-key mode, invent manual values or reset rules.
 - **Platforms and distribution:** [platform targets](docs/architecture.md#platform-targets) and [personal-use sideloading](docs/research/phase-1/personal-use-sideloading.md). Use the owner's free Apple account and Sideloadly; LiveContainer, App Store, and TestFlight distribution are excluded.
 - **Interaction and language:** [UX GUI](docs/ux-gui.md), [information architecture](docs/ux-information-architecture.md), and [UX terms](docs/ux-terms.md). Show provider-reported percentage used, never percentage remaining.
 - **System design:** [software architecture](docs/architecture.md) and its module documents. `ResetRadarKit` is a dependency-free local package following Domain ← Application ← adapters/UI ← composition roots; adapters never import each other.
