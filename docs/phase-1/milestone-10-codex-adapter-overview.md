@@ -290,6 +290,13 @@ The owner resolved the implementation choices on 2026-10-24. These are binding:
 - [x] The calibration cleanup succeeds before one redacted Codex evidence entry is added to
   [spike-results.md](../research/phase-1/spike-results.md). No raw or identifying value enters
   version control. Evidence: cleanup printed `codex calibration disposable files removed and repository unchanged: PASS` before the single entry was added; it contains no raw or identifying value.
+- [ ] Live calibration shows that each selected Codex profile reports a five-hour and a weekly
+  default-bucket window. The harness records only a coarse duration class per decoded window
+  (`300`, `10080`, or `other`, never an exact other value), the verifier requires one `300` and
+  one `10080` default-bucket window per profile, and the owner re-runs a short owner-present check
+  (one initial read, no 30-minute soak). The report keeps the existing privacy boundary: no
+  percentage, reset, limit ID, or bucket key. Until then, the five-hour and weekly mapping is
+  proven only by synthetic tests.
 - [ ] The ProviderAdapters placeholder and smoke test are removed, affected active docs match
   the implementation, and P1-M10 moves to `Done` only after every required item has evidence.
 - [x] The `test_runner` passes the complete contribution-guide gate from the final reviewable
