@@ -342,7 +342,7 @@ test("Codex-only verifier does not require or inspect Claude reports", async () 
 });
 
 
-test("duration-class check accepts one initial read and rejects a missing weekly window", async () => {
+test("duration-class check accepts reported standard windows and rejects anything else", async () => {
   const root = await mkdtemp(path.join("/private/tmp", "reset-radar-source-calibration.test."));
   try {
     const base = Date.parse("2026-01-01T00:00:00.000Z");
@@ -397,11 +397,22 @@ test("duration-class check accepts one initial read and rejects a missing weekly
     // The full 30-minute check still demands seven reads.
     assert.notEqual((await verify()).code, 0);
 
-    for (const weekly of ["other", "absent", "300"]) {
-      await writeFile(file, report({
-        primary: { durationClass: "300" }, secondary: { durationClass: weekly },
-      }), { mode: 0o600 });
-      assert.notEqual((await verify(["--duration-class-check"])).code, 0, weekly);
+    // A provider at its weekly limit reports only the weekly window.
+    await writeFile(file, report({
+      primary: { durationClass: "10080" }, secondary: null,
+    }), { mode: 0o600 });
+    const weeklyOnly = await verify(["--duration-class-check"]);
+    assert.equal(weeklyOnly.code, 0, weeklyOnly.stderr);
+    assert.deepEqual(JSON.parse(weeklyOnly.stdout).codex.profiles[0].standardWindowClasses, ["10080"]);
+
+    for (const rejected of [
+      { primary: { durationClass: "300" }, secondary: { durationClass: "other" } },
+      { primary: { durationClass: "300" }, secondary: { durationClass: "300" } },
+      { primary: { durationClass: "absent" }, secondary: null },
+      { primary: null, secondary: null },
+    ]) {
+      await writeFile(file, report(rejected), { mode: 0o600 });
+      assert.notEqual((await verify(["--duration-class-check"])).code, 0, JSON.stringify(rejected));
     }
   } finally {
     await rm(root, { recursive: true, force: true });

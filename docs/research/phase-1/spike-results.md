@@ -99,6 +99,11 @@ Dated evidence for the P1-M2 validation work listed in [the milestone overview](
 - **Privacy checks:** Repository revision and status unchanged during execution; no Claude state inspected or created; the verifier was run once from a privately patched disposable copy that applied the relaxed account criterion; disposable files removed and cleanup PASS.
 - **Result:** Pass with one deferral (update notification). The relaxed account-status rule exposed a production decoder defect that the synthetic fixtures had masked; it is fixed with the evidence.
 
+#### Duration-class re-check — 2026-10-25
+
+- **Method:** Owner-present, reviewed revision `d42adaa` with a clean worktree, installed-schema preflight PASS, one initial read per profile (`--duration-minutes 0`), coarse duration class only, verifier `--duration-class-check`, cleanup PASS.
+- **Result:** Both profiles pass the relaxed criterion (at least one distinct default-bucket window, each `300` or `10080`). Anonymous ordinal 1 reported a five-hour and a weekly window; ordinal 2 reported only a weekly window. The cause for ordinal 2 is not established; the owner believes that account has no five-hour limit. The five-hour ring is shown as unavailable for such an account. The initial strict "one of each" rule failed on ordinal 2 and was relaxed by the owner; the verifier also ran once from the working copy before it was committed.
+
 ## Static architecture review — 2026-10-20
 
 This is a document-level failure and trust-boundary review, not spike evidence or approval to carry real usage through the relay. Each row names a required invariant; the synthetic and physical checks in the [milestone overview](../../phase-1/milestone-02-software-architecture-overview.md) remain open.

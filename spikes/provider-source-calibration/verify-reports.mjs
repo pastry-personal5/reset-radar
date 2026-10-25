@@ -162,21 +162,28 @@ function verifyCodex(report, { durationClassCheck = false } = {}) {
     assert(read.bounds?.withinStringBound === true, "Codex string bound failed");
     assert(read.bounds?.withinDepthBound === true, "Codex depth bound failed");
     assert(read.bounds?.withinWindowBound === true, "Codex window bound failed");
+    // A provider at its weekly limit may report only the weekly window, so a standard window may
+    // be absent; every reported default-bucket window must be a distinct standard duration.
     const classes = [read.compatibility?.primary, read.compatibility?.secondary]
-      .map((window) => window?.durationClass);
-    assert(classes.filter((value) => value === "300").length === 1
-        && classes.filter((value) => value === "10080").length === 1,
-      "Codex default bucket lacks exactly one five-hour and one weekly window");
+      .filter((window) => window != null)
+      .map((window) => window.durationClass);
+    assert(classes.length >= 1
+        && classes.every((value) => value === "300" || value === "10080")
+        && new Set(classes).size === classes.length,
+      "Codex default bucket must report distinct five-hour or weekly windows only");
   }
   for (let index = 1; index < scheduled.length; index += 1) {
     assert(scheduled[index].elapsedMs - scheduled[index - 1].elapsedMs <= 15 * 60_000, "Codex read gap exceeded 15 minutes");
   }
   const latencies = reads.map((read) => read.latencyMs);
+  const standardWindowClasses = [...new Set(reads.flatMap((read) =>
+    [read.compatibility.primary, read.compatibility.secondary]
+      .filter((window) => window != null).map((window) => window.durationClass)))].sort();
   if (durationClassCheck) {
     return {
       durationClassCheck: "pass",
       defaultBucketStatuses: [...new Set(reads.map((read) => read.defaultBucket.status))].sort(),
-      standardWindowClasses: ["300", "10080"],
+      standardWindowClasses,
     };
   }
   return {
@@ -192,7 +199,7 @@ function verifyCodex(report, { durationClassCheck = false } = {}) {
     accountIdentifierClassifications: [...new Set(reads.map((read) => read.accountIdentifierClassification))],
     accountStatusChecks: "pass",
     defaultBucketStatuses: [...new Set(reads.map((read) => read.defaultBucket.status))].sort(),
-    standardWindowClasses: ["300", "10080"],
+    standardWindowClasses,
     updateNotificationObserved: report.events.some((event) => event.kind === "rate-limit-update-notification"),
     currentDataWindowMinutes: 15,
     currentDataWindowTechnicalChecks: "pass",

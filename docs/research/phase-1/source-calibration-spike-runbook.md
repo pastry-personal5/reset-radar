@@ -263,7 +263,8 @@ The final verifier checks every ordinal report and fails the combined Codex resu
 ### Codex duration-class re-check
 
 The original 30-minute run recorded window counts but not durations. To prove that every selected
-profile reports exactly one five-hour (`300`) and one weekly (`10080`) default-bucket window, run a
+profile reports only distinct five-hour (`300`) or weekly (`10080`) default-bucket windows, and at
+least one of them, run a
 short owner-present check from a new clean, owner-approved revision that contains the duration-class
 harness. Never reuse the earlier disposable session. Repeat sections 5, 6 and 7 (offline tests,
 `prepare.zsh --mode codex`, preflight), then run each profile window with `--duration-minutes 0`,
@@ -288,8 +289,10 @@ Repeat with `codex_calibration_index=2`, then verify and clean up as in sections
   --mode codex --root "$source_calibration_root" --duration-class-check
 ```
 
-It fails unless every profile's initial read shows exactly one `300` and one `10080` window in the
-default bucket and the existing frame, account, and default-bucket checks pass. No turn is needed
+It fails unless every profile's initial read shows at least one default-bucket window, every
+reported window is a distinct `300` or `10080`, and the existing frame, account, and default-bucket
+checks pass. An account may legitimately report only the weekly window (no five-hour limit, or its
+weekly limit reached), in which case the five-hour ring is unavailable. No turn is needed
 and no notification is expected. Do not record a 15-minute decision again; append a short sanitized
 result to the existing Codex entry in [spike-results.md](spike-results.md) after cleanup. A failure
 returns the five-hour and weekly mapping to the owner rather than changing it.
