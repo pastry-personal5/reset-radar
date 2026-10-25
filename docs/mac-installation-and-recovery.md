@@ -101,7 +101,7 @@ publishing readings to other devices.
 
 This section changes Cloudflare state. Start only when the owner is ready to use the included,
 single-tenant Worker and has reconfirmed the Workers Free, no-paid-add-on, disabled-observability
-requirements in [Cloudflare synchronization](research/phase-1/cloudflare-synchronization.md).
+requirements in [Cloudflare synchronization](research/cloudflare-synchronization.md).
 
 1. From an owner-controlled terminal that is authenticated to the intended Cloudflare account,
    deploy the reviewed Worker. The command intentionally suppresses Wrangler's potentially

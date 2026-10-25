@@ -93,7 +93,7 @@ No history is retained by Reset Radar in Cloudflare. Replacing a snapshot overwr
 
 ## 5. Relay protocol
 
-The validation spike should prove the canonical [relay protocol](../../architecture/relay.md#protocol), summarized here:
+The validation spike should prove the canonical [relay protocol](../architecture/relay.md#protocol), summarized here:
 
 | Operation | Authority | Behavior |
 |---|---|---|
@@ -172,7 +172,7 @@ Operational requirements:
 
 ## 9. Capacity and failure model
 
-The original baseline of one 4 KiB publish and one reader fetch every five minutes is 576 Worker and Durable Object requests per day, but it no longer represents the selected foreground, three-reader, and Mac-assisted manual-refresh behavior. The current intended-client estimate is in [Relay capacity](../../architecture.md#relay-capacity); its conservative all-day maximum is about 69,500 Worker requests including request acknowledgements. The physical row-write count can be higher than the logical operation count if the schema adds indexes or auxiliary rows, so it must be measured. Current free allocations include:
+The original baseline of one 4 KiB publish and one reader fetch every five minutes is 576 Worker and Durable Object requests per day, but it no longer represents the selected foreground, three-reader, and Mac-assisted manual-refresh behavior. The current intended-client estimate is in [Relay capacity](../architecture.md#relay-capacity); its conservative all-day maximum is about 69,500 Worker requests including request acknowledgements. The physical row-write count can be higher than the logical operation count if the schema adds indexes or auxiliary rows, so it must be measured. Current free allocations include:
 
 - 100,000 Worker requests/day;
 - 100,000 Durable Object requests/day and 13,000 GB-s/day;
@@ -228,7 +228,7 @@ The owner also decided:
 - accept foreground/manual plus opportunistic background refresh without reserving a paid Apple Developer/APNs path; and
 - select separate source-specific refresh and stale thresholds from P1-M2 tests instead of fixing arbitrary values now.
 
-No real usage data or provider adapter may connect to the relay before the spike passes. The complete decision is recorded in [Phase 1 owner decisions](../../phase-1/owner-decisions.md).
+No real usage data or provider adapter may connect to the relay before the spike passes. The complete decision is recorded in [Phase 1 owner decisions](../phase-1/owner-decisions.md).
 
 ## Sources
 

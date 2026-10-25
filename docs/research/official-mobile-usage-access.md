@@ -23,7 +23,7 @@ These are documentation findings, not proof that no future vendor API can exist.
 
 The existing iPhone Refresh action performs an immediate conditional relay read. It can return quickly, but its Codex observation is only as recent as the Mac's last five-minute poll; it cannot wake a sleeping Mac. Claude Code remains last-response data even if the Mac is awake.
 
-The owner selected a Mac-assisted path for the first version. An authenticated reader posts a short-lived, rate-limited request to the relay; an awake Mac polls for it, makes one coalesced Codex app-server read, and publishes an encrypted acknowledgement and result. No provider credential leaves the Mac. The protocol, quota calculation, replay and abuse limits, and latency spike are specified in the [architecture](../../architecture.md) and remain validation gates. This cannot provide independent-phone access, and it cannot force a fresh Claude Code observation without a new Claude Code response.
+The owner selected a Mac-assisted path for the first version. An authenticated reader posts a short-lived, rate-limited request to the relay; an awake Mac polls for it, makes one coalesced Codex app-server read, and publishes an encrypted acknowledgement and result. No provider credential leaves the Mac. The protocol, quota calculation, replay and abuse limits, and latency spike are specified in the [architecture](../architecture.md) and remain validation gates. This cannot provide independent-phone access, and it cannot force a fresh Claude Code observation without a new Claude Code response.
 
 ## Conditional design, if a vendor supplies the missing support
 

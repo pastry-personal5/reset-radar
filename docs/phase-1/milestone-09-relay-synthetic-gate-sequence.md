@@ -2,7 +2,7 @@
 
 Status: Active
 
-Work order for the [M9 overview](milestone-09-relay-synthetic-gate-overview.md). The agent produces and locally validates the harness; only the owner executes commands that authenticate, deploy, mutate Cloudflare state, inspect the dashboard, or handle secrets. If a remote exercise exposes a defect, the agent may implement and locally validate a fixture-compatible fix without receiving credentials or running the remote command. The [runbook](../research/phase-1/cloudflare-relay-spike-runbook.md) holds the owner commands after Task 2 reconciles it.
+Work order for the [M9 overview](milestone-09-relay-synthetic-gate-overview.md). The agent produces and locally validates the harness; only the owner executes commands that authenticate, deploy, mutate Cloudflare state, inspect the dashboard, or handle secrets. If a remote exercise exposes a defect, the agent may implement and locally validate a fixture-compatible fix without receiving credentials or running the remote command. The [runbook](../research/cloudflare-relay-spike-runbook.md) holds the owner commands after Task 2 reconciles it.
 
 ## Constraints
 
@@ -62,7 +62,7 @@ The owner waived the physical cellular evidence step on 2026-10-24 before prepar
 
 Run teardown after a pass, a failed exercise, or an owner stop: authenticate destruction twice, prove active state is empty, remove the two secrets and all deployed versions/Worker resources that Cloudflare permits removing, clear exactly the six synthetic secure-store items and pasteboard, and recheck usage and billing. Record Cloudflare's provider-managed recovery-retention caveat instead of claiming immediate physical erasure.
 
-The agent then writes one dated entry in [spike results](../research/phase-1/spike-results.md) from owner-supplied redacted numbers, checks the overview items against it, and updates [phase-1.md](phase-1.md), the [docs index](../README.md), and the [changelog](changelog.md). Do not edit the archived P1-M2 open-work record. A failure records the condition and owner decision and leaves real relay usage and P1-M14 blocked. Mark M9 `Done` only when every checklist item has direct evidence.
+The agent then writes one dated entry in [spike results](../research/spike-results.md) from owner-supplied redacted numbers, checks the overview items against it, and updates [phase-1.md](phase-1.md), the [docs index](../README.md), and the [changelog](changelog.md). Do not edit the archived P1-M2 open-work record. A failure records the condition and owner decision and leaves real relay usage and P1-M14 blocked. Mark M9 `Done` only when every checklist item has direct evidence.
 
 ## Review focus
 

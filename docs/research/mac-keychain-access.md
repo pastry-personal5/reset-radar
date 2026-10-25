@@ -49,7 +49,7 @@ The design is option A, with three additions:
 - **Fail-fast recovery.** A failure that would need a dialog pauses publication and leads to a recovery screen instead of a prompt.
 - **Running-process cache.** Once the signed app has read secrets successfully, a later login-Keychain lock does not evict the in-memory copy or pause publication. The recovery screen distinguishes this from a failed read at startup; the owner can quit the app to stop the running publisher.
 
-The binding contract is in the [Mac app](../../architecture/mac-app.md#signing-and-keychain) and [Transport](../../architecture/transport.md#secret-store) architecture.
+The binding contract is in the [Mac app](../architecture/mac-app.md#signing-and-keychain) and [Transport](../architecture/transport.md#secret-store) architecture.
 
 ## 5. Validation spike
 

@@ -386,7 +386,7 @@ tests, and the complete gate pass and are committed.
 ## Task 7: Owner calibration and close-out
 
 After Checkpoint B is reviewable, the owner follows the
-[detailed Task 7 owner route](../research/phase-1/source-calibration-spike-runbook.md#p1-m11-task-7-owner-route)
+[detailed Task 7 owner route](../research/source-calibration-spike-runbook.md#p1-m11-task-7-owner-route)
 on the owner's Mac. The agent may prepare and review commands but never types a prompt, handles
 raw reports, changes the real settings, starts a signed-in Claude Code process, or receives raw
 output.
@@ -407,7 +407,7 @@ bound, send another unplanned turn, read credentials, dump JSON, adopt the early
 substitute a private endpoint.
 
 After exact verified cleanup, append one sanitized Claude Code calibration entry to
-[spike-results.md](../research/phase-1/spike-results.md). If the owner confirms 60 minutes, remove
+[spike-results.md](../research/spike-results.md). If the owner confirms 60 minutes, remove
 candidate wording for Claude Code in `CurrentDataWindow` and affected docs without claiming that
 Codex's window is confirmed if M10 remains open.
 

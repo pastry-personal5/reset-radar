@@ -8,7 +8,7 @@ Sources were checked on 2026-10-19. No cloud account was created, no service was
 
 ## 1. Verdict and recommendation
 
-Cloudflare Workers with a SQLite-backed Durable Object is the conditionally approved store-and-forward path. Store only application-encrypted snapshots plus the minimal protocol metadata in the [current relay design](../../architecture/relay.md); keep the content key on the paired Mac, iPhones, and iPads.
+Cloudflare Workers with a SQLite-backed Durable Object is the conditionally approved store-and-forward path. Store only application-encrypted snapshots plus the minimal protocol metadata in the [current relay design](../architecture/relay.md); keep the content key on the paired Mac, iPhones, and iPads.
 
 The owner accepted `workers.dev` as the relay hostname. No custom domain is required or purchased while the US$0 requirement applies.
 
@@ -56,7 +56,7 @@ The product must therefore promise cached, timestamped observations—not contin
 
 ### Expected relay volume
 
-The original one-reader baseline of a 4 KiB publish and read every five minutes is 576 Worker requests per day. The selected design now has three readers, foreground polling, heartbeat publication, widget reloads, and bounded manual Mac-assisted Codex refresh. Its conservative intended-client maximum is about 69,500 requests per day, including Mac acknowledgements; see [Relay capacity](../../architecture.md#relay-capacity). Cloudflare currently includes 100,000 Worker requests/day, 100,000 Durable Object requests/day, 100,000 SQLite rows written/day, 5 million rows read/day, and 5 GB of Durable Object storage on Free. These quotas are account-wide, so another Worker or rejected abuse traffic can reduce headroom. The spike must measure real request, CPU, duration, row, and cellular costs.
+The original one-reader baseline of a 4 KiB publish and read every five minutes is 576 Worker requests per day. The selected design now has three readers, foreground polling, heartbeat publication, widget reloads, and bounded manual Mac-assisted Codex refresh. Its conservative intended-client maximum is about 69,500 requests per day, including Mac acknowledgements; see [Relay capacity](../architecture.md#relay-capacity). Cloudflare currently includes 100,000 Worker requests/day, 100,000 Durable Object requests/day, 100,000 SQLite rows written/day, 5 million rows read/day, and 5 GB of Durable Object storage on Free. These quotas are account-wide, so another Worker or rejected abuse traffic can reduce headroom. The spike must measure real request, CPU, duration, row, and cellular costs.
 
 The [Cloudflare cost audit](cloudflare-synchronization.md#2-zero-cost-contract-and-hidden-fee-audit) is part of this recommendation. Its principal hidden-fee paths are the US$5/month Workers Paid minimum plus overages, domain registration/renewal, paid Logpush, paid-account observability overages after the announced 2026-12-01 pricing change, unrelated account workloads, and third-party telemetry or CI. The strict configuration uses `workers.dev`, per-Worker secrets, no paid add-on, and no logs or traces. Cloudflare pricing is not a lifetime guarantee and must be rechecked before deployment.
 
@@ -109,7 +109,7 @@ The app should refresh on foreground activation and user request. A user-started
 - Re-sign through Sideloadly and confirm the Keychain keys, cached sequence, widget state, and scheduled local notifications survive as expected.
 - Measure foreground latency, battery, and cellular data use at the intended refresh schedule.
 - If the Cloudflare spike fails, prove `UIDocumentPickerViewController` folder selection/bookmark restoration or compare a Tailscale pull before changing the primary architecture.
-- Confirm every condition in [Phase 1 owner decisions](../../phase-1/owner-decisions.md) remains satisfied before freezing the architecture.
+- Confirm every condition in [Phase 1 owner decisions](../phase-1/owner-decisions.md) remains satisfied before freezing the architecture.
 
 ## Sources
 

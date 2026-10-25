@@ -60,7 +60,7 @@ Test view models first, then add plain Settings sections: Sources (up to two Cod
 2. Unless waived, complete the eight-day re-read after the Task 1 signing date and a 24-hour
    timer-drift run with the window closed using synthetic payloads.
 3. Record either sanitized evidence or the owner-approved waiver in
-   `docs/research/phase-1/spike-results.md` and the changelog; update README, docs index,
+   `docs/research/spike-results.md` and the changelog; update README, docs index,
    roadmap, and phase plan; run the complete gate. Real-data end-to-end does not wait for M9.
 
 ## Checkpoints

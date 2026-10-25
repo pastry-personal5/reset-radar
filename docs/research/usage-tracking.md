@@ -188,7 +188,7 @@ Required desktop-source experiments:
 - Conditionally approve the Cloudflare metadata boundary and one-authoritative-Mac design, subject to the required synthetic-data spike.
 - Choose separate Codex and Claude stale thresholds from P1-M2 tests rather than assigning an arbitrary shared timeout.
 
-The canonical rationale and constraints are in [Phase 1 owner decisions](../../phase-1/owner-decisions.md).
+The canonical rationale and constraints are in [Phase 1 owner decisions](../phase-1/owner-decisions.md).
 
 ## Sources
 

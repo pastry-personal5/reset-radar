@@ -18,7 +18,7 @@ Stop, leave the P1-M2 validation item unchecked, and record the outcome as a fai
 - A command would require a provider credential, a real relay secret, a Cloudflare login, an entitlement from the production app, or a new dependency/build tool.
 - The Keychain cannot be unlocked again by the owner through Keychain Access, or a command would affect an item other than the harness's synthetic service.
 
-This runbook validates the selected login-Keychain design from [Mac Keychain access](mac-keychain-access.md) and the contracts in [Mac app](../../architecture/mac-app.md#signing-and-keychain) and [Transport](../../architecture/transport.md#secret-store). It does not validate iOS Keychain access, App Groups, the relay, or production `SMAppService` UI; P1-M3 validates those in the real targets.
+This runbook validates the selected login-Keychain design from [Mac Keychain access](mac-keychain-access.md) and the contracts in [Mac app](../architecture/mac-app.md#signing-and-keychain) and [Transport](../architecture/transport.md#secret-store). It does not validate iOS Keychain access, App Groups, the relay, or production `SMAppService` UI; P1-M3 validates those in the real targets.
 
 ## 2. What counts as evidence
 

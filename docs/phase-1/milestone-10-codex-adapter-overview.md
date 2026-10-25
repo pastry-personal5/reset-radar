@@ -45,9 +45,9 @@ composition into the Mac collector.
 
 - [ProviderAdapters](../architecture/provider-adapters.md) defines process isolation, allowed
   fields, the Codex schedule, error classes, input bounds, and adapter dependencies.
-- [Upstream automatic usage sources](../research/phase-1/upstream-automatic-usage-sources.md)
+- [Upstream automatic usage sources](../research/upstream-automatic-usage-sources.md)
   pins the selected app-server methods, field meanings, and normalization rules.
-- The [source-calibration runbook](../research/phase-1/source-calibration-spike-runbook.md)
+- The [source-calibration runbook](../research/source-calibration-spike-runbook.md)
   defines the privacy boundary and owner-run evidence. Task 1 must repair the workflow issues
   identified in [Plan review](#plan-review) before it is run.
 - [Domain](../architecture/domain.md) defines `SourceSnapshot`, account scope, window identity,
@@ -299,9 +299,9 @@ The owner resolved the implementation choices on 2026-10-24. These are binding:
   input bounds, unambiguous default bucket, account-identifier presence/type, approved sign-in
   discriminator shape, process exit within five seconds, profile isolation, and the 15-minute
   decision. Synthetic tests, not live input, prove rejection at each exact bound. A notification/
-  refetch may be explicitly deferred, but is not reported as passed. Evidence: the 2026-10-25 [Codex calibration entry](../research/phase-1/spike-results.md#codex-source-calibration--2026-10-25) records both profiles passing every technical check (seven reads each, latency under 1 s, all bounds respected, unique default bucket, present string account identifier, clean shutdown) with 15 minutes confirmed by the owner; the update notification is deferred to M12 and not reported as passed, and the owner relaxed the `requiresOpenaiAuth` criterion.
+  refetch may be explicitly deferred, but is not reported as passed. Evidence: the 2026-10-25 [Codex calibration entry](../research/spike-results.md#codex-source-calibration--2026-10-25) records both profiles passing every technical check (seven reads each, latency under 1 s, all bounds respected, unique default bucket, present string account identifier, clean shutdown) with 15 minutes confirmed by the owner; the update notification is deferred to M12 and not reported as passed, and the owner relaxed the `requiresOpenaiAuth` criterion.
 - [x] The calibration cleanup succeeds before one redacted Codex evidence entry is added to
-  [spike-results.md](../research/phase-1/spike-results.md). No raw or identifying value enters
+  [spike-results.md](../research/spike-results.md). No raw or identifying value enters
   version control. Evidence: cleanup printed `codex calibration disposable files removed and repository unchanged: PASS` before the single entry was added; it contains no raw or identifying value.
 - [x] Live calibration shows that each selected Codex profile reports only distinct five-hour or
   weekly default-bucket windows, at least one per profile. The harness records only a coarse
@@ -310,7 +310,7 @@ The owner resolved the implementation choices on 2026-10-24. These are binding:
   30-minute soak) without any percentage, reset, limit ID, or bucket key in the report. The
   owner relaxed the original "one of each" rule because a profile may report weekly only.
   Evidence: the 2026-10-25 duration-class entry in
-  [spike-results.md](../research/phase-1/spike-results.md#codex-source-calibration--2026-10-25):
+  [spike-results.md](../research/spike-results.md#codex-source-calibration--2026-10-25):
   profile 1 reported both windows and profile 2 only the weekly window.
 - [ ] The ProviderAdapters placeholder and smoke test are removed, affected active docs match
   the implementation, and P1-M10 moves to `Done` only after every required item has evidence.
@@ -332,7 +332,7 @@ The owner resolved the implementation choices on 2026-10-24. These are binding:
 ## Calibration outcome
 
 The owner-present calibration ran on 2026-10-25 for both profiles (see
-[spike-results.md](../research/phase-1/spike-results.md#codex-source-calibration--2026-10-25)).
+[spike-results.md](../research/spike-results.md#codex-source-calibration--2026-10-25)).
 The signed-in installed Codex reports `requiresOpenaiAuth: true` for an authenticated ChatGPT
 account, contradicting the plan's `== false` rule. The owner relaxed the criterion: a supported
 ChatGPT account object with a boolean `requiresOpenaiAuth` of either value is authenticated; a null

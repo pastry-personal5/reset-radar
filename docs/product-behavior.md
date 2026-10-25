@@ -10,7 +10,7 @@ Product scope: what the app does and what it deliberately does not do.
 - The first version is signed with the owner's free Apple account and sideloaded. It is not distributed through the App Store or TestFlight.
 - Sideloadly is the supported iPhone, iPad, and embedded-watch installation and seven-day refresh path.
 - Supported minimums are iOS and iPadOS 26.1, watchOS 26.6, and macOS 26.7.1. The reference devices are listed in [Platform targets](architecture.md#platform-targets). LiveContainer is not a supported runtime because it cannot register the app's WidgetKit extension.
-- Installation must retain the widget and watch targets and pass physical-device checks for app-group sharing, local notifications, widgets, paired-watch installation and synchronization, and refresh without data loss. See [personal-use-sideloading.md](research/phase-1/personal-use-sideloading.md).
+- Installation must retain the widget and watch targets and pass physical-device checks for app-group sharing, local notifications, widgets, paired-watch installation and synchronization, and refresh without data loss. See [personal-use-sideloading.md](research/personal-use-sideloading.md).
 
 ## Usage tracking
 
@@ -22,7 +22,7 @@ Product scope: what the app does and what it deliberately does not do.
   Code account. Reset Radar assigns each a stable opaque local identifier, global Account #N, and
   optional Mac-authored alias; provider account identifiers never become display labels.
 - The app always identifies the percentage source and freshness. It never derives usage from elapsed time.
-- Usage semantics are specified in [usage-tracking.md](research/phase-1/usage-tracking.md); automatic sources are in [automatic-usage-acquisition.md](research/phase-1/automatic-usage-acquisition.md), and cellular transport choices remain under research in [mobile-network-synchronization.md](research/phase-1/mobile-network-synchronization.md).
+- Usage semantics are specified in [usage-tracking.md](research/usage-tracking.md); automatic sources are in [automatic-usage-acquisition.md](research/automatic-usage-acquisition.md), and cellular transport choices remain under research in [mobile-network-synchronization.md](research/mobile-network-synchronization.md).
 
 ## First-version scope
 

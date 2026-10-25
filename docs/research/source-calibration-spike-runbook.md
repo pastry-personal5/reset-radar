@@ -64,13 +64,13 @@ The spike files are:
 
 | File | Responsibility |
 |---|---|
-| [`codex-calibration.mjs`](../../../spikes/provider-source-calibration/codex-calibration.mjs) | Bounded JSON-RPC client, sanitized Codex shape/timing report, default-bucket proof, polling, notification refetch, and clean shutdown check |
-| [`claude-recorder.mjs`](../../../spikes/provider-source-calibration/claude-recorder.mjs) | Bounded status-line decoder and per-session activity classification with no raw-value persistence |
-| [`prepare.zsh`](../../../spikes/provider-source-calibration/prepare.zsh) | Exact-revision and clean-worktree gate, hidden `codex-profile` selection, isolated per-profile launchers and reports, mode-specific disposable state, and cleanup baselines |
-| [`preflight-codex.zsh`](../../../spikes/provider-source-calibration/preflight-codex.zsh) | Per-profile installed-version Codex schema validation and harness syntax checks without reading account usage |
-| [`verify-reports.mjs`](../../../spikes/provider-source-calibration/verify-reports.mjs) | Mode-specific technical pass/fail checks and a redacted summary |
-| [`cleanup.zsh`](../../../spikes/provider-source-calibration/cleanup.zsh) | Revision/repository non-modification checks, exact mode-specific cleanup, and disposable-directory removal |
-| [`test.zsh`](../../../spikes/provider-source-calibration/test.zsh) | Offline synthetic tests; it never starts real Codex or Claude Code |
+| [`codex-calibration.mjs`](../../spikes/provider-source-calibration/codex-calibration.mjs) | Bounded JSON-RPC client, sanitized Codex shape/timing report, default-bucket proof, polling, notification refetch, and clean shutdown check |
+| [`claude-recorder.mjs`](../../spikes/provider-source-calibration/claude-recorder.mjs) | Bounded status-line decoder and per-session activity classification with no raw-value persistence |
+| [`prepare.zsh`](../../spikes/provider-source-calibration/prepare.zsh) | Exact-revision and clean-worktree gate, hidden `codex-profile` selection, isolated per-profile launchers and reports, mode-specific disposable state, and cleanup baselines |
+| [`preflight-codex.zsh`](../../spikes/provider-source-calibration/preflight-codex.zsh) | Per-profile installed-version Codex schema validation and harness syntax checks without reading account usage |
+| [`verify-reports.mjs`](../../spikes/provider-source-calibration/verify-reports.mjs) | Mode-specific technical pass/fail checks and a redacted summary |
+| [`cleanup.zsh`](../../spikes/provider-source-calibration/cleanup.zsh) | Revision/repository non-modification checks, exact mode-specific cleanup, and disposable-directory removal |
+| [`test.zsh`](../../spikes/provider-source-calibration/test.zsh) | Offline synthetic tests; it never starts real Codex or Claude Code |
 
 ## 2. What the procedure does and does not prove
 

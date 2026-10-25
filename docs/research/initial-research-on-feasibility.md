@@ -189,7 +189,7 @@ Prior-art synthesis:
 
 ## 7. Owner-approved scope and non-goals
 
-The owner resolved the research questions in [Phase 1 owner decisions](../../phase-1/owner-decisions.md). The resulting scope is mirrored in [product-behavior.md](../../product-behavior.md).
+The owner resolved the research questions in [Phase 1 owner decisions](../phase-1/owner-decisions.md). The resulting scope is mirrored in [product-behavior.md](../product-behavior.md).
 
 ### First version
 
@@ -264,7 +264,7 @@ Proposed experiments, not performed here:
 | Apple-device signing | `[documented]` Free provisioning, App Groups, Sideloadly, WidgetKit, and the first-version Apple Watch decision are recorded in [personal-use-sideloading.md](personal-use-sideloading.md). | Physical iPhone and paired-watch signing and seven-day refresh cycle, including Keychain/cache/widget/notification/watch-state preservation. |
 | Reset scheduling | `[documented]` Local notifications persist once scheduled, while background execution is not timely. | Test at most four absolute per-window requests for replacement, cancellation, expiry, authorization, clock changes, and OS-local presentation. |
 
-Q2, Q3, Q5 to Q8, Q10, and Q11 are resolved in [Phase 1 owner decisions](../../phase-1/owner-decisions.md). More research should be commissioned only if validation fails or the owner changes a decided boundary—for example, multiple publishing Macs, dependable background alerts, API-key mode, or general ChatGPT/Claude automatic coverage.
+Q2, Q3, Q5 to Q8, Q10, and Q11 are resolved in [Phase 1 owner decisions](../phase-1/owner-decisions.md). More research should be commissioned only if validation fails or the owner changes a decided boundary—for example, multiple publishing Macs, dependable background alerts, API-key mode, or general ChatGPT/Claude automatic coverage.
 
 ## Source register
 

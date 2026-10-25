@@ -53,10 +53,10 @@ configurator built here.
 - [ProviderAdapters](../architecture/provider-adapters.md) defines the selected classic status-
   line surface, allowed fields, observation-time rule, dropped-window behavior, safe command
   composition, session merge, eight-day pruning, and adapter dependencies.
-- [Upstream automatic usage sources](../research/phase-1/upstream-automatic-usage-sources.md)
+- [Upstream automatic usage sources](../research/upstream-automatic-usage-sources.md)
   distinguishes the classic snake-case input from the unselected early-access function hook and
   defines last-response rather than queryable freshness.
-- The [source-calibration runbook](../research/phase-1/source-calibration-spike-runbook.md)
+- The [source-calibration runbook](../research/source-calibration-spike-runbook.md)
   defines the privacy boundary and owner-run evidence. Task 1 must make its Claude Code half
   independently runnable before a live observation.
 - Claude Code's official [status-line documentation](https://code.claude.com/docs/en/statusline)
@@ -323,7 +323,7 @@ it lands first and is explicitly referenced from the M11 implementation record.
   expected safe output, stop condition, permitted deferral, and prohibited evidence field is
   explicit; the documented procedure and offline harness tests pass before the live run begins.
   Evidence: the Task 7 owner route and sections 3 through 6 and 9 through 12 of the
-  [source-calibration runbook](../research/phase-1/source-calibration-spike-runbook.md); on
+  [source-calibration runbook](../research/source-calibration-spike-runbook.md); on
   2026-10-25 the delegated offline suite passed six synthetic tests plus preparation isolation,
   the complete gate passed, `git diff --check` passed, and 727 fenced-code-aware relative links
   were valid. No signed-in provider process or external deployment ran.
@@ -396,12 +396,12 @@ it lands first and is explicitly referenced from the M11 implementation record.
   cross-session isolation, a 60-minute unchanged idle event, and valid normal-window shapes. A
   missing idle redraw may be deferred only where the runbook permits and is never reported as
   passed. Evidence: the final 2026-10-25 entry in
-  [spike-results.md](../research/phase-1/spike-results.md#claude-code-source-calibration--2026-10-25)
+  [spike-results.md](../research/spike-results.md#claude-code-source-calibration--2026-10-25)
   records the passing redacted verifier counts, public `five_hour` and `seven_day` kinds,
   cross-session isolation, and 60-minute result. The earlier terminal-resize attempt remains
   recorded separately as deferred and supplies no pass evidence.
 - [x] Calibration cleanup succeeds before one sanitized Claude Code evidence entry is added to
-  [spike-results.md](../research/phase-1/spike-results.md). The owner records `60 minutes
+  [spike-results.md](../research/spike-results.md). The owner records `60 minutes
   confirmed` or `60 minutes rejected`; no raw or identifying value enters version control.
   Evidence: exact cleanup reported PASS before the final sanitized entry was added, and the owner
   recorded `60 minutes confirmed`. The entry contains only public versions, aggregate counts,

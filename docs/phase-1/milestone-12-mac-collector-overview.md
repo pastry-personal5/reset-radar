@@ -19,7 +19,7 @@ independent synthetic relay-validation milestone and does not gate real provider
 
 - [Mac app](../architecture/mac-app.md) is binding for drivers, signing and Keychain contract, owner flows, scenes, and tests.
 - [Transport](../architecture/transport.md#secret-store), [Storage](../architecture/storage.md), [Application](../architecture/application.md), and [ProviderAdapters](../architecture/provider-adapters.md) supply the ports and use cases M12 wires; M12 adds no policy to them.
-- [Mac Keychain research](../research/phase-1/mac-keychain-access.md) and [Platform behavior](../architecture.md#platform-behavior-to-be-proven-on-real-runtimes) define the owner-run evidence.
+- [Mac Keychain research](../research/mac-keychain-access.md) and [Platform behavior](../architecture.md#platform-behavior-to-be-proven-on-real-runtimes) define the owner-run evidence.
 - M11 delivers the helper installer and configurator that M12 invokes through `ConfigureSources`.
 
 ## In scope

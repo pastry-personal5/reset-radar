@@ -112,7 +112,7 @@ Provider acquisition and mobile transport remain separate trust boundaries. No t
 - Choose refresh and stale thresholds separately for Codex polling and Claude last-response snapshots from P1-M2 test evidence.
 - Validate current CLI versions and schema generation before implementation without accessing real credentials in tests; use fixtures for automated tests and an owner-approved live smoke test.
 
-See [Phase 1 owner decisions](../../phase-1/owner-decisions.md) for the binding scope.
+See [Phase 1 owner decisions](../phase-1/owner-decisions.md) for the binding scope.
 
 ## Sources
 

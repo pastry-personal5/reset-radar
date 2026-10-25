@@ -347,7 +347,7 @@ installed schema stops close-out and returns the relevant rule to the owner. Do 
 drop a profile, read credentials, dump JSON, or substitute another endpoint.
 
 After verified cleanup, append one sanitized Codex calibration entry to
-[spike-results.md](../research/phase-1/spike-results.md). If all profiles pass and the owner
+[spike-results.md](../research/spike-results.md). If all profiles pass and the owner
 confirms 15 minutes, remove the candidate wording for Codex in `CurrentDataWindow` and affected
 docs without changing Claude Code's candidate status.
 
