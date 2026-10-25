@@ -82,7 +82,7 @@ or treats a timer rerun as a fresh provider observation.
 
 The early-access [`session.measure`](https://github.com/anthropics/claude-code/blob/ef7bfdca55d906929fe6b782025b93758c325074/mods/types/claude-code.d.ts#L9132) event fires after main-thread turns and when a rate-limit window moves a whole percentage point. Its `changed` list marks a window moving a whole point, appearing, leaving, or changing account-limit status. This confirms Claude Code maintains a push-oriented measurement cache.
 
-That function-hook API is not the selected export mechanism yet. Its generated declaration labels it early access, says it may change without notice, and runs hooks without Node, DOM, or direct filesystem APIs. Prototype it only if an approved engine operation can export the snapshot without broadening permissions. Until then, the classic status-line command remains the narrower external bridge.
+That function-hook API is not the selected export mechanism. Its generated declaration labels it early access and says it may change without notice. The [Mod export follow-up](claude-code-mod-usage-acquisition.md) confirmed that current `$.fs.write` and CLI `$.process.run` can carry a minimal snapshot out locally, but direct file writes are non-atomic and a safe helper integration has not been prototyped. The classic status-line command remains the approved external bridge.
 
 Reset Radar should therefore:
 
