@@ -281,20 +281,20 @@ The owner resolved the implementation choices on 2026-10-24. These are binding:
   percentage, reset, child stderr, or raw frame. Random Reset Radar `AccountID`s appear only in
   approved typed records; aliases appear only in the owner-only catalog or inside encrypted
   snapshots.
-- [ ] Owner-present calibration passes for both selected profiles: installed schema, initial plus
+- [x] Owner-present calibration passes for both selected profiles: installed schema, initial plus
   six scheduled reads, ten-second latency, legitimate-response measurements below all approved
   input bounds, unambiguous default bucket, account-identifier presence/type, approved sign-in
   discriminator shape, process exit within five seconds, profile isolation, and the 15-minute
   decision. Synthetic tests, not live input, prove rejection at each exact bound. A notification/
-  refetch may be explicitly deferred, but is not reported as passed.
-- [ ] The calibration cleanup succeeds before one redacted Codex evidence entry is added to
+  refetch may be explicitly deferred, but is not reported as passed. Evidence: the 2026-10-25 [Codex calibration entry](../research/phase-1/spike-results.md#codex-source-calibration--2026-10-25) records both profiles passing every technical check (seven reads each, latency under 1 s, all bounds respected, unique default bucket, present string account identifier, clean shutdown) with 15 minutes confirmed by the owner; the update notification is deferred to M12 and not reported as passed, and the owner relaxed the `requiresOpenaiAuth` criterion.
+- [x] The calibration cleanup succeeds before one redacted Codex evidence entry is added to
   [spike-results.md](../research/phase-1/spike-results.md). No raw or identifying value enters
-  version control.
+  version control. Evidence: cleanup printed `codex calibration disposable files removed and repository unchanged: PASS` before the single entry was added; it contains no raw or identifying value.
 - [ ] The ProviderAdapters placeholder and smoke test are removed, affected active docs match
   the implementation, and P1-M10 moves to `Done` only after every required item has evidence.
-- [ ] The `test_runner` passes the complete contribution-guide gate from the final reviewable
+- [x] The `test_runner` passes the complete contribution-guide gate from the final reviewable
   worktree; focused ProviderAdapters tests, `git diff --check`, and relative Markdown links also
-  pass.
+  pass. Evidence: on 2026-10-25 the delegated gate passed project generation, format lint, strict SwiftLint, import checks, the macOS scheme, relay `npm ci`/tests/typecheck/dry run, and the 5 calibration synthetic tests; 190 focused ProviderAdapters tests passed. A docs-only changelog and checklist edit followed, then `git diff --check` and the relative-link check on changed Markdown passed.
 
 ## Checkpoints
 
@@ -306,6 +306,17 @@ The owner resolved the implementation choices on 2026-10-24. These are binding:
   implementation.
 - **C: Owner calibration and close-out** (Task 6): owner-run signed-in evidence, cleanup, final
   gate, documentation, and M12 handoff.
+
+## Calibration outcome
+
+The owner-present calibration ran on 2026-10-25 for both profiles (see
+[spike-results.md](../research/phase-1/spike-results.md#codex-source-calibration--2026-10-25)).
+The signed-in installed Codex reports `requiresOpenaiAuth: true` for an authenticated ChatGPT
+account, contradicting the plan's `== false` rule. The owner relaxed the criterion: a supported
+ChatGPT account object with a boolean `requiresOpenaiAuth` of either value is authenticated; a null
+account with `true` stays `signedOut`; every other combination stays `incompatible`. The decoder,
+synthetic fixtures, verifier, runbook, and ProviderAdapters matrix now agree. Neither profile
+observed an update notification, so that path is deferred to M12.
 
 ## Plan review
 

@@ -96,7 +96,7 @@ final class FakeCodexRPCSession: CodexRPCSession, @unchecked Sendable {
 
     static let authenticated = JSONValue.object([
         "account": .object(["type": .string("chatgpt")]),
-        "requiresOpenaiAuth": .boolean(false),
+        "requiresOpenaiAuth": .boolean(true),
     ])
     static let signedOut = JSONValue.object([
         "account": .null, "requiresOpenaiAuth": .boolean(true),

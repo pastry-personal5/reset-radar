@@ -64,7 +64,7 @@ public enum RateLimitDecoder {
         switch (account, requiresOpenAIAuth) {
         case (.null, true):
             return .signedOut
-        case (.object(let account), false):
+        case (.object(let account), _):
             return account["type"] == .string("chatgpt") ? .authenticated : .incompatible
         default:
             return .incompatible

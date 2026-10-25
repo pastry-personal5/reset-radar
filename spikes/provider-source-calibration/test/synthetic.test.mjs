@@ -68,7 +68,7 @@ test("Codex report is sanitized for unique and compatibility-only buckets", asyn
       assert.equal(read.accountIdentifierClassification, "present-string");
       const accountRead = report.events.find((event) => event.kind === "account-read");
       assert.equal(accountRead.accountKind, "chatgpt");
-      assert.equal(accountRead.requiresOpenaiAuth, false);
+      assert.equal(accountRead.requiresOpenaiAuth, true);
     }
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -171,7 +171,7 @@ test("report verifier accepts a complete sanitized observation", async () => {
           accountType: "string",
           accountKind: "chatgpt",
           requiresOpenaiAuthType: "boolean",
-          requiresOpenaiAuth: false,
+          requiresOpenaiAuth: true,
           bounds: { withinFrameBound: true, withinStringBound: true, withinDepthBound: true },
         },
         ...reads,
@@ -308,7 +308,7 @@ test("Codex-only verifier does not require or inspect Claude reports", async () 
         accountType: "string",
         accountKind: "chatgpt",
         requiresOpenaiAuthType: "boolean",
-        requiresOpenaiAuth: false,
+        requiresOpenaiAuth: true,
         bounds: { withinFrameBound: true, withinStringBound: true, withinDepthBound: true },
       }, ...reads],
       failures: [],

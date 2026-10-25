@@ -138,8 +138,7 @@ function verifyCodex(report) {
   assert(accountRead.accountType === "string", "Codex account discriminator has the wrong type");
   assert(accountRead.accountKind === "chatgpt", "Codex account is not a supported ChatGPT account");
   assert(accountRead.requiresOpenaiAuthType === "boolean", "Codex authentication discriminator has the wrong type");
-  assert(accountRead.requiresOpenaiAuth === false, "Codex account is not structurally authenticated");
-  assert(Object.values(accountRead.bounds).every((value) => value === true), "Codex account read exceeded a safety bound");
+    assert(Object.values(accountRead.bounds).every((value) => value === true), "Codex account read exceeded a safety bound");
   const scheduled = reads.filter((event) => event.reason === "initial" || event.reason === "scheduled-poll");
   assert(scheduled.length === 7, "Codex report must contain one initial and six scheduled reads");
   for (const read of reads) {

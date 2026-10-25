@@ -350,7 +350,7 @@ Each of these is exercised on the reference devices in [Platform targets](#platf
 
 ### Source calibration
 
-The candidate current-data windows are fifteen minutes for Codex and sixty minutes for Claude Code. Calibration also confirms the Claude Code new-response signal described in [ProviderAdapters](architecture/provider-adapters.md#observation-time). If evidence rejects a candidate window or the signal, the decision returns to the owner; it is never replaced by an invented value.
+The current-data windows are fifteen minutes for Codex, confirmed by the 2026-10-25 source calibration, and a candidate sixty minutes for Claude Code. Calibration also confirms the Claude Code new-response signal described in [ProviderAdapters](architecture/provider-adapters.md#observation-time). If evidence rejects a candidate window or the signal, the decision returns to the owner; it is never replaced by an invented value.
 
 Evidence records only installed version, supported method and field shape, response and update timing, calibration result, and pass or fail. It never records raw responses, credentials, account identifiers, session identifiers, prompts, response content, or project paths.
 

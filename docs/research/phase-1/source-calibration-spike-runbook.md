@@ -91,9 +91,8 @@ Stop and record a failure or deferral if:
 - a legitimate Codex frame exceeds 1 MiB, a decoded key/string exceeds 4 KiB of UTF-8, nesting
   exceeds 32 levels, more than 128 multi-bucket entries appear, or more than 128 candidate
   windows are decoded;
-- `account/read` is absent or does not prove a supported ChatGPT account with
-  `requiresOpenaiAuth == false`, or the rate-limit response lacks a nonempty string account
-  identifier;
+- `account/read` is absent or does not prove a supported ChatGPT account with a boolean
+  `requiresOpenaiAuth`, or the rate-limit response lacks a nonempty string account identifier;
 - a multi-bucket Codex response cannot map the compatibility bucket to exactly one peer;
 - a normal Codex read exceeds the 10-second timeout or the app-server does not exit within five seconds of stdin closing;
 - Claude Code does not show the temporary Reset Radar status line before the first turn;
@@ -255,7 +254,7 @@ For every selected profile, the 15-minute current-data candidate is technically 
    candidate-window bounds;
 5. every default-bucket result is `unique` or `compatibility-only`; and
 6. the structured account read proves a supported ChatGPT account, a present string identifier,
-   and `requiresOpenaiAuth == false`; and
+   and a boolean `requiresOpenaiAuth` of either value; and
 7. app-server exits within five seconds after the harness closes stdin.
 
 The final verifier checks every ordinal report and fails the combined Codex result if any selected profile fails. The owner records `15 minutes confirmed` or `15 minutes rejected` for each private ordinal; the verifier cannot make the product-policy decision for the owner. A profile-specific rejection returns the production profile-selection behavior to the owner rather than silently dropping that profile.

@@ -23,7 +23,7 @@ for await (const line of lines) {
       id: message.id,
       result: {
         account: { type: "chatgpt" },
-        requiresOpenaiAuth: false,
+        requiresOpenaiAuth: true,
       },
     })}\n`);
   } else if (message.method === "account/rateLimits/read") {

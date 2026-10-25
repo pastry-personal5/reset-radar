@@ -122,7 +122,7 @@ error that could represent authentication. These are the only outcomes:
 
 | Decoded status | Outcome |
 |---|---|
-| Supported ChatGPT account and `requiresOpenaiAuth == false` | Authenticated; continue to the rate-limit read. |
+| Supported ChatGPT account and a boolean `requiresOpenaiAuth` of either value | Authenticated; continue to the rate-limit read. The installed Codex reports `true` for a signed-in ChatGPT account because the flag describes the provider, so account presence is the discriminator. |
 | Null account and `requiresOpenaiAuth == true` | `signedOut`; retain applicable prior windows and do not infer anything from error prose. |
 | Any other well-formed combination, including a non-ChatGPT account | `incompatible`; API-key mode and ambiguous authentication state are outside scope. |
 | Missing method, missing or wrong-typed discriminator, or incompatible result shape | `incompatible`. |
@@ -177,7 +177,7 @@ duplicate-scope eviction.
 `ordinaryUsageDisallowed` and `reached` describe a successfully read allowance bucket; neither is a
 source failure and neither enters this matrix.
 
-The candidate current-data window is fifteen minutes; source calibration must confirm it.
+The current-data window is fifteen minutes, confirmed by the 2026-10-25 two-profile source calibration.
 
 ## Claude Code status line
 

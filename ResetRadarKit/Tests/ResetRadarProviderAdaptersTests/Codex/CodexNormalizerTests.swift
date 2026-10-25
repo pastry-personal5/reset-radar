@@ -27,6 +27,12 @@ struct CodexNormalizerTests {
         #expect(
             RateLimitDecoder.decodeAccountStatus(
                 .object([
+                    "account": .object(["type": .string("chatgpt")]),
+                    "requiresOpenaiAuth": .boolean(true),
+                ])) == .authenticated)
+        #expect(
+            RateLimitDecoder.decodeAccountStatus(
+                .object([
                     "account": .null, "requiresOpenaiAuth": .boolean(true),
                 ])) == .signedOut)
         for incompatible: JSONValue in [
@@ -34,6 +40,10 @@ struct CodexNormalizerTests {
             .object([
                 "account": .object(["type": .string("apiKey")]),
                 "requiresOpenaiAuth": .boolean(false),
+            ]),
+            .object([
+                "account": .object(["type": .string("apiKey")]),
+                "requiresOpenaiAuth": .boolean(true),
             ]),
             .object(["requiresOpenaiAuth": .boolean(true)]),
             .object(["account": .null, "requiresOpenaiAuth": .string("true")]),
@@ -62,6 +72,32 @@ struct CodexNormalizerTests {
         let unknownClock = try #require(
             result.snapshot.windows.first(where: { $0.durationMinutes == nil }))
         #expect(unknownClock.resetsAt == nil)
+    }
+
+    @Test("a five-hour and weekly default pair resolves both standard rings with reported values")
+    func fiveHourAndWeeklyResolve() async throws {
+        let decoded = try await decode(
+            response(
+                compatibility: bucket(
+                    id: "codex", label: "Codex",
+                    primary: window(used: 43, duration: 300, reset: 2_000_000_300),
+                    secondary: window(used: 17, duration: 10_080, reset: 2_000_604_800)),
+                ordinaryAllowed: true))
+        let snapshot = try await normalizer().normalize(decoded, observedAt: observedAt).snapshot
+
+        for (standard, used, reset) in [
+            (AccountWindow.StandardWindow.fiveHour, 43.0, 2_000_000_300.0),
+            (.weekly, 17.0, 2_000_604_800.0),
+        ] {
+            let matches = snapshot.windows.filter {
+                $0.isDefaultLimit && $0.durationMinutes == standard.durationMinutes
+            }
+            let window = try #require(matches.first)
+            #expect(matches.count == 1)
+            #expect(window.accountID == accountID)
+            #expect(window.observation?.usedPercent == used)
+            #expect(window.resetsAt == Date(timeIntervalSince1970: reset))
+        }
     }
 
     @Test("multi-bucket identity match marks exactly one default and keeps same-duration limits")
@@ -219,7 +255,9 @@ struct CodexNormalizerTests {
                 scoper: FailingAccountScoper())
         }
     }
+}
 
+extension CodexNormalizerTests {
     private func normalizer() -> CodexNormalizer {
         CodexNormalizer(accountID: accountID, sourceVersion: "codex 1.0.0")
     }
