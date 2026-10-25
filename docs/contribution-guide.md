@@ -4,6 +4,9 @@ Status: Active
 
 How to set up `reset-radar`, validate a change, write commit messages, and open a pull request.
 
+The documented local checks are also available as named targets in the root
+`Makefile`; run `make help` to list them and `make gate` for the complete gate.
+
 ## Setup and development
 
 - macOS 26.7.1 or newer, with an Xcode whose SDKs are at least iOS 26.1, watchOS 26.6, and macOS 26.7, and iOS and watchOS simulator runtimes at or above the minimum OS versions in [Platform targets](architecture.md#platform-targets). Select that Xcode with `xcode-select` and accept its license before building.

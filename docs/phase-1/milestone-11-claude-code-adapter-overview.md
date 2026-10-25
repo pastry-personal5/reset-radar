@@ -365,6 +365,8 @@ it lands first and is explicitly referenced from the M11 implementation record.
   confirmed` or `60 minutes rejected`; no raw or identifying value enters version control.
 - [ ] The ProviderAdapters and helper scaffolds are removed, active docs match the implementation,
   and P1-M11 moves to `Done` only after every required item has evidence.
+- [x] The root `Makefile` exposes the documented local validation commands through named `.PHONY`
+  targets, and its aggregate gate matches the contribution guide.
 - [ ] The `test_runner` passes the complete contribution-guide gate from the final reviewable
   worktree; focused ProviderAdapters/helper tests, `git diff --check`, and relative Markdown
   links also pass.
