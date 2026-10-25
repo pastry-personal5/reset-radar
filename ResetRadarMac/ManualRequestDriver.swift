@@ -13,6 +13,7 @@ actor ManualRequestDriver {
     private var ready = false
     private var hasReaders = false
     private var sleeping = false
+    private var suspended = false
     private var inFlight = false
 
     init(
@@ -30,6 +31,22 @@ actor ManualRequestDriver {
         reconcileLoop()
     }
 
+    func updateReadiness(ready: Bool, hasReaders: Bool) {
+        self.ready = ready
+        self.hasReaders = hasReaders
+        reconcileLoop()
+    }
+
+    func setSleeping(_ sleeping: Bool) {
+        self.sleeping = sleeping
+        reconcileLoop()
+    }
+
+    func setSuspended(_ suspended: Bool) {
+        self.suspended = suspended
+        reconcileLoop()
+    }
+
     func wake() async {
         sleeping = false
         reconcileLoop()
@@ -37,7 +54,7 @@ actor ManualRequestDriver {
     }
 
     func tick() async {
-        guard ready, hasReaders, !sleeping, !inFlight else { return }
+        guard ready, hasReaders, !sleeping, !suspended, !inFlight else { return }
         inFlight = true
         defer { inFlight = false }
         let requests = await poll()
@@ -52,7 +69,7 @@ actor ManualRequestDriver {
     }
 
     private func reconcileLoop() {
-        guard ready, hasReaders, !sleeping else {
+        guard ready, hasReaders, !sleeping, !suspended else {
             loop?.cancel()
             loop = nil
             return

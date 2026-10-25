@@ -103,4 +103,22 @@ struct MacAllowanceRingTests {
         #expect(waiting.usedPercent == nil)
         #expect(waiting.percentageText == nil)
     }
+
+    @Test func menuSummaryShowsCurrentStaleAndMissingWindowsWithoutInventingUsage() throws {
+        let account = try account()
+        let fiveHour = try window(for: account, minutes: 300, percent: 37)
+        let current = try snapshot(account: account, windows: [fiveHour])
+        let stale = try snapshot(
+            account: account, windows: [fiveHour], sourceState: .sourceOffline)
+
+        #expect(
+            MacMenuAccountSummary.line(account: account, snapshot: current, now: observedAt)
+                == "Account #1 · 5h: 37% · Weekly: Unavailable")
+        #expect(
+            MacMenuAccountSummary.line(account: account, snapshot: stale, now: observedAt)
+                == "Account #1 · 5h: 37% (Stale) · Weekly: Unavailable")
+        #expect(
+            MacMenuAccountSummary.line(account: account, snapshot: nil, now: observedAt)
+                == "Account #1 · 5h: Unavailable · Weekly: Unavailable")
+    }
 }

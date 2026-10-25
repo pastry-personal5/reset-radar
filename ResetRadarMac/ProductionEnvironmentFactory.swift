@@ -57,50 +57,6 @@ private actor SyntheticUsageSource: UsageSource {
     }
 }
 
-private actor RuntimeEventRouter {
-    let log: MacRotatingLog
-    var sources: SourceRuntime?
-    var publication: PublicationDriver?
-    var manual: ManualRequestDriver?
-    var retry: SecretRetryDriver?
-
-    init(log: MacRotatingLog) { self.log = log }
-
-    func configure(
-        sources: SourceRuntime, publication: PublicationDriver, manual: ManualRequestDriver,
-        retry: SecretRetryDriver
-    ) {
-        self.sources = sources
-        self.publication = publication
-        self.manual = manual
-        self.retry = retry
-    }
-
-    func workspace(_ event: WorkspaceEvent) async {
-        switch event {
-        case .woke:
-            await log.record(.lifecycle(.wake))
-            await manual?.wake()
-            await sources?.refresh(.wake)
-            await publication?.trigger(.wake)
-        case .sessionActive:
-            await log.record(.lifecycle(.sessionActive))
-            await retry?.loginSessionBecameActive()
-        case .foreground:
-            await log.record(.lifecycle(.foreground))
-            await sources?.refresh(.foreground)
-        case .sleeping:
-            await log.record(.lifecycle(.sleeping))
-            await manual?.update(ready: true, hasReaders: true, sleeping: true)
-        }
-    }
-
-    func networkRestored() async {
-        await log.record(.lifecycle(.networkRestored))
-        await publication?.trigger(.networkRestored)
-    }
-}
-
 // swiftlint:disable:next type_body_length
 enum ProductionEnvironmentFactory {
     enum FactoryError: Error { case invalidSyntheticIdentifier }
@@ -123,6 +79,14 @@ enum ProductionEnvironmentFactory {
         let sources: SourceRuntime
         let publication: PublicationDriver
         let manual: ManualRequestDriver
+        let manualReady: Bool
+        let hasReaders: Bool
+    }
+
+    @MainActor
+    private struct UIContext {
+        let messages: GlobalMessageCenter
+        let homeUpdates: HomeSnapshotUpdates
     }
 
     @MainActor
@@ -130,16 +94,13 @@ enum ProductionEnvironmentFactory {
         mode: PublishingMode, messages: GlobalMessageCenter, log: MacRotatingLog
     ) async throws -> MacEnvironment {
         let core = try makeCore(log: log)
-        if mode != .synthetic {
-            ClaudeCodeHelperPreparation.onLaunch(
-                rootDirectory: core.locations.directory, messages: messages)
-        }
         let selected = try await makeSources(mode: mode, core: core)
         let homeUpdates = HomeSnapshotUpdates()
         let runtime = try await makeRuntime(
             core: core, selected: selected, messages: messages, homeUpdates: homeUpdates)
         return try await makeEnvironment(
-            mode: mode, core: core, runtime: runtime, log: log, homeUpdates: homeUpdates)
+            mode: mode, core: core, runtime: runtime, log: log,
+            uiContext: UIContext(messages: messages, homeUpdates: homeUpdates))
     }
 
     private static func makeCore(log: MacRotatingLog) throws -> Core {
@@ -216,15 +177,15 @@ enum ProductionEnvironmentFactory {
                 await publication.reportManualOutcome(outcome)
                 return outcome
             })
-        await manual.update(
-            ready: state.lifecycle == .active, hasReaders: !state.devices.isEmpty, sleeping: false)
-        return Runtime(sources: sourceRuntime, publication: publication, manual: manual)
+        return Runtime(
+            sources: sourceRuntime, publication: publication, manual: manual,
+            manualReady: state.lifecycle == .active, hasReaders: !state.devices.isEmpty)
     }
 
     @MainActor
     private static func makeEnvironment(
         mode: PublishingMode, core: Core, runtime: Runtime, log: MacRotatingLog,
-        homeUpdates: HomeSnapshotUpdates
+        uiContext: UIContext
     ) async throws -> MacEnvironment {
         let router = RuntimeEventRouter(log: log)
         let retry = SecretRetryDriver { await runtime.publication.trigger(.heartbeat) }
@@ -243,14 +204,35 @@ enum ProductionEnvironmentFactory {
             fileURL: lockURL,
             activator: DistributedFirstInstanceActivator(notificationName: activationName))
         let ownerFlows = makeOwnerFlows(
-            core: core, runtime: runtime, homeUpdates: homeUpdates)
+            core: core, runtime: runtime, homeUpdates: uiContext.homeUpdates)
+        let recordedTeam = SigningIdentityStateStore(
+            development: core.development
+        ).teamIdentifier
+        let signing = SigningCheck(reader: SystemSignatureReader()).evaluate(
+            recordedTeamIdentifier: recordedTeam)
+        let signingReady: Bool
+        if core.development {
+            signingReady = true
+        } else if case .valid = signing {
+            signingReady = true
+        } else {
+            signingReady = false
+        }
         return MacEnvironment(
             publishingMode: mode, instanceLock: instanceLock,
             appNap: AppNapGuard(controller: SystemProcessActivityController()),
             sources: runtime.sources, publication: runtime.publication,
-            manualRequests: runtime.manual, wakeMonitor: wake, networkMonitor: network,
+            manualRequests: runtime.manual, manualReady: runtime.manualReady,
+            hasReaders: runtime.hasReaders, wakeMonitor: wake, networkMonitor: network,
             secretRetry: retry, secrets: core.secrets, ownerFlows: ownerFlows,
-            activationObserver: FirstInstanceActivationObserver(notificationName: activationName))
+            signingReady: signingReady,
+            activationObserver: FirstInstanceActivationObserver(notificationName: activationName),
+            prepareSources: {
+                if mode != .synthetic {
+                    ClaudeCodeHelperPreparation.onLaunch(
+                        rootDirectory: core.locations.directory, messages: uiContext.messages)
+                }
+            })
     }
 
     @MainActor
@@ -294,11 +276,26 @@ enum ProductionEnvironmentFactory {
             aliases: aliases, publication: runtime.publication,
             codexConfigurations: core.catalog, updates: homeUpdates)
         homeUpdates.connect(home: homeModel, sources: sourceModel)
+        let refreshManualRequests: @MainActor () async -> Void = {
+            let state = try? await core.publisher.load()
+            await runtime.manual.updateReadiness(
+                ready: state?.lifecycle == .active,
+                hasReaders: !(state?.devices.isEmpty ?? true))
+        }
+        let pauseManualRequests: @MainActor () async -> Void = {
+            await runtime.manual.setSuspended(true)
+        }
+        let resumeManualRequests: @MainActor () async -> Void = {
+            await runtime.manual.setSuspended(false)
+        }
         return OwnerFlowModels(
             home: homeModel, general: LoginItemViewModel(manager: SystemLoginItemManager()),
             sources: sourceModel,
             relay: RelaySetupViewModel(
                 setup: setup, publication: runtime.publication,
+                refreshManualRequests: refreshManualRequests,
+                pauseManualRequests: pauseManualRequests,
+                resumeManualRequests: resumeManualRequests,
                 runningTeamIdentifier: {
                     guard
                         case .valid(let team) = signatureCheck.evaluate(
@@ -306,7 +303,8 @@ enum ProductionEnvironmentFactory {
                     else { return nil }
                     return team
                 }, recordTeamIdentifier: { identityState.record($0) }),
-            pairing: PairingViewModel(pairing: pairing),
+            pairing: PairingViewModel(
+                pairing: pairing, refreshManualRequests: refreshManualRequests),
             devices: DevicesViewModel(
                 reconcile: ReconcileReaders(
                     publisher: core.publisher, secrets: core.secrets, relay: core.relay,
@@ -316,7 +314,9 @@ enum ProductionEnvironmentFactory {
                 destroy: DestroyRelay(
                     publisher: core.publisher, secrets: core.secrets, relay: core.relay,
                     publishing: core.publishing),
-                publication: runtime.publication, secrets: core.secrets),
+                publication: runtime.publication, secrets: core.secrets,
+                refreshManualRequests: refreshManualRequests,
+                pauseManualRequests: pauseManualRequests),
             recovery: RecoveryViewModel(
                 signingCheck: signatureCheck,
                 recordedTeamIdentifier: { identityState.teamIdentifier },

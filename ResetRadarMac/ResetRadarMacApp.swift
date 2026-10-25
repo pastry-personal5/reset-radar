@@ -43,8 +43,7 @@ final class MacBootstrap: ObservableObject {
                 messages.post("Mac collector is running.", tone: .success)
             case .secondInstance:
                 await log.record(.lifecycle(.secondInstance))
-                messages.post(
-                    "Another Mac collector instance is already running.", tone: .attention)
+                NSApplication.shared.terminate(nil)
             case .stopped:
                 await log.record(.lifecycle(.stopped))
                 messages.post("Mac collector stopped before startup completed.", tone: .attention)
@@ -147,7 +146,7 @@ struct ResetRadarMacApp: App {
     @StateObject private var bootstrap = MacBootstrap()
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main") {
             RootView(
                 environment: bootstrap.environment, messages: bootstrap.messages,
                 startupFailed: bootstrap.startupFailed
@@ -164,33 +163,7 @@ struct ResetRadarMacApp: App {
             .task { await bootstrap.start() }
         }
         MenuBarExtra("Reset Radar", systemImage: "gauge.with.dots.needle.50percent") {
-            Button("Refresh All") {
-                Task {
-                    if let environment = bootstrap.environment {
-                        await bootstrap.log.record(.lifecycle(.refreshRequested))
-                        bootstrap.messages.post("Refreshing configured sources.")
-                        await environment.foreground()
-                    } else {
-                        bootstrap.messages.post(
-                            "Refresh is unavailable while the collector is stopped.",
-                            tone: .attention)
-                    }
-                }
-            }
-            Button("Open Reset Radar") {
-                NSApplication.shared.activate()
-                NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
-            }
-            SettingsLink { Text("Settings…") }
-            Divider()
-            Button("Quit") {
-                Task {
-                    await bootstrap.log.record(.lifecycle(.stopping))
-                    await bootstrap.environment?.stop()
-                    await bootstrap.log.record(.lifecycle(.stopped))
-                    NSApplication.shared.terminate(nil)
-                }
-            }
+            MacMenuBarContent(bootstrap: bootstrap)
         }
     }
 }

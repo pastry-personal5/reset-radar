@@ -17,16 +17,25 @@ final class RelaySetupViewModel: ObservableObject {
 
     private let setup: SetUpRelay
     private let publication: PublicationDriver
+    private let refreshManualRequests: @MainActor () async -> Void
+    private let pauseManualRequests: @MainActor () async -> Void
+    private let resumeManualRequests: @MainActor () async -> Void
     private let runningTeamIdentifier: () -> String?
     private let recordTeamIdentifier: (String) -> Void
 
     init(
         setup: SetUpRelay, publication: PublicationDriver,
+        refreshManualRequests: @escaping @MainActor () async -> Void = {},
+        pauseManualRequests: @escaping @MainActor () async -> Void = {},
+        resumeManualRequests: @escaping @MainActor () async -> Void = {},
         runningTeamIdentifier: @escaping () -> String? = { nil },
         recordTeamIdentifier: @escaping (String) -> Void = { _ in }
     ) {
         self.setup = setup
         self.publication = publication
+        self.refreshManualRequests = refreshManualRequests
+        self.pauseManualRequests = pauseManualRequests
+        self.resumeManualRequests = resumeManualRequests
         self.runningTeamIdentifier = runningTeamIdentifier
         self.recordTeamIdentifier = recordTeamIdentifier
     }
@@ -37,8 +46,10 @@ final class RelaySetupViewModel: ObservableObject {
             return
         }
         await publication.setSuspended(true)
+        await pauseManualRequests()
         do {
             let digests = try await setup.prepare(endpoint: endpoint)
+            await refreshManualRequests()
             writeDigest = hexadecimal(digests.writeToken)
             adminDigest = hexadecimal(digests.adminToken)
             if let team = runningTeamIdentifier() { recordTeamIdentifier(team) }
@@ -57,6 +68,8 @@ final class RelaySetupViewModel: ObservableObject {
             adminDigest = nil
             message = "Relay setup is active."
             await publication.setSuspended(false)
+            await refreshManualRequests()
+            await resumeManualRequests()
             await publication.trigger(.wake)
         case .notPrepared:
             message = "Prepare the relay first."
@@ -103,20 +116,27 @@ final class PairingViewModel: ObservableObject {
 
     private let pairing: PairReader
     private let clipboard: PairingClipboardHelper
+    private let refreshManualRequests: @MainActor () async -> Void
     private var clipboardLease: PairingClipboardLease?
     private var pollTask: Task<Void, Never>?
     private var expiryTask: Task<Void, Never>?
     private var expirationDeadline: Date?
+    private var viewVisible = false
 
-    init(pairing: PairReader, pasteboard: any PairingPasteboard = SystemPairingPasteboard()) {
+    init(
+        pairing: PairReader, pasteboard: any PairingPasteboard = SystemPairingPasteboard(),
+        refreshManualRequests: @escaping @MainActor () async -> Void = {}
+    ) {
         self.pairing = pairing
         clipboard = PairingClipboardHelper(pasteboard: pasteboard)
+        self.refreshManualRequests = refreshManualRequests
     }
 
     func begin() async {
         stopPolling()
         do {
             let offer = try await pairing.begin(deviceName: deviceName)
+            await refreshManualRequests()
             clearClipboardIfUnchanged()
             cancelExpiry()
             encodedPackage = offer.encoded
@@ -126,6 +146,7 @@ final class PairingViewModel: ObservableObject {
             scheduleExpiry(at: offer.expiresAt)
             startPolling()
         } catch {
+            await refreshManualRequests()
             // A failed replacement leaves PairReader's prior offer intact. Resume monitoring it
             // instead of leaving a valid package visible with no activation polling.
             startPolling()
@@ -142,6 +163,7 @@ final class PairingViewModel: ObservableObject {
     func dismiss() async {
         stopPolling()
         await pairing.revokeIfExpired()
+        await refreshManualRequests()
         clearClipboardIfUnchanged()
         clearOffer()
     }
@@ -149,17 +171,19 @@ final class PairingViewModel: ObservableObject {
     /// Poll only while the pairing UI is visible; its independent deadline task still revokes an
     /// unclaimed reader and clears any pairing material copied to the pasteboard.
     func pairingViewAppeared() {
+        viewVisible = true
         guard encodedPackage != nil else { return }
         startPolling()
     }
 
     func pairingViewDisappeared() {
+        viewVisible = false
         stopPolling()
         clearClipboardIfUnchanged()
     }
 
     private func startPolling() {
-        guard encodedPackage != nil else { return }
+        guard viewVisible, encodedPackage != nil, pollTask == nil else { return }
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(5))
@@ -167,12 +191,14 @@ final class PairingViewModel: ObservableObject {
                 switch await pairing.pollActivation() {
                 case .pending: continue
                 case .confirmed:
+                    await refreshManualRequests()
                     message = "Reader paired."
                     clearClipboardIfUnchanged()
                     clearOffer(cancelExpiry: true)
                     return
                 case .expired:
                     await pairing.revokeIfExpired()
+                    await refreshManualRequests()
                     message = "Pairing expired. Start again for a new code."
                     clearClipboardIfUnchanged()
                     clearOffer(cancelExpiry: true)
@@ -195,8 +221,13 @@ final class PairingViewModel: ObservableObject {
     private func expire(at deadline: Date) async {
         guard expirationDeadline == deadline else { return }
         await pairing.revokeIfExpired()
+        await refreshManualRequests()
         stopPolling()
-        message = "Pairing expired. Start again for a new code."
+        if await pairing.pollActivation() == .confirmed {
+            message = "Reader paired."
+        } else {
+            message = "Pairing expired. Start again for a new code."
+        }
         clearClipboardIfUnchanged()
         clearOffer(cancelExpiry: true)
     }
@@ -237,22 +268,29 @@ final class DevicesViewModel: ObservableObject {
     private let destroy: DestroyRelay
     private let publication: PublicationDriver
     private let secrets: SessionSecretCache
+    private let refreshManualRequests: @MainActor () async -> Void
+    private let pauseManualRequests: @MainActor () async -> Void
 
     init(
         reconcile: ReconcileReaders, revoke: RevokeReader, destroy: DestroyRelay,
-        publication: PublicationDriver, secrets: SessionSecretCache
+        publication: PublicationDriver, secrets: SessionSecretCache,
+        refreshManualRequests: @escaping @MainActor () async -> Void = {},
+        pauseManualRequests: @escaping @MainActor () async -> Void = {}
     ) {
         self.reconcile = reconcile
         self.revoke = revoke
         self.destroy = destroy
         self.publication = publication
         self.secrets = secrets
+        self.refreshManualRequests = refreshManualRequests
+        self.pauseManualRequests = pauseManualRequests
     }
 
     func refresh() async {
         switch await reconcile.run() {
         case .reconciled(let entries):
             roster = entries
+            await refreshManualRequests()
             message = nil
         case .secretsUnavailable:
             message = "Keychain secrets are unavailable."
@@ -263,7 +301,9 @@ final class DevicesViewModel: ObservableObject {
 
     func revokeReader(_ id: ReaderID) async {
         switch await revoke.revoke(id) {
-        case .revoked: await refresh()
+        case .revoked:
+            await refreshManualRequests()
+            await refresh()
         case .failed, .notActive, .secretsUnavailable:
             message = "The reader was not revoked; retry when the relay is reachable."
         }
@@ -272,8 +312,10 @@ final class DevicesViewModel: ObservableObject {
     func destroyRelay(confirmed: Bool) async {
         guard confirmed else { return }
         await publication.setSuspended(true)
+        await pauseManualRequests()
         switch await destroy.run() {
         case .destroyed:
+            await refreshManualRequests()
             await secrets.invalidateCache()
             roster = []
             destroyNeedsRetry = false

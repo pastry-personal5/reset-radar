@@ -18,19 +18,26 @@ final class MacEnvironment: ObservableObject {
     private let sources: SourceRuntime
     private let publication: PublicationDriver
     private let manualRequests: ManualRequestDriver
+    private let manualReady: Bool
+    private let hasReaders: Bool
     private let wakeMonitor: WakeMonitor
     private let networkMonitor: NetworkMonitor
     private let secretRetry: SecretRetryDriver
     private let secrets: SessionSecretCache
     private let activationObserver: FirstInstanceActivationObserver
+    private let prepareSources: @MainActor () -> Void
+    private let signingReady: Bool
 
     init(
         publishingMode: PublishingMode, instanceLock: SingleInstanceLock,
         appNap: AppNapGuard, sources: SourceRuntime, publication: PublicationDriver,
-        manualRequests: ManualRequestDriver, wakeMonitor: WakeMonitor,
+        manualRequests: ManualRequestDriver, manualReady: Bool, hasReaders: Bool,
+        wakeMonitor: WakeMonitor,
         networkMonitor: NetworkMonitor, secretRetry: SecretRetryDriver,
         secrets: SessionSecretCache, ownerFlows: OwnerFlowModels,
-        activationObserver: FirstInstanceActivationObserver
+        signingReady: Bool,
+        activationObserver: FirstInstanceActivationObserver,
+        prepareSources: @escaping @MainActor () -> Void = {}
     ) {
         self.publishingMode = publishingMode
         self.instanceLock = instanceLock
@@ -38,12 +45,16 @@ final class MacEnvironment: ObservableObject {
         self.sources = sources
         self.publication = publication
         self.manualRequests = manualRequests
+        self.manualReady = manualReady
+        self.hasReaders = hasReaders
         self.wakeMonitor = wakeMonitor
         self.networkMonitor = networkMonitor
         self.secretRetry = secretRetry
         self.secrets = secrets
         self.ownerFlows = ownerFlows
         self.activationObserver = activationObserver
+        self.prepareSources = prepareSources
+        self.signingReady = signingReady
     }
 
     func start() async {
@@ -52,6 +63,13 @@ final class MacEnvironment: ObservableObject {
             state = .secondInstance
             return
         }
+        prepareSources()
+        if !signingReady {
+            await publication.setSuspended(true)
+            await manualRequests.setSuspended(true)
+        }
+        await ownerFlows.home.load()
+        await manualRequests.updateReadiness(ready: manualReady, hasReaders: hasReaders)
         await appNap.start()
         await sources.start()
         await wakeMonitor.start()

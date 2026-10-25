@@ -190,4 +190,37 @@ struct RuntimeDriverTests {
         #expect(await recorder.handled == 2)
         await driver.stop()
     }
+
+    @Test func manualPollingFollowsReaderChangesAndPreservesSleepAndSuspension() async {
+        let recorder = RuntimeRecorder()
+        let request = PendingRefreshRequest(
+            id: RequestID(data: Data(repeating: 3, count: RequestID.byteCount))!,
+            readerID: ReaderID(data: Data(repeating: 4, count: ReaderID.byteCount))!,
+            target: .allCodex, expiresAt: Date().addingTimeInterval(60))
+        let driver = ManualRequestDriver(
+            poll: { [request] },
+            handle: { _ in
+                await recorder.recordHandle()
+                return .handled(count: 1)
+            })
+        await driver.update(ready: true, hasReaders: false, sleeping: false)
+        await driver.updateReadiness(ready: true, hasReaders: true)
+        await driver.tick()
+        #expect(await recorder.handled == 1)
+
+        await driver.setSleeping(true)
+        await driver.updateReadiness(ready: false, hasReaders: false)
+        await driver.wake()
+        #expect(await recorder.handled == 1)
+
+        await driver.updateReadiness(ready: true, hasReaders: true)
+        await driver.setSuspended(true)
+        await driver.tick()
+        #expect(await recorder.handled == 1)
+        await driver.updateReadiness(ready: true, hasReaders: true)
+        await driver.setSuspended(false)
+        await driver.tick()
+        #expect(await recorder.handled == 2)
+        await driver.stop()
+    }
 }
