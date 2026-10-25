@@ -104,6 +104,34 @@ Dated evidence for the P1-M2 validation work listed in [the milestone overview](
 - **Method:** Owner-present, reviewed revision `d42adaa` with a clean worktree, installed-schema preflight PASS, one initial read per profile (`--duration-minutes 0`), coarse duration class only, verifier `--duration-class-check`, cleanup PASS.
 - **Result:** Both profiles pass the relaxed criterion (at least one distinct default-bucket window, each `300` or `10080`). Anonymous ordinal 1 reported a five-hour and a weekly window; ordinal 2 reported only a weekly window. The cause for ordinal 2 is not established; the owner believes that account has no five-hour limit. The five-hour ring is shown as unavailable for such an account. The initial strict "one of each" rule failed on ordinal 2 and was relaxed by the owner; the verifier also ran once from the working copy before it was committed.
 
+### Claude Code source calibration — 2026-10-25 (deferred trigger attempt)
+
+- **Attendance:** Owner-present. No raw response, credential, account/session identifier, prompt,
+  response content, percentage, reset timestamp, activity-counter value, disposable path, or
+  project path was retained in Reset Radar evidence.
+- **Question:** Does the installed Claude Code status-line source satisfy the approved field
+  shape, response-linked activity, two-session isolation, idle non-advancement, and 60-minute
+  current-data assumptions?
+- **Method and versions:** macOS 26.7.1 (25G241), Node.js v26.8.1, Claude Code 2.1.310, reviewed
+  revision `a8b4c0d` with a clean worktree, passing offline synthetic tests, and two isolated
+  temporary-settings sessions. The reviewed procedure attempted to provoke idle status-line
+  invocations by resizing Wave Terminal blocks.
+- **Claude Code measurements:** Three owner-entered ordinary turns produced the required
+  response-linked activity classifications: two in session A and one in session B. The early A
+  idle attempt and the required A-after-B cross-session attempt produced no status-line event.
+  The owner stopped before B's second turn and the 65-minute observation, and the verifier failed
+  as expected without producing a sanitized summary. No field-shape, cross-session-isolation, or
+  60-minute result is claimed, and the owner made no 60-minute decision.
+- **Privacy and cleanup:** The repository revision and status remained unchanged; real settings
+  remained unchanged; the original history prefix was restored; the two generated session UUIDs
+  were absent after the bounded cleanup scan; the disposable directory was removed; cleanup
+  reported PASS.
+- **Result:** **Deferred; M11 remains active.** Current official Claude Code documentation lists
+  event-driven status-line triggers and optional `refreshInterval` but not terminal resize. The
+  missing event therefore exposes a calibration-trigger defect, not a failed activity or
+  cross-session rule. The temporary harness and runbook must use a bounded documented timer and
+  pass their offline and complete gates before a fresh owner run.
+
 ## Static architecture review — 2026-10-20
 
 This is a document-level failure and trust-boundary review, not spike evidence or approval to carry real usage through the relay. Each row names a required invariant; the synthetic and physical checks in the [milestone overview](../../phase-1/milestone-02-software-architecture-overview.md) remain open.

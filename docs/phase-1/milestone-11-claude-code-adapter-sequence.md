@@ -71,9 +71,11 @@ second workflow.
    behavior stays tested and documented; update the runbook's M11 text (sections 1 and 9) to name
    `--mode claude`.
 3. Preserve two generated Claude Code session IDs, isolated empty work directories, temporary
-   `--settings` files, exact history/session cleanup, real-settings and repository checksums,
-   owner-only randomized `/private/tmp` storage, four owner-entered turns, and the 65-minute wait.
-   No live step edits the owner's real Claude Code settings.
+   `--settings` files with the documented 30-second `refreshInterval`, exact history/session
+   cleanup, real-settings and repository checksums, owner-only randomized `/private/tmp` storage,
+   four owner-entered turns, and the 65-minute wait. No live step edits the owner's real Claude
+   Code settings. Do not use terminal resize as an update trigger; it is absent from Claude Code's
+   documented trigger list.
 4. Keep reports structural: public version type, activity classifications, allowed key names,
    public window kinds, counts, timing, and verdicts only. Actual counters, percentages, resets,
    session IDs, prompts, responses, paths, and unrelated fields remain private and ephemeral.
@@ -390,8 +392,9 @@ raw reports, changes the real settings, starts a signed-in Claude Code process, 
 output.
 
 The owner runs two isolated temporary-settings sessions, enters exactly four ordinary turns,
-performs idle redraw checks in both, proves B activity cannot make idle A fresh, and records an A
-unchanged idle event at least 60 minutes after its last increase. The verifier requires valid
+uses the temporary 30-second refresh timer for idle checks in both, proves B activity cannot make
+idle A fresh, and records an A unchanged idle event at least 60 minutes after its last increase.
+The verifier requires valid
 public version/window shapes, two response-linked observations per session, at least one activity
 increase per session, no decrease/invalid transition, idle non-advancement, cross-session
 isolation, privacy shape, and cleanup readiness. A missing optional redraw is deferred only as the

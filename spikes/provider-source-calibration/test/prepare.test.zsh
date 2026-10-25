@@ -126,6 +126,19 @@ source "$prepared_root/session.zsh"
 [[ ! -e "$prepared_root/harness/codex-calibration.mjs" ]]
 [[ -f "$prepared_root/harness/claude-recorder.mjs" ]]
 [[ -f "$prepared_root/claude-a-settings.json" && -f "$prepared_root/claude-b-settings.json" ]]
+"$test_root/claude-bin/node" -e '
+  const fs = require("node:fs");
+  for (const file of process.argv.slice(1)) {
+    const settings = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (JSON.stringify(Object.keys(settings)) !== JSON.stringify(["statusLine"])) process.exit(1);
+    const statusLine = settings.statusLine;
+    if (JSON.stringify(Object.keys(statusLine)) !== JSON.stringify([
+      "type", "command", "refreshInterval",
+    ])) process.exit(1);
+    if (statusLine.type !== "command" || typeof statusLine.command !== "string"
+        || statusLine.refreshInterval !== 30) process.exit(1);
+  }
+' "$prepared_root/claude-a-settings.json" "$prepared_root/claude-b-settings.json"
 [[ "$source_calibration_claude_session_a" != "$source_calibration_claude_session_b" ]]
 ! print -r -- "$output" | grep -Fq codex-profile
 [[ "$(shasum -a 256 "$test_root/claude-home/.claude/settings.json" | awk '{print $1}')" == "$settings_sum_before" ]]

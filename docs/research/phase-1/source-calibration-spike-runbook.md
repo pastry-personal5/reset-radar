@@ -85,7 +85,12 @@ The Codex half, once for every profile the owner explicitly selects:
 5. Observes `account/rateLimits/updated` during one owner-initiated Codex turn and refetches no more than once per minute.
 6. Measures only frame size, structural limits, latency, field presence/types, and the structural correspondence of the compatibility bucket.
 
-The Claude Code half cannot actively query usage. It temporarily overrides `statusLine` only for two command-line processes, then observes the status-line payload after owner-submitted turns. It validates whether `cost.total_api_duration_ms` increases after a response and stays unchanged on idle UI reruns. It never generates a turn itself.
+The Claude Code half cannot actively query usage. It temporarily overrides `statusLine` only for
+two command-line processes, then observes the status-line payload after owner-submitted turns. The
+temporary settings use Claude Code's documented `refreshInterval` with a 30-second cadence so
+idle observations do not depend on an undocumented terminal-resize trigger. It validates whether
+`cost.total_api_duration_ms` increases after a response and stays unchanged on timer-driven idle
+reruns. It never generates a turn itself.
 
 This validates the installed versions and the proposed source rules. M10 requires both approved
 Codex profiles because the first version tracks up to two accounts concurrently. The procedure
@@ -198,7 +203,9 @@ printf 'Claude calibration session attached.\n'
 The last line must be `Claude calibration session attached.` Keep this terminal available until
 the three dedicated terminals in section 9 are attached. The temporary settings files are passed
 only to the two calibration processes; preparation does not edit the owner's real Claude Code
-settings.
+settings. Each temporary `statusLine` object contains only the recorder command and
+`refreshInterval: 30`. Claude Code documents that timer as an additional status-line update
+trigger for idle periods; terminal resize is not one of its documented event triggers.
 
 ### 6.2 Codex preparation for P1-M10
 
@@ -373,8 +380,8 @@ Use this layout:
 | Terminal | Purpose | What you type there |
 |---|---|---|
 | **Observer** | Shows sanitized events from both sessions | Shell commands only; never a prompt |
-| **A** | First isolated Claude Code session | Two ordinary prompts, idle resizes, and the 65-minute check |
-| **B** | Second isolated Claude Code session | Two ordinary prompts and one idle resize |
+| **A** | First isolated Claude Code session | Two ordinary prompts, timer-driven idle observations, and the 65-minute check |
+| **B** | Second isolated Claude Code session | Two ordinary prompts and a timer-driven idle observation |
 
 The first command in each terminal is the exact randomized `source /private/tmp/.../session.zsh` command printed by section 6. It cannot be written literally in this runbook because every preparation creates a different private directory. The complete commands after that first pasted line are repeated below for each terminal.
 
@@ -410,7 +417,7 @@ The first line of output must be `Observer attached.` The final command then wai
 
 - `activity:"first-observed"` means that session produced its first usable activity counter;
 - `activity:"increased"` means Claude Code reported more API activity after a response;
-- `activity:"unchanged"` means an idle status-line redraw did not report new API activity;
+- `activity:"unchanged"` means a timer-driven idle status-line rerun did not report new API activity;
 - `advanceObservedAt:true` is required after a genuine response;
 - `advanceObservedAt:false` is required for an idle redraw.
 
@@ -483,14 +490,24 @@ The separate empty A and B directories prevent either session from reading the r
 A “prompt” below means one short, ordinary, non-sensitive request typed manually into Claude Code. It must not mention Reset Radar, this repository, credentials, account details, private files, or personal content. Wait for the complete Claude Code response and the next matching Observer event before continuing. Do not paste the prompt or response anywhere else.
 
 1. In **A**, submit the first prompt and wait for its response. In **Observer**, wait for an event with `label:"A"`. It must have `activity:"first-observed"` or `activity:"increased"`, and it must have `advanceObservedAt:true`.
-2. Do not send another prompt. Resize terminal **A** horizontally a few times, then wait up to ten seconds. Observer must show a new A event with `activity:"unchanged"` and `advanceObservedAt:false`. If no event appears, record the A idle-redraw check as deferred; do not manufacture activity.
+2. Do not send another prompt or interact with A. Within 40 seconds, the 30-second temporary timer
+   should produce a new A event with `activity:"unchanged"` and `advanceObservedAt:false`. If no
+   event appears, record the early A idle check as deferred; do not manufacture activity.
 3. In **A**, submit the second prompt and wait for its response. The next response-linked A event must have `activity:"increased"` and `advanceObservedAt:true`. Privately note that event's `at` time; it starts the 65-minute wait in section 9.5.
 4. Leave **A** idle. In **B**, submit the first prompt and wait for its response. The next response-linked B event must have `activity:"first-observed"` or `activity:"increased"`, and `advanceObservedAt:true`.
-5. Without sending anything in A, resize terminal **A** and wait up to ten seconds. Observer must show `label:"A"`, `activity:"unchanged"`, and `advanceObservedAt:false`. This is the proof that B's activity did not make A fresh.
-6. Without sending another prompt in B, resize terminal **B** and wait up to ten seconds. Observer must show `label:"B"`, `activity:"unchanged"`, and `advanceObservedAt:false`.
+5. Without sending anything or changing modes in A, wait up to 40 seconds after the response-linked
+   B event. The next timer-driven A event must show `label:"A"`, `activity:"unchanged"`, and
+   `advanceObservedAt:false`. This is the proof that B's activity did not make A fresh.
+6. Without sending another prompt or changing modes in B, wait up to 40 seconds. The next
+   timer-driven B event must show `label:"B"`, `activity:"unchanged"`, and
+   `advanceObservedAt:false`.
 7. In **B**, submit the second prompt and wait for its response. The next response-linked B event must have `activity:"increased"` and `advanceObservedAt:true`.
 
-There are exactly four allowance-spending turns: A twice and B twice. Resizing a terminal is not a turn. Multiple Observer events may appear during one response; judge the response by the first matching event that shows the required activity transition. Stop if a response completes but no matching event appears after ten seconds, or if any transition has the wrong label or classification.
+There are exactly four allowance-spending turns: A twice and B twice. Timer-driven reruns are not
+turns. Multiple Observer events may appear during one response; judge the response by the first
+matching event that shows the required activity transition. Stop if a response completes but no
+matching event appears after ten seconds, or if any transition has the wrong label or
+classification.
 
 The early idle check after A's first response may be deferred because the later cross-session and
 60-minute A checks can still supply A's required idle evidence. B must produce at least one idle
@@ -499,17 +516,20 @@ event cannot be deferred and still pass the verifier.
 
 ### 9.5 Perform the 65-minute A check
 
-Keep A, B, and Observer open. Send no more prompts. Wait until at least 65 minutes after the `at` time privately noted for A's second response in step 3. The extra five minutes avoids failing the check because of clock or observation delay.
+Keep A, B, and Observer open. Send no more prompts and do not change permission or Vim modes. Wait
+until at least 65 minutes after the `at` time privately noted for A's second response in step 3.
+The extra five minutes avoids failing the check because of clock or observation delay.
 
-Then resize terminal **A** without submitting a prompt. Within ten seconds, Observer must print an A event with:
+Within the next 40 seconds, the temporary timer must produce an A event with:
 
 ```text
 activity:"unchanged"
 advanceObservedAt:false
 ```
 
-If no A event appears after several resizes, record the 60-minute idle observation as deferred. Do not send a fifth prompt to provoke the status line. The verifier will not pass, M11 will remain
-active, and the deferral must be recorded honestly.
+If no A event appears, record the 60-minute idle observation as deferred. Do not send a fifth
+prompt or change an interface mode to provoke the status line. The verifier will not pass, M11
+will remain active, and the deferral must be recorded honestly.
 
 ### 9.6 End the observation
 
@@ -647,7 +667,7 @@ content, or Claude Code history. The agent turns the permitted handoff into this
 
 - **Attendance:** Owner-present. No raw response, credential, account/session identifier, prompt, response content, percentage, reset timestamp, activity-counter value, or project path was retained in Reset Radar evidence.
 - **Question:** Does the installed Claude Code status-line source satisfy the approved field shape, response-linked activity, two-session isolation, idle non-advancement, and 60-minute current-data assumptions?
-- **Method and versions:** Public macOS, Node.js, and Claude Code versions; exact reviewed revision; passing offline synthetic tests; two isolated temporary-settings sessions; exactly four owner-entered ordinary turns; and the 65-minute idle procedure.
+- **Method and versions:** Public macOS, Node.js, and Claude Code versions; exact reviewed revision; passing offline synthetic tests; two isolated temporary-settings sessions with the documented 30-second refresh interval; exactly four owner-entered ordinary turns; and the 65-minute idle procedure.
 - **Claude Code measurements:** Redacted aggregate event, advancing, increased, and idle counts; public window kinds and the presence of at least one non-spend kind; privacy-shape result; cross-session-isolation result; 60-minute technical result; and the owner's `60 minutes confirmed` or `60 minutes rejected` decision.
 - **Privacy and cleanup:** Repository revision and status unchanged; real settings unchanged; original history prefix restored; both generated session UUIDs absent after the bounded scan; disposable directory removed.
 - **Result:** Pass, fail, or deferred, with each blocker named. A rejected threshold, source-shape contradiction, required deferral, or cleanup failure leaves M11 active and returns that rule to the owner.

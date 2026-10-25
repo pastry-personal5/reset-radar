@@ -70,9 +70,13 @@ done
 "$source_calibration_node" --check "$source_calibration_root/harness/verify-reports.mjs"
 if [[ "$source_calibration_mode" == combined ]]; then
   "$source_calibration_node" --check "$source_calibration_root/harness/claude-recorder.mjs"
-  jq -e '.statusLine.type == "command" and (.statusLine.command | type == "string")' \
+  jq -e '.statusLine.type == "command"
+    and (.statusLine.command | type == "string")
+    and .statusLine.refreshInterval == 30' \
     "$source_calibration_root/claude-a-settings.json" >/dev/null
-  jq -e '.statusLine.type == "command" and (.statusLine.command | type == "string")' \
+  jq -e '.statusLine.type == "command"
+    and (.statusLine.command | type == "string")
+    and .statusLine.refreshInterval == 30' \
     "$source_calibration_root/claude-b-settings.json" >/dev/null
 fi
 

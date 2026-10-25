@@ -304,6 +304,14 @@ it lands first and is explicitly referenced from the M11 implementation record.
 
 ## Completion checklist
 
+- [x] The M11 calibration harness uses Claude Code's documented temporary `refreshInterval`
+  trigger for idle observations rather than assuming a terminal resize invokes the status line.
+  Its cadence keeps the 65-minute reports bounded, offline tests prove the exact temporary
+  settings shape, and the owner runbook uses timer-driven idle and cross-session checks. Evidence:
+  `prepare.test.zsh` proves the exact isolated `refreshInterval: 30` settings and cleanup boundary;
+  on 2026-10-25 the delegated six-test calibration suite and complete contribution-guide gate
+  passed, `git diff --check` passed, and 729 fenced-code-aware relative links were valid. No
+  signed-in provider process or external service was accessed.
 - [x] The owner-facing M11 Task 7 calibration runbook gives one unambiguous Claude Code-only path from
   prerequisites and clean-revision approval through the three-terminal observation, private
   verification, exact cleanup, sanitized evidence handoff, and post-run close-out. Every command,
@@ -382,10 +390,14 @@ it lands first and is explicitly referenced from the M11 implementation record.
   sessions, at least one activity increase per session, idle redraws that do not advance time,
   cross-session isolation, a 60-minute unchanged idle event, and valid normal-window shapes. A
   missing idle redraw may be deferred only where the runbook permits and is never reported as
-  passed.
+  passed. Attempt evidence: on 2026-10-25 three response-linked observations passed, but terminal
+  resize produced no idle event; the owner stopped before the fourth turn and 60-minute check.
+  This deferred attempt is recorded in `spike-results.md` and supplies no calibration pass.
 - [ ] Calibration cleanup succeeds before one sanitized Claude Code evidence entry is added to
   [spike-results.md](../research/phase-1/spike-results.md). The owner records `60 minutes
   confirmed` or `60 minutes rejected`; no raw or identifying value enters version control.
+  Attempt evidence: the 2026-10-25 deferred run passed exact cleanup and has a sanitized entry,
+  but no 60-minute decision was reached, so this item remains open.
 - [ ] The ProviderAdapters and helper scaffolds are removed, active docs match the implementation,
   and P1-M11 moves to `Done` only after every required item has evidence.
 - [x] The root `Makefile` exposes the documented local validation commands through named `.PHONY`
@@ -436,6 +448,13 @@ The 2026-10-25 whole-milestone implementation review additionally fixed the setu
 catalog-aware configuration inspection, interrupted-install artifact validation, post-write
 conflict recovery, and executable identity stability. Focused and complete validation plus the
 relative-link check passed; only the owner-run Checkpoint C items above remain open.
+
+The first owner-present Task 7 attempt on 2026-10-25 stopped safely after three response-linked
+observations because Wave Terminal resize produced no idle status-line event. Cleanup passed and
+the sanitized deferred result is recorded in `spike-results.md`; no 60-minute decision was made.
+Claude Code's current documented triggers exclude terminal resize and include optional
+`refreshInterval`, so the calibration harness and runbook now require a bounded temporary timer
+before a fresh owner run.
 
 ## Checkpoints
 

@@ -73,6 +73,13 @@ The typed array is the current semantic model; it does not mean the classic stat
 
 The source documentation is explicit that `SessionUsage.rateLimits` contains windows from the **last API response** and is empty off a subscription or before the first reading. It is account-level state, not evidence of per-model windows.
 
+The classic [status-line documentation](https://code.claude.com/docs/en/statusline#when-the-status-line-updates)
+lists session start, a new assistant message, compaction, permission-mode and Vim-mode changes,
+command changes, optional `refreshInterval`, and reported reset/cache-expiry times as update
+triggers. It does not list terminal resize. Calibration may add a bounded timer to its isolated
+temporary settings to observe unchanged idle input; production still never creates a Claude turn
+or treats a timer rerun as a fresh provider observation.
+
 The early-access [`session.measure`](https://github.com/anthropics/claude-code/blob/ef7bfdca55d906929fe6b782025b93758c325074/mods/types/claude-code.d.ts#L9132) event fires after main-thread turns and when a rate-limit window moves a whole percentage point. Its `changed` list marks a window moving a whole point, appearing, leaving, or changing account-limit status. This confirms Claude Code maintains a push-oriented measurement cache.
 
 That function-hook API is not the selected export mechanism yet. Its generated declaration labels it early access, says it may change without notice, and runs hooks without Node, DOM, or direct filesystem APIs. Prototype it only if an approved engine operation can export the snapshot without broadening permissions. Until then, the classic status-line command remains the narrower external bridge.

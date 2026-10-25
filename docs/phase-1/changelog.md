@@ -6,6 +6,20 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Owner/Codex — Ran the first P1-M11 Task 7 owner calibration from clean revision
+  `a8b4c0d`. Two A turns and one B turn produced the required response-linked activity
+  classifications, but neither Wave Terminal resize produced an idle status-line event. The owner
+  stopped before B's second turn and the 65-minute check, made no 60-minute decision, ran the
+  expected failing verifier, and completed exact cleanup with settings, history, UUID scan,
+  repository, and disposable-directory checks passing. Current official Claude Code documentation
+  does not list terminal resize as an update trigger; it does list optional `refreshInterval` for
+  idle updates. The attempt is recorded as deferred rather than as a source-rule failure. The
+  isolated temporary settings, offline test, sequence, runbook, and research now use a bounded
+  30-second refresh timer before a fresh owner run. The delegated six-test calibration suite and
+  complete gate passed project generation, Swift format, strict SwiftLint with zero violations
+  across 286 files, import checks, the macOS suite, 28 Workers tests, 31 relay Node tests,
+  TypeScript checks, and Wrangler dry-run; diff hygiene and 729 fenced-code-aware relative links
+  passed. M11 remains `Active`.
 - 2026-10-25 — Codex — Expanded P1-M11 Task 7 into one explicit owner route from clean-revision
   approval through the three-terminal Claude Code observation, 65-minute idle check, redacted
   verification, owner decision, exact cleanup, sanitized evidence handoff, and agent close-out.

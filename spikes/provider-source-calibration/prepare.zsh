@@ -168,7 +168,13 @@ EOF
     const fs = require("node:fs");
     fs.writeFileSync(
       process.argv[1],
-      JSON.stringify({ statusLine: { type: "command", command: process.argv[2] } }, null, 2) + "\n",
+      JSON.stringify({
+        statusLine: {
+          type: "command",
+          command: process.argv[2],
+          refreshInterval: 30,
+        },
+      }, null, 2) + "\n",
       { mode: 0o600 },
     );
   ' "$settings" "$wrapper"
