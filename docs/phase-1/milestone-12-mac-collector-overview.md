@@ -61,9 +61,9 @@ These are newly exposed M12 choices. Implementation is blocked until the owner a
 - [x] Entry: M10 and M11 code-complete on `main`; baseline revision `abaf26e9973432976745251913dcc07da7d94c46`, clean worktree, and sandbox limitations recorded.
 - [x] Release post-action rejects ad-hoc signing (tested with a fake signature reader) and a signed Release build exists with sanitized signing evidence recorded.
 - [x] Keychain `SecretStore` reads non-interactively; development, test, and installed-app stores are isolated; `interactionRequired` pauses publication and retries.
-- [ ] `MacEnvironment`, single-instance lock, App Nap guard, session secret cache, wake and network monitors are covered by `ResetRadarMacTests`.
-- [ ] Synthetic source to `PublishSnapshot` to relay passes end to end; `live` mode is refused without the M9 marker.
-- [ ] `ManualRequestDriver` polling, coalescing, publish-before-acknowledge, and sleep/wake behavior are tested.
+- [x] `MacEnvironment`, single-instance lock, App Nap guard, session secret cache, wake and network monitors are covered by `ResetRadarMacTests`.
+- [x] Synthetic collection through `PublishSnapshot`, `HTTPRelayGateway`, local Miniflare, and authenticated read-back passes end to end; normal launches use live sources and `--synthetic` selects fixtures.
+- [x] `ManualRequestDriver` polling, coalescing, publish-before-acknowledge, and sleep/wake behavior are tested.
 - [ ] Source setup, relay setup (including interruption recovery), pairing, paired devices, Destroy Relay, and Keychain recovery work through functional screens.
 - [ ] Launch at login reflects registration status and errors; uninstall order is documented and tested where automatable.
 - [ ] Status-line helper integration with a synthetic Claude Code payload passes.

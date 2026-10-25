@@ -4,6 +4,11 @@ import ResetRadarDomain
 public struct CollectResult: Sendable, Equatable {
     public let snapshot: UsageSnapshot
     public let change: ChangeClass
+
+    public init(snapshot: UsageSnapshot, change: ChangeClass) {
+        self.snapshot = snapshot
+        self.change = change
+    }
 }
 
 /// Merges source reports into the authoritative snapshot and commits it locally. It never

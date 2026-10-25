@@ -6,6 +6,15 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Codex — Completed P1-M12 Checkpoint B. Normal launches now compose live sources
+  from the account catalog; `--synthetic` selects a fixture source without an M9 gate. The single
+  process environment owns source ingestion, one-timer publication, manual-request polling,
+  App Nap, wake/session/foreground and network-restored event translation, session-secret retry,
+  and clean shutdown. The synthetic integration starts local Wrangler/Miniflare, retains a
+  canonical test `workers.dev` origin, registers and activates a reader, publishes a real AES-GCM
+  envelope through `HTTPRelayGateway`, and authenticates and decrypts read-back. The delegated
+  complete gate passed with 0 SwiftLint violations, all Mac tests, 28 relay Vitest tests, 31 relay
+  Node tests, TypeScript checks, and Wrangler dry-run.
 - 2026-10-25 — Codex — Completed P1-M12 Checkpoint A. The exact Release and `.dev`
   Application Support and Keychain namespaces, injected signing outcomes, non-interactive
   session cache, one-minute/session-active recovery seam, and matching app/helper Release signing

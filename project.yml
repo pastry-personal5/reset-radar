@@ -298,6 +298,8 @@ targets:
     sources: [ResetRadarMacTests]
     dependencies:
       - target: ResetRadarMac
+      - package: ResetRadarKit
+        product: ResetRadarTestSupport
   ResetRadarWatchTests:
     templates: [UnitTests]
     platform: watchOS
