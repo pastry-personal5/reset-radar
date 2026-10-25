@@ -1,6 +1,6 @@
 # P1-M11: Claude Code adapter overview
 
-Status: Active
+Status: Done
 
 Implement the macOS-only Claude Code status-line half of
 `ResetRadarProviderAdapters` and the `ResetRadarStatusLine` helper. The
@@ -386,20 +386,28 @@ it lands first and is explicitly referenced from the M11 implementation record.
   record may contain only an absence marker or the explicitly approved prior safe command plus
   transaction metadata; an ephemeral owner-facing preview may show the exact approved local
   settings/helper/executable paths but never raw input or usage values. Evidence: recorder and restore-record sentinel tests, decoder error redaction tests, and the helper output tests.
-- [ ] Owner-present calibration passes four response-linked observations across two isolated
+- [x] Owner-present calibration passes four response-linked observations across two isolated
   sessions, at least one activity increase per session, idle redraws that do not advance time,
   cross-session isolation, a 60-minute unchanged idle event, and valid normal-window shapes. A
   missing idle redraw may be deferred only where the runbook permits and is never reported as
-  passed. Attempt evidence: on 2026-10-25 three response-linked observations passed, but terminal
-  resize produced no idle event; the owner stopped before the fourth turn and 60-minute check.
-  This deferred attempt is recorded in `spike-results.md` and supplies no calibration pass.
-- [ ] Calibration cleanup succeeds before one sanitized Claude Code evidence entry is added to
+  passed. Evidence: the final 2026-10-25 entry in
+  [spike-results.md](../research/phase-1/spike-results.md#claude-code-source-calibration--2026-10-25)
+  records the passing redacted verifier counts, public `five_hour` and `seven_day` kinds,
+  cross-session isolation, and 60-minute result. The earlier terminal-resize attempt remains
+  recorded separately as deferred and supplies no pass evidence.
+- [x] Calibration cleanup succeeds before one sanitized Claude Code evidence entry is added to
   [spike-results.md](../research/phase-1/spike-results.md). The owner records `60 minutes
   confirmed` or `60 minutes rejected`; no raw or identifying value enters version control.
-  Attempt evidence: the 2026-10-25 deferred run passed exact cleanup and has a sanitized entry,
-  but no 60-minute decision was reached, so this item remains open.
-- [ ] The ProviderAdapters and helper scaffolds are removed, active docs match the implementation,
-  and P1-M11 moves to `Done` only after every required item has evidence.
+  Evidence: exact cleanup reported PASS before the final sanitized entry was added, and the owner
+  recorded `60 minutes confirmed`. The entry contains only public versions, aggregate counts,
+  public window kinds, technical verdicts, the owner decision, and cleanup results.
+- [x] The ProviderAdapters and helper scaffolds are removed, active docs match the implementation,
+  and P1-M11 moves to `Done` only after every required item has evidence. Evidence: the final
+  scaffold/placeholder/TODO/FIXME search found zero source/helper matches; 199 focused
+  ProviderAdapters tests, 78 focused Domain tests, and six calibration tests passed; the complete
+  gate passed with zero SwiftLint violations across 286 files, 28 Workers tests, 31 relay Node
+  tests, TypeScript checks, and Wrangler dry-run; `git diff --check` and 730 fenced-code-aware
+  relative links passed on 2026-10-25.
 - [x] The root `Makefile` exposes the documented local validation commands through named `.PHONY`
   targets, and its aggregate gate matches the contribution guide.
 - [x] The composed-command termination regression uses the launched child's process identifier
@@ -435,26 +443,18 @@ it lands first and is explicitly referenced from the M11 implementation record.
 
 ## Implementation status
 
-Checkpoints A and B are implemented and covered by the tests named in the completion checklist.
-The `ResetRadarStatusLine` scaffold comment and the ProviderAdapters placeholder are replaced by
-the helper composition root. Checkpoint C needs the owner: the signed-in calibration, the 60-minute
-decision, cleanup, and the sanitized evidence entry cannot be performed or fabricated by an agent,
-so P1-M11 stays `Active`. After the whole-branch review fixes, the complete gate passed on
-2026-10-25 (189 Swift tests, 28 relay tests, 5 calibration-harness tests, lint, import check, and
-`git diff --check`); the owner-run items remained open. The calibration commands are in
-[the runbook](../research/phase-1/source-calibration-spike-runbook.md) (`--mode claude`).
+All three checkpoints are complete. The `ResetRadarStatusLine` scaffold comment and
+ProviderAdapters placeholder are replaced by the tested helper and adapter implementation. The
+first owner-present Task 7 attempt stopped safely when the undocumented terminal-resize trigger
+produced no idle event; cleanup passed, the result was recorded as deferred, and the harness was
+repaired to use Claude Code's documented temporary `refreshInterval`.
 
-The 2026-10-25 whole-milestone implementation review additionally fixed the setup commit point,
-catalog-aware configuration inspection, interrupted-install artifact validation, post-write
-conflict recovery, and executable identity stability. Focused and complete validation plus the
-relative-link check passed; only the owner-run Checkpoint C items above remain open.
-
-The first owner-present Task 7 attempt on 2026-10-25 stopped safely after three response-linked
-observations because Wave Terminal resize produced no idle status-line event. Cleanup passed and
-the sanitized deferred result is recorded in `spike-results.md`; no 60-minute decision was made.
-Claude Code's current documented triggers exclude terminal resize and include optional
-`refreshInterval`, so the calibration harness and runbook now require a bounded temporary timer
-before a fresh owner run.
+The fresh owner run from clean revision `f6c3300` then passed four response-linked observations,
+both sessions' idle checks, cross-session isolation, public five-hour and seven-day shapes, and an
+A idle observation at least 60 minutes after its last increase. The owner confirmed 60 minutes,
+exact cleanup passed, and sanitized evidence was recorded. Final focused tests, the complete gate,
+the scaffold search, diff hygiene, and relative-link validation passed on 2026-10-25. P1-M11 is
+`Done` and hands the implemented Claude Code source to M12 composition.
 
 ## Checkpoints
 

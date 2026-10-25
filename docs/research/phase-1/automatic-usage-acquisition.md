@@ -72,7 +72,8 @@ Do not read, copy, log, refresh, or synchronize Codex credentials. Do not call t
 3. Write a versioned snapshot atomically with used percentage, reset timestamp, observation time, Claude Code version, and account/source identity when available.
 4. Have the Mac collector watch or periodically read that snapshot.
 5. Clamp percentage used after validation and publish it as provider-reported, last-response state.
-6. Mark it stale after a bounded period; P1-M2 source-specific tests determine the exact threshold under the owner's approved calibration approach. Reject timestamps materially in the future.
+6. Mark it stale 60 minutes after the last response-linked observation, as confirmed by the
+   2026-10-25 owner-present source calibration. Reject timestamps materially in the future.
 7. Treat absent windows as unavailable. Do not substitute local token estimates into the same gauge.
 
 This source reflects Claude Code's last-response account state. The current early-access function-hook surface confirms that measurements are pushed after main-thread turns and whole-point rate-limit changes, but it is not the selected export path because it is unstable and has no direct Node/filesystem API. Usage from other devices may not appear until Claude Code next receives provider state.

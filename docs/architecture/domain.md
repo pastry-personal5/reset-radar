@@ -212,7 +212,9 @@ rule wins:
 
 The derivation also returns the next instant at which its result would change, so widget, complication, and Live Activity timelines can place an entry at each threshold.
 
-**Current-data windows** are per-product constants: fifteen minutes for Codex and sixty minutes for Claude Code. Both are candidates until source calibration confirms them; see [Source calibration](../architecture.md#source-calibration).
+**Current-data windows** are per-product constants: fifteen minutes for Codex and sixty minutes for
+Claude Code. Both were confirmed by owner-present source calibration on 2026-10-25; see
+[Source calibration](../architecture.md#source-calibration).
 
 **Mac liveness** is derived from `generatedAt` and `heartbeatSeconds`. The Mac counts as not publishing once `generatedAt` is older than three heartbeats. Liveness affects provenance only; a recent heartbeat never makes an old observation current.
 

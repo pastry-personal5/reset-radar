@@ -213,7 +213,12 @@ Claude Code reruns the status line on interface events that bring no new API res
 - the session's `cost.total_api_duration_ms` increased; or
 - the window first appears in a session after that session previously had no rate-limit reading.
 
-Otherwise it keeps the earlier `observedAt`. A percentage or reset change alone does not prove a new API response, because Claude Code may alter cached window state on an idle rerun. If the activity field is absent after the first reading, subsequent changes stay stale until another response signal is validated. Source calibration must confirm that the activity field advances on every API response and holds steady on idle reruns; failure returns the freshness rule to the owner.
+Otherwise it keeps the earlier `observedAt`. A percentage or reset change alone does not prove a
+new API response, because Claude Code may alter cached window state on an idle rerun. If the
+activity field is absent after the first reading, subsequent changes stay stale until another
+response signal is validated. Owner-present source calibration on 2026-10-25 confirmed that the
+activity field advances after responses and holds steady across timer-driven idle reruns and
+another session's activity.
 
 ### Dropped windows
 
@@ -230,7 +235,8 @@ Claude Code drops a window from its input once the window's reset passes, and `r
 
 **Account row.** Claude Code has one account row in the account catalog, created when the owner confirms guided setup. `ClaudeCodeSource` stamps that row's `AccountID` on every window it reports. Claude Code exposes no provider account identifier, so its windows and `AccountSource` carry no `AccountScope`, and the helper never reads the catalog or learns an `AccountID`. The row keeps its global number and alias across a restore and reinstall; removal is a separate confirmed action.
 
-The candidate current-data window is sixty minutes from `observedAt`; source calibration must confirm it independently from Codex.
+The current-data window is sixty minutes from `observedAt`, confirmed independently from Codex by
+the 2026-10-25 owner-present source calibration.
 
 ## Errors and logging
 

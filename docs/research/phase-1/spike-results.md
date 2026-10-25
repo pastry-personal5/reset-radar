@@ -132,6 +132,33 @@ Dated evidence for the P1-M2 validation work listed in [the milestone overview](
   cross-session rule. The temporary harness and runbook must use a bounded documented timer and
   pass their offline and complete gates before a fresh owner run.
 
+### Claude Code source calibration — 2026-10-25
+
+- **Attendance:** Owner-present. No raw response, credential, account/session identifier, prompt,
+  response content, percentage, reset timestamp, activity-counter value, disposable path, or
+  project path was retained in Reset Radar evidence.
+- **Question:** Does the installed Claude Code status-line source satisfy the approved field
+  shape, response-linked activity, two-session isolation, idle non-advancement, and 60-minute
+  current-data assumptions?
+- **Method and versions:** macOS 26.7.1 (25G241), Node.js v26.8.1, Claude Code 2.1.310, reviewed
+  revision `f6c3300` with a clean worktree, six passing offline synthetic tests, two isolated
+  temporary-settings sessions with the documented 30-second refresh interval, exactly four
+  owner-entered ordinary turns, and the 65-minute idle procedure.
+- **Claude Code measurements:** The redacted verifier reported 357 events: nine advancing, seven
+  increased, and 346 idle. Sessions A and B each supplied the required response-linked activity
+  and idle evidence; A remained unchanged after B activity and at least 60 minutes after A's last
+  increase. The only public window kinds were `five_hour` and `seven_day`. Privacy-shape,
+  cross-session-isolation, and 60-minute technical checks all passed. Owner decision: 60 minutes
+  confirmed.
+- **Privacy and cleanup:** The repository revision and status remained unchanged; real settings
+  remained unchanged; the original history prefix was restored; the two generated session UUIDs
+  were absent after the bounded cleanup scan; the disposable directory was removed; cleanup
+  reported PASS.
+- **Result:** **Pass.** The installed status-line field shapes, response signal, timer-driven idle
+  behavior, two-session isolation, and 60-minute current-data window satisfy the M11 calibration
+  criteria. This confirms last-response freshness; it does not claim that Claude Code queries
+  remote account changes while idle.
+
 ## Static architecture review — 2026-10-20
 
 This is a document-level failure and trust-boundary review, not spike evidence or approval to carry real usage through the relay. Each row names a required invariant; the synthetic and physical checks in the [milestone overview](../../phase-1/milestone-02-software-architecture-overview.md) remain open.

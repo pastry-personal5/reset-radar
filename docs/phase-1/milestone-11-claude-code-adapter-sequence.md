@@ -1,6 +1,6 @@
 # P1-M11: Claude Code adapter sequencing
 
-Status: Active
+Status: Done
 
 Work order and acceptance tests for the
 [M11 overview](milestone-11-claude-code-adapter-overview.md). Binding behavior remains in

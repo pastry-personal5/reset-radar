@@ -96,6 +96,11 @@ Reset Radar should therefore:
 
 Usage on another device can remain invisible until this Claude Code process receives new provider state. The UI must say “last reported by Claude Code,” not “live account usage.”
 
+The 2026-10-25 owner-present calibration on Claude Code 2.1.310 confirmed the classic status-line
+field shapes, response-linked activity progression, idle non-advancement, two-session isolation,
+and the 60-minute current-data window. The temporary calibration timer supplied idle invocations;
+it did not make provider state fresher or become a production refresh mechanism.
+
 ## 4. Normalized snapshot
 
 The upstream findings require a versioned, open-ended model rather than fixed five-hour and weekly properties:

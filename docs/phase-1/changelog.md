@@ -6,6 +6,20 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Owner/Codex — Completed P1-M11 Task 7 from clean revision `f6c3300` after the
+  timer-trigger repair passed its offline and complete gates. Two isolated Claude Code 2.1.310
+  sessions supplied exactly four owner-entered ordinary turns; response-linked activity, both
+  sessions' idle non-advancement, A-after-B isolation, public five-hour and seven-day shapes, and
+  A's unchanged observation at least 60 minutes after its last increase all passed. The redacted
+  verifier reported privacy-shape, cross-session, and 60-minute technical PASS, and the owner
+  confirmed the 60-minute current-data window. Exact cleanup then passed the real-settings,
+  history-prefix, generated-session UUID, repository, and disposable-directory checks before
+  sanitized evidence was recorded. Active architecture and research now treat both current-data
+  windows as confirmed. Final close-out passed 199 focused ProviderAdapters tests, 78 focused
+  Domain tests, six calibration tests, the complete gate with zero SwiftLint violations across
+  286 files, 28 Workers tests, 31 relay Node tests, TypeScript checks, Wrangler dry-run, a zero-hit
+  scaffold search, diff hygiene, and 730 fenced-code-aware relative links. P1-M11 is `Done` and
+  hands the implemented source to M12.
 - 2026-10-25 — Owner/Codex — Ran the first P1-M11 Task 7 owner calibration from clean revision
   `a8b4c0d`. Two A turns and one B turn produced the required response-linked activity
   classifications, but neither Wave Terminal resize produced an idle status-line event. The owner
