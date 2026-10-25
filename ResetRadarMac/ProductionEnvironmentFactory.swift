@@ -93,10 +93,12 @@ private actor RuntimeEventRouter {
     }
 }
 
+// swiftlint:disable:next type_body_length
 enum ProductionEnvironmentFactory {
     enum FactoryError: Error { case invalidSyntheticIdentifier }
 
     private struct Core {
+        let development: Bool
         let locations: StorageLocations
         let clock: SystemAppClock
         let publisher: FilePublisherStore
@@ -151,8 +153,11 @@ enum ProductionEnvironmentFactory {
             publisher: publisher, secrets: secrets, cipher: AESGCMEnvelopeCipher(), relay: relay,
             diagnostics: diagnostics, clock: clock, random: random)
 
+        let development: Bool
+        if case .development = flavor { development = true } else { development = false }
         return Core(
-            locations: locations, clock: clock, publisher: publisher, snapshots: snapshots,
+            development: development, locations: locations, clock: clock, publisher: publisher,
+            snapshots: snapshots,
             diagnostics: diagnostics, secrets: secrets, random: random, relay: relay,
             publishing: publishing,
             catalog: ProviderAccountCatalogStore(directoryURL: locations.directory))
@@ -212,12 +217,80 @@ enum ProductionEnvironmentFactory {
         let instanceLock = SingleInstanceLock(
             fileURL: lockURL,
             activator: DistributedFirstInstanceActivator(notificationName: activationName))
+        let ownerFlows = makeOwnerFlows(core: core, runtime: runtime)
         return MacEnvironment(
             publishingMode: mode, instanceLock: instanceLock,
             appNap: AppNapGuard(controller: SystemProcessActivityController()),
             sources: runtime.sources, publication: runtime.publication,
             manualRequests: runtime.manual, wakeMonitor: wake, networkMonitor: network,
-            secretRetry: retry, secrets: core.secrets)
+            secretRetry: retry, secrets: core.secrets, ownerFlows: ownerFlows,
+            activationObserver: FirstInstanceActivationObserver(notificationName: activationName))
+    }
+
+    @MainActor
+    // swiftlint:disable:next function_body_length
+    private static func makeOwnerFlows(core: Core, runtime: Runtime) -> OwnerFlowModels {
+        let runner = FoundationCodexCommandRunner(clock: core.clock)
+        let selections = CodexDiscoverySelections(workingDirectory: core.locations.directory)
+        let codex = CodexConfigurator(
+            contexts: selections, locator: CodexExecutableLocator(runner: runner),
+            metadataReader: CodexExecutableMetadataReader(runner: runner), store: core.catalog)
+        let embedded = Bundle.main.bundleURL.appending(
+            path: "Contents/Helpers/ResetRadarStatusLine")
+        let installer = StatusLineHelperInstaller(
+            embeddedHelper: embedded, rootDirectory: core.locations.directory)
+        let home = URL.homeDirectory
+        let claudePaths = ClaudeCodeConfiguratorPaths(
+            homeDirectory: home, rootDirectory: core.locations.directory,
+            settingsURL: home.appending(path: ".claude/settings.json"), managedSettingsURL: nil,
+            environment: ProcessInfo.processInfo.environment)
+        let claude = ClaudeCodeConfigurator(
+            paths: claudePaths, installer: installer, catalog: core.catalog)
+        let configure = ConfigureSources(configurators: [codex, claude])
+        let setup = SetUpRelay(
+            publisher: core.publisher, secrets: core.secrets, random: core.random,
+            relay: core.relay, snapshots: core.snapshots, publishing: core.publishing,
+            clock: core.clock, heartbeatSeconds: Int(PublicationPolicy.heartbeat))
+        let pairing = PairReader(
+            publisher: core.publisher, secrets: core.secrets, random: core.random,
+            relay: core.relay, codec: JSONPairingCodec(), clock: core.clock)
+        let identityState = SigningIdentityStateStore(development: core.development)
+        let signatureCheck = SigningCheck(reader: SystemSignatureReader())
+        let aliases = UpdateAccountAlias(
+            catalogStore: core.catalog, snapshots: core.snapshots, clock: core.clock)
+        let homeModel = HomeViewModel(
+            catalog: core.catalog, snapshots: core.snapshots, aliases: aliases,
+            publication: runtime.publication)
+        return OwnerFlowModels(
+            home: homeModel, general: LoginItemViewModel(manager: SystemLoginItemManager()),
+            sources: SourceSetupViewModel(
+                selections: selections, configure: configure, catalog: core.catalog,
+                aliases: aliases, publication: runtime.publication),
+            relay: RelaySetupViewModel(
+                setup: setup, publication: runtime.publication,
+                runningTeamIdentifier: {
+                    guard
+                        case .valid(let team) = signatureCheck.evaluate(
+                            recordedTeamIdentifier: nil)
+                    else { return nil }
+                    return team
+                }, recordTeamIdentifier: { identityState.record($0) }),
+            pairing: PairingViewModel(pairing: pairing),
+            devices: DevicesViewModel(
+                reconcile: ReconcileReaders(
+                    publisher: core.publisher, secrets: core.secrets, relay: core.relay,
+                    clock: core.clock),
+                revoke: RevokeReader(
+                    publisher: core.publisher, secrets: core.secrets, relay: core.relay),
+                destroy: DestroyRelay(
+                    publisher: core.publisher, secrets: core.secrets, relay: core.relay,
+                    publishing: core.publishing),
+                publication: runtime.publication, secrets: core.secrets),
+            recovery: RecoveryViewModel(
+                signingCheck: signatureCheck,
+                recordedTeamIdentifier: { identityState.teamIdentifier },
+                secretCache: core.secrets),
+            diagnostics: DiagnosticsViewModel(diagnostics: core.diagnostics))
     }
 
     private static func pollRequests(core: Core) async -> [PendingRefreshRequest] {

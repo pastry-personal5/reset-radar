@@ -9,6 +9,7 @@ import Testing
 private final class LocalRelayURLProtocol: URLProtocol, @unchecked Sendable {
     private typealias Completion = @Sendable (Data?, URLResponse?, (any Error)?) -> Void
     nonisolated(unsafe) static var localPort = 0
+    private var relaySession: URLSession?
     private var relayTask: URLSessionDataTask?
 
     // swiftlint:disable:next static_over_final_class
@@ -40,12 +41,17 @@ private final class LocalRelayURLProtocol: URLProtocol, @unchecked Sendable {
         let completion: Completion = { [weak self] data, response, error in
             self?.complete(data: data, response: response, error: error, original: original)
         }
-        relayTask = URLSession(configuration: configuration).dataTask(
-            with: forwarded, completionHandler: completion)
+        let session = URLSession(configuration: configuration)
+        relaySession = session
+        relayTask = session.dataTask(with: forwarded, completionHandler: completion)
         relayTask?.resume()
     }
 
-    override func stopLoading() { relayTask?.cancel() }
+    override func stopLoading() {
+        relayTask?.cancel()
+        relaySession?.invalidateAndCancel()
+        relaySession = nil
+    }
 
     private func complete(
         data: Data?, response: URLResponse?, error: (any Error)?, original: URL
@@ -78,9 +84,20 @@ private final class LocalRelayURLProtocol: URLProtocol, @unchecked Sendable {
 private struct LocalMiniflare {
     let process: Process
     let port: Int
+    let standardInput: Pipe
+    let stateDirectory: URL
 
     static func start(writeToken: Data, adminToken: Data) async throws -> Self {
         let port = Int.random(in: 20_000...49_999)
+        let stateDirectory = FileManager.default.temporaryDirectory
+            .appending(
+                path: "reset-radar-miniflare-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(
+            at: stateDirectory, withIntermediateDirectories: true)
+        var started = false
+        defer {
+            if !started { try? FileManager.default.removeItem(at: stateDirectory) }
+        }
         let repository = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
         let process = Process()
@@ -89,17 +106,25 @@ private struct LocalMiniflare {
         process.arguments = [
             "npm", "exec", "wrangler", "--", "dev", "--local", "--port", String(port),
             "--inspector-port", String(port + 1),
+            "--persist-to", stateDirectory.path,
             "--var", "WRITE_TOKEN_DIGEST:\(digest(writeToken))",
             "--var", "ADMIN_TOKEN_DIGEST:\(digest(adminToken))",
         ]
         var environment = ProcessInfo.processInfo.environment
         environment["PATH"] = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        // Wrangler's required-secret check reads local secrets from the child environment;
+        // `--var` alone does not satisfy `wrangler.jsonc`'s `secrets.required` contract.
+        environment["WRITE_TOKEN_DIGEST"] = digest(writeToken)
+        environment["ADMIN_TOKEN_DIGEST"] = digest(adminToken)
         environment["WRANGLER_LOG_PATH"] =
             FileManager.default.temporaryDirectory
             .appending(path: "reset-radar-wrangler-\(UUID().uuidString).log").path
         process.environment = environment
         process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        // Keep synthetic Worker diagnostics in the test log when Miniflare exits unexpectedly.
+        process.standardError = FileHandle.standardError
+        let standardInput = Pipe()
+        process.standardInput = standardInput
         try process.run()
         guard let base = URL(string: "http://127.0.0.1:\(port)/") else {
             throw URLError(.badURL)
@@ -107,7 +132,10 @@ private struct LocalMiniflare {
         for _ in 0..<100 {
             guard process.isRunning else { throw CocoaError(.executableLoad) }
             if (try? await URLSession.shared.data(from: base)) != nil {
-                return Self(process: process, port: port)
+                started = true
+                return Self(
+                    process: process, port: port, standardInput: standardInput,
+                    stateDirectory: stateDirectory)
             }
             try await Task.sleep(for: .milliseconds(100))
         }
@@ -116,9 +144,12 @@ private struct LocalMiniflare {
     }
 
     func stop() {
-        guard process.isRunning else { return }
-        process.terminate()
-        process.waitUntilExit()
+        try? standardInput.fileHandleForWriting.close()
+        if process.isRunning {
+            process.terminate()
+            process.waitUntilExit()
+        }
+        try? FileManager.default.removeItem(at: stateDirectory)
     }
 
     private static func digest(_ data: Data) -> String {
@@ -157,6 +188,7 @@ struct SyntheticRelayIntegrationTests {
         #expect(
             await relay.activateReader(endpoint: endpoint, readToken: SecretValue(readBytes))
                 == .accepted(sequence: nil))
+        #expect(worker.process.isRunning)
 
         let clock = FakeAppClock()
         let snapshot = try runtimeSnapshot(at: clock.now)

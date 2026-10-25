@@ -129,14 +129,15 @@ Goal: Claude Code status-line parser and guided installer that never replaces an
 Plan: [overview](milestone-11-claude-code-adapter-overview.md), [sequencing](milestone-11-claude-code-adapter-sequence.md), [ProviderAdapters](../architecture/provider-adapters.md)
 
 ### P1-M12: Mac collector app
-Status: Planned
-Goal: Mac composition root, lifecycle and runtime drivers, Keychain secret store, publish loop, every owner flow (source setup, relay setup, pairing, paired devices, Keychain recovery) on functional unstyled screens, launch-at-login opt-in, and Release signing check, synthetic-only until M9 passes, with Mac Keychain validation and timer-drift measurement.
+Status: Done
+Goal: Mac composition root, lifecycle and runtime drivers, Keychain secret store, publish loop, every owner flow (source setup, relay setup, pairing, paired devices, Keychain recovery) on functional unstyled screens, launch-at-login opt-in, and Release signing check. Normal launches use configured live sources; `--synthetic` selects fixtures. The owner accepted the Mac Keychain and timer-drift runtime-validation risk on 2026-10-25.
 Plan: [overview](milestone-12-mac-collector-overview.md), [sequencing](milestone-12-mac-collector-sequence.md), [Mac app](../architecture/mac-app.md)
 Notes: Mac reset notifications move to P1-M15.
 
 ### P1-M13: Mac UI
 Status: Planned
-Goal: Polish the functional M12 screens without changing behavior: split Account List and Account Details, rings, sidebar, per-account menu-bar status, alias editing, and Settings styling.
+Goal: Polish the functional M12 screens without changing behavior: Account List and Account
+Details layout, rings, sidebar, per-account menu-bar status, alias editing, and Settings styling.
 
 ### P1-M14: iOS core app
 Status: Planned

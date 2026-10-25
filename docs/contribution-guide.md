@@ -9,6 +9,9 @@ The documented local checks are also available as named targets in the root
 overlaps the independent macOS and relay test suites while each suite retains its native bounded
 test scheduling.
 
+Run `make run-mac` to generate, build, and open the Development Mac collector with its normal
+live-source mode. Use Xcode to supply launch arguments such as `--synthetic` for fixture work.
+
 ## Setup and development
 
 - macOS 26.7.1 or newer, with an Xcode whose SDKs are at least iOS 26.1, watchOS 26.6, and macOS 26.7, and iOS and watchOS simulator runtimes at or above the minimum OS versions in [Platform targets](architecture.md#platform-targets). Select that Xcode with `xcode-select` and accept its license before building.

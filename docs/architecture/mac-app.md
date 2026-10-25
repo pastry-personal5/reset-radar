@@ -35,7 +35,6 @@ flowchart TB
     SourceRuntime["SourceRuntime: starts and stops UsageSources, feeds CollectUsage"]
     PublicationDriver["PublicationDriver: PublicationPolicy timers, PublishSnapshot"]
     ManualRequestDriver["ManualRequestDriver: relay poll, HandleManualRefreshRequests"]
-    NotificationDriver["NotificationDriver: ReconcileResetNotifications"]
   end
   subgraph Flows["Owner flows"]
     SourceSetupFlow["Source setup: ConfigureSources"]
@@ -58,7 +57,6 @@ flowchart TB
   SourceRuntime --> UseCases
   PublicationDriver --> UseCases
   ManualRequestDriver --> UseCases
-  NotificationDriver --> UseCases
   Flows --> UseCases
   Scenes --> Flows
   Scenes --> UseCases
@@ -99,14 +97,16 @@ The Mac app must never show a Keychain prompt.
 - **Publication.** `PublicationDriver` arms one timer for the instant `PublicationPolicy` next allows, and calls `PublishSnapshot` when it fires or when a `transition` change arrives.
 - **Manual reader requests.** While collection and relay setup are active and at least one reader is paired, `ManualRequestDriver` polls the relay every 15 seconds for pending IDs, coalesces them through `HandleManualRefreshRequests`, and publishes their encrypted result immediately. Polling stops with no readers, or during setup, destruction, or `secretsUnavailable`. A sleeping Mac cannot receive or satisfy a request; the driver resumes on wake. The result is acknowledged at the relay only after publication succeeds.
 - **Relay lifecycle.** Setup and destruction persist a non-active lifecycle state and pause `PublicationDriver` before any credential or remote-state change. A pending setup is recoverable after an interrupted provisioning step; publication resumes only after the new publisher binds. A failed or interrupted remote destroy leaves publication paused and the prior local state available for an explicit retry.
-- **Notifications.** `NotificationDriver` runs `ReconcileResetNotifications` after every `CollectUsage` commit, because the Mac schedules its own opt-in reset notifications.
+- **Notifications.** M12 exposes a post-commit `ResetNotificationHook` seam but starts no
+  notification driver, requests no permission, and does not import
+  `UNUserNotificationCenter`. P1-M15 owns `NotificationDriver` and reset notifications.
 - **Quit.** Stops sources and publication cleanly and releases the instance lock.
 
 ## Owner flows
 
 | Flow | Behavior |
 |---|---|
-| Source setup | Up to two Codex account discoveries and one Claude Code guided status-line setup, through `ConfigureSources`; every add or replacement shows a preview, removal requires confirmation, and aliases are editable from Home or Sources. An unsafe existing status-line command is left untouched. |
+| Source setup | Up to two Codex account discoveries and one Claude Code guided status-line setup, through `ConfigureSources`; every add or replacement shows a preview, removal requires confirmation, and aliases are editable from Home or Sources. A confirmed add, removal, or Claude Code restore rebuilds the collector immediately from the persisted catalog. An unsafe existing status-line command is left untouched. |
 | Relay setup | Show the provisioning digests for copy; then wipe and bind through `SetUpRelay`. |
 | Pairing | Show the QR package, poll reader activation every five seconds while visible, hide it only after the reader confirms its local save, and revoke at the relay-assigned expiry. Manual Copy is a separate warned action with conditional pasteboard cleanup; QR is the default. |
 | Paired devices | List names, pairing dates, and unknown readers; Revoke; Destroy Relay. |
@@ -117,10 +117,13 @@ The Mac app must never show a Keychain prompt.
 [ux-gui.md](../ux-gui.md) and [ux-information-architecture.md](../ux-information-architecture.md) are authoritative.
 
 - **Main window.** Contains the Main Sidebar. Home uses a split Account List and Account Details
-  view; the list restores its last valid selection and permits inline alias editing.
-- **Settings.** The standard Settings scene, opened with Command-comma, with General, Sources, Relay & Pairing, Diagnostics, and About.
-- **Menu-bar extra.** Shows one state line per account and the last publication, with Refresh All,
-  Open Reset Radar, Settings, and Quit. Closing the main window leaves it running.
+  view; the list restores its last valid selection and permits inline alias editing. Its minimum
+  size is 1,400 by 900 points; overflowing detail text wraps.
+- **Settings.** The standard Settings scene, opened with Command-comma, with General, Sources,
+  Relay & Pairing, Diagnostics, and About. Its minimum size is 1,300 by 800 points; overflow in
+  the detail pane wraps rather than truncating.
+- **Menu-bar extra.** Provides Refresh All, Open Reset Radar, Settings, and Quit; closing the main
+  window leaves it running. P1-M13 owns per-account state and last-publication presentation.
 - **Login launch.** Starts the menu-bar extra without bringing the main window forward.
 
 ## Installation and lifecycle

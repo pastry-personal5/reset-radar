@@ -24,6 +24,7 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [architecture/relay.md](architecture/relay.md) | Cloudflare relay: internal layering, canonical protocol, state, operations, and tests. Active. |
 | [architecture/ios-app.md](architecture/ios-app.md) | iOS composition root: iPhone/iPad app, widget extension, App Intent, refresh drivers, and process model. Active. |
 | [architecture/mac-app.md](architecture/mac-app.md) | Mac composition root: collector runtime, App Nap and wake handling, signing and Keychain, owner flows, and lifecycle. Active. |
+| [mac-installation-and-recovery.md](mac-installation-and-recovery.md) | Owner installation, Gatekeeper, manual update, ordered uninstall, helper restoration, and six recovery paths for the Mac collector. Active. |
 | [architecture/watch-app.md](architecture/watch-app.md) | Watch composition root: payload commit, refresh requests, background delivery, and complication. Active. |
 | [architecture/repository-layout.md](architecture/repository-layout.md) | Planned repository directory structure: Xcode project, package, targets, shared configuration, fixtures, and relay. Active. |
 | [roadmap.md](roadmap.md) | All phases with status; the sole authority for the active phase. |
@@ -51,8 +52,8 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [phase-1/milestone-10-codex-adapter-sequence.md](phase-1/milestone-10-codex-adapter-sequence.md) | P1-M10 account contracts, profile configuration, bounded JSON-RPC, normalization, scheduling, tests, and source-calibration order. Active. |
 | [phase-1/milestone-11-claude-code-adapter-overview.md](phase-1/milestone-11-claude-code-adapter-overview.md) | P1-M11 Claude Code adapter scope, owner decisions, privacy boundary, checkpoints, and completion checklist. Done. |
 | [phase-1/milestone-11-claude-code-adapter-sequence.md](phase-1/milestone-11-claude-code-adapter-sequence.md) | P1-M11 bounded helper, safe status-line composition, session merging, tests, and source-calibration order. Done. |
-| [phase-1/milestone-12-mac-collector-overview.md](phase-1/milestone-12-mac-collector-overview.md) | P1-M12 Mac collector scope, owner decisions, invariants, and completion checklist. Planned. |
-| [phase-1/milestone-12-mac-collector-sequence.md](phase-1/milestone-12-mac-collector-sequence.md) | P1-M12 signing tracer, synthetic loop, drivers, owner flows, and owner-run validation order. Planned. |
+| [phase-1/milestone-12-mac-collector-overview.md](phase-1/milestone-12-mac-collector-overview.md) | P1-M12 Mac collector scope, recorded decisions, invariants, and completion checklist. Done. |
+| [phase-1/milestone-12-mac-collector-sequence.md](phase-1/milestone-12-mac-collector-sequence.md) | P1-M12 signing tracer, synthetic loop, drivers, owner flows, and close-out order. Done. |
 | [research/phase-1/cloudflare-relay-spike-runbook.md](research/phase-1/cloudflare-relay-spike-runbook.md) | Active owner-run P1-M9 deployment, smoke, 30-minute sample, fault, release, and teardown procedure. |
 | [phase-1/owner-decisions.md](phase-1/owner-decisions.md) | Owner-approved P1-M1 product, security, scheduling, synchronization, and distribution decisions that constrain P1-M2. |
 | [research/phase-1/initial-research-on-feasibility.md](research/phase-1/initial-research-on-feasibility.md) | P1-M1 feasibility study: service limits, reset-time sources, iOS capabilities, prior art, and owner-approved scope. Active. |

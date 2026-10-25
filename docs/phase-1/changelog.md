@@ -6,6 +6,36 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Codex — Post-implementation review hardened the M12 owner flows: pairing now
+  stops activation polling and conditionally clears any copied pairing package when its screen
+  hides, while an independent deadline remains armed for expiry revocation. Sources Settings now
+  supports the required alias editing path and publishes the metadata-only update immediately.
+  The phase plan correctly remains `Active` while P1-M13 through P1-M16 are still planned. The
+  focused Mac suite passed 23 tests after the changes. The delegated complete gate then passed:
+  project generation, formatting, strict lint, import checks, Mac tests, relay tests, TypeScript,
+  and the deployment dry run.
+
+- 2026-10-25 — Codex — Completed P1-M12. The Mac collector now composes live sources by default,
+  supports explicit synthetic integration, protects the signed Keychain path, drives publication
+  and manual refresh, and exposes every required functional owner flow. Confirmed source changes
+  rebuild the collector immediately. The accepted runtime-validation waiver remains explicitly
+  recorded; the final delegated `make gate` passed project generation, formatting, strict lint,
+  imports, all 21 Mac tests, relay install and 59 relay tests, TypeScript checking, and the
+  no-deployment Wrangler dry run.
+
+- 2026-10-25 — Owner/Codex — Resolved the M12 source-lifecycle question: a confirmed source add,
+  removal, or Claude Code restore rebuilds the collector immediately from its persisted catalog.
+  The rebuild stops the prior source runtime before composition restarts, so removed sources cannot
+  continue publishing and newly configured sources do not wait for an app relaunch.
+
+- 2026-10-25 — Codex — Reconciled P1-M12’s active plan with the owner’s later relay decision
+  and the implemented composition root. M9 remains an independent synthetic relay gate and no
+  longer blocks live publication: normal launches use configured sources and `--synthetic` is the
+  explicit fixture route. The plan now defers Mac notifications and menu-bar status presentation
+  to P1-M15 and P1-M13 respectively, records the accepted owner-run validation-risk waiver, and
+  makes the functional Sources screen expose two Codex discovery inputs plus confirmed removal of
+  configured sources.
+
 - 2026-10-25 — Codex — Completed P1-M12 Checkpoint B. Normal launches now compose live sources
   from the account catalog; `--synthetic` selects a fixture source without an M9 gate. The single
   process environment owns source ingestion, one-timer publication, manual-request polling,

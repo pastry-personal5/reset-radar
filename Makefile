@@ -1,8 +1,9 @@
-.PHONY: help generate format format-check lint imports test-mac relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
+.PHONY: help generate run-mac format format-check lint imports test-mac relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
 
 help:
 	@printf '%s\n' \
 		'generate       Generate the ignored Xcode project' \
+		'run-mac        Build and open the Mac collector (Development, live sources)' \
 		'format         Format maintained Swift sources in place' \
 		'format-check   Check Swift formatting' \
 		'lint           Run strict SwiftLint' \
@@ -18,6 +19,11 @@ help:
 
 generate:
 	Scripts/generate-project.sh
+
+run-mac: generate
+	@xcodebuild -quiet build -scheme ResetRadarMac -configuration Development \
+		-destination 'platform=macOS' -derivedDataPath .build/mac-run
+	@open .build/mac-run/Build/Products/Development/ResetRadarMac.app
 
 format:
 	swift-format format --in-place --recursive $$(tr '\n' ' ' < Scripts/swift-roots.txt)

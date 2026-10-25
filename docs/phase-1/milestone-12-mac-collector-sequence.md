@@ -1,6 +1,6 @@
 # P1-M12: Mac collector app sequencing
 
-Status: Planned
+Status: Done
 
 Work order and acceptance tests for the [M12 overview](milestone-12-mac-collector-overview.md). Binding behavior remains in [Mac app](../architecture/mac-app.md); this sequence names seams, test-first order, checkpoints, and the owner-run boundary.
 
@@ -33,7 +33,9 @@ Test first, then implement `MacEnvironment`, `SingleInstanceLock` (second instan
 
 ## Task 3: Synthetic end-to-end loop (Checkpoint B)
 
-1. `PublishingMode` guard first: `live` throws a typed error without the M9 marker; `synthetic` never reads a real source.
+1. `PublishingMode` first: normal launches compose configured live sources, while `--synthetic`
+   never reads a real source and uses fixtures through the real pipeline. The mode is explicit;
+   no M9 marker gates live publication.
 2. `SourceRuntime` routes a synthetic source's updates into `CollectUsage` and forwards `wake`, `foreground`, and `manual` reasons.
 3. `PublicationDriver` arms one timer for the instant `PublicationPolicy` allows and handles `transition` changes.
 4. Integration against the local Workers Vitest relay: collect, encrypt, publish, read back.
@@ -52,10 +54,14 @@ Test view models first, then add plain Settings sections: Sources (up to two Cod
 
 ## Task 7: Owner-run validation and close-out
 
-1. No Keychain dialog across a rebuild, login after reboot, an ad-hoc build, and a keychain locked before launch; a later lock preserves the cached-secret behavior.
-2. Eight-day re-read after the Task 1 signing date.
-3. 24-hour timer drift with the window closed, using synthetic payloads against the M9 relay.
-4. Add sanitized evidence to `docs/research/phase-1/spike-results.md`; update README, docs index, roadmap, and phase plan; run the complete gate. Real-data end-to-end is a separate step after M9 and M12 are both Done.
+1. Unless the owner explicitly accepts the validation risk, prove no Keychain dialog across a
+   rebuild, login after reboot, an ad-hoc build, and a keychain locked before launch; prove that a
+   later lock preserves the cached-secret behavior.
+2. Unless waived, complete the eight-day re-read after the Task 1 signing date and a 24-hour
+   timer-drift run with the window closed using synthetic payloads.
+3. Record either sanitized evidence or the owner-approved waiver in
+   `docs/research/phase-1/spike-results.md` and the changelog; update README, docs index,
+   roadmap, and phase plan; run the complete gate. Real-data end-to-end does not wait for M9.
 
 ## Checkpoints
 
