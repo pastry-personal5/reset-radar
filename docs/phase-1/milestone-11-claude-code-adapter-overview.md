@@ -306,7 +306,7 @@ it lands first and is explicitly referenced from the M11 implementation record.
   ignored and absent from records and diagnostics. Evidence: `StatusLineHelperTests` (chunk sizes 1 to 4,096, byte-identical child input, over-1 MiB input reaching the child with no record) and the capture-bound test in `StatusLineDecoderTests`.
 - [x] Session IDs become only approved digest keys; directories, locks, temporary files, and
   records are owner-only and symlink-safe. Concurrent helper invocations cannot partially write,
-  regress the activity counter/time, or lose a newer observation. Evidence: `StatusLineRecorderTests` and `SessionRecordFileTests` (owner-only modes, symlink and mode refusal, held-lock timeout, concurrent writers, digest-only names).
+  regress the observation time, or lose a newer observation. Evidence: `StatusLineRecorderTests` and `SessionRecordFileTests` (owner-only modes, symlink and mode refusal, held-lock timeout, concurrent writers, digest-only names).
 - [x] Five-hour, seven-day, missing/empty, dropped, unknown-kind, malformed, exact-bound, and
   over-bound fixtures prove percentage/reset validation, exact known durations, no invented
   unknown duration, `fractionDigits == 1`, strict identifier grammar, duplicate/nesting/count

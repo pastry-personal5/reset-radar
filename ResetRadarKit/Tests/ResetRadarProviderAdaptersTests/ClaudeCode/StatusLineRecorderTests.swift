@@ -166,7 +166,7 @@ struct StatusLineRecorderTests {
         }
     }
 
-    @Test func decreasedActivityAndBackwardClocksLeaveTheRecordUntouched() throws {
+    @Test func backwardClocksLeaveTheRecordUntouched() throws {
         try withTemporaryDirectory { root in
             let clock = TestClock(5_000)
             let (file, recorder) = recorder(root, clock)
@@ -174,13 +174,6 @@ struct StatusLineRecorderTests {
                 decoded(statusPayload(rateLimits: rate([("five_hour", "1")]))))
             let path = file.directoryURL.appending(path: record.key.fileName)
             let before = try Data(contentsOf: path)
-            #expect(throws: StatusLineRecorderError.activityDecreased) {
-                try recorder.record(
-                    decoded(
-                        statusPayload(
-                            cost: "{\"total_api_duration_ms\":10}",
-                            rateLimits: rate([("five_hour", "50")]))))
-            }
             clock.set(4_999)
             #expect(throws: StatusLineRecorderError.clockRegressed) {
                 try recorder.record(
@@ -194,6 +187,28 @@ struct StatusLineRecorderTests {
             clock.set(5_000)
             _ = try recorder.record(
                 decoded(statusPayload(rateLimits: rate([("five_hour", "1")]))))
+        }
+    }
+
+    @Test func decreasedActivityResetsTheBaselineWithoutAdvancingObservation() throws {
+        try withTemporaryDirectory { root in
+            let clock = TestClock(5_000)
+            let (_, recorder) = recorder(root, clock)
+            func record(_ millis: Int, _ percent: String) throws -> SessionRecord {
+                try recorder.record(
+                    decoded(
+                        statusPayload(
+                            cost: "{\"total_api_duration_ms\":\(millis)}",
+                            rateLimits: rate([("five_hour", percent)]))))
+            }
+            _ = try record(500, "1")
+            clock.set(6_000)
+            let reset = try record(10, "50")
+            #expect(reset.lastActivity == 10 && reset.windows[0].usedPercent == 50)
+            #expect(reset.windows[0].observedAt == Date(timeIntervalSince1970: 5_000))
+            clock.set(7_000)
+            #expect(
+                try record(20, "51").windows[0].observedAt == Date(timeIntervalSince1970: 7_000))
         }
     }
 

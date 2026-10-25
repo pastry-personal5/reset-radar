@@ -105,17 +105,18 @@ struct StatusLineParser {
                 guard limit != nil else { return "" }
                 return String(bytes: decoded, encoding: .utf8) ?? ""
             }
-            let piece: [UInt8]
             if byte == UInt8(ascii: "\\") {
-                piece = try parseEscape()
+                let piece = try parseEscape()
+                count += piece.count
+                if let limit, count > limit { throw .stringTooLarge }
+                if limit != nil { decoded.append(contentsOf: piece) }
             } else if byte < 0x20 {
                 throw .malformedJSON
             } else {
-                piece = [byte]
+                count += 1
+                if let limit, count > limit { throw .stringTooLarge }
+                if limit != nil { decoded.append(byte) }
             }
-            count += piece.count
-            if let limit, count > limit { throw .stringTooLarge }
-            if limit != nil { decoded.append(contentsOf: piece) }
         }
     }
 

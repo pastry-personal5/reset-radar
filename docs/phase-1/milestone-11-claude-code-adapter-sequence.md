@@ -129,7 +129,7 @@ Seams:
 - `StatusLineRecorder` performs one locked read-modify-write. An increased activity counter or the
   first normal-window appearance in a session advances observation time for currently present
   valid windows; unchanged or absent activity and value/reset-only changes retain the earlier
-  time and source version. A decrease or invalid present counter fails without regressing state.
+  time and source version. An invalid present counter fails without regressing state; a decrease resets the baseline to the lower value and does not advance observation time.
   An injected wall time earlier than the record's last invocation or any retained observation also
   leaves the record byte-for-byte unchanged; the helper neither regresses nor fabricates a clock.
   Missing `rate_limits` retains prior entries; missing kinds become `retained`; a newly appearing

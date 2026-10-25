@@ -12,7 +12,7 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
   status-line-only restore, and the directory-watching source with merge, pruning, and the failure
   table. Rulings recorded for owner review: an expired reset is accepted and left to the Domain; a
   value-only redraw updates the stored percentage but keeps the observation time and version; a
-  clock regression or decreased counter fails the invocation (nonzero, per decision 10); the first
+  clock regression fails the invocation (nonzero, per decision 10) while a decreased counter resets the session baseline without advancing observation time; the first
   counter appearance after a reading is a baseline; `refresh()` during a revalidation backoff
   returns a deferred receipt; the synthetic composition check runs the helper in-process against
   an isolated temporary root; the installed Claude Code version is not probed because no contract

@@ -48,8 +48,10 @@ public struct SessionRecordReader: Sendable {
         defer { closedir(directory) }
         var keys: [SessionKey] = []
         var visited = 0
-        errno = 0
-        while let entry = readdir(directory) {
+        while true {
+            // errno is only meaningful when cleared immediately before the call that sets it.
+            errno = 0
+            guard let entry = readdir(directory) else { break }
             let name = withUnsafePointer(to: &entry.pointee.d_name) {
                 $0.withMemoryRebound(to: CChar.self, capacity: Int(entry.pointee.d_namlen) + 1) {
                     String(cString: $0)

@@ -63,13 +63,6 @@ public struct SessionRecord: Equatable, Sendable {
 
 // MARK: - Canonical encoding
 
-private struct AnyKey: CodingKey {
-    let stringValue: String
-    var intValue: Int? { nil }
-    init?(stringValue: String) { self.stringValue = stringValue }
-    init?(intValue: Int) { nil }
-}
-
 private func milliseconds(_ date: Date) -> Int64 {
     Int64((date.timeIntervalSince1970 * 1_000).rounded())
 }
@@ -131,7 +124,8 @@ private struct WireWindow: Codable {
         _ decoder: any Decoder, required: Set<String>
     ) throws {
         let all = Set(CodingKeys.allCases.map(\.rawValue))
-        let present = Set(try decoder.container(keyedBy: AnyKey.self).allKeys.map(\.stringValue))
+        let present = Set(
+            try decoder.container(keyedBy: AnyCodingKey.self).allKeys.map(\.stringValue))
         guard present.isSubset(of: all), required.isSubset(of: present) else {
             throw SessionRecordError.incompatibleRecord
         }
@@ -161,7 +155,8 @@ private struct WireRecord: Codable {
 
     init(from decoder: any Decoder) throws {
         let all = Set(CodingKeys.allCases.map(\.rawValue))
-        let present = Set(try decoder.container(keyedBy: AnyKey.self).allKeys.map(\.stringValue))
+        let present = Set(
+            try decoder.container(keyedBy: AnyCodingKey.self).allKeys.map(\.stringValue))
         guard present.isSubset(of: all),
             all.subtracting(["lastActivity"]).isSubset(of: present)
         else { throw SessionRecordError.incompatibleRecord }

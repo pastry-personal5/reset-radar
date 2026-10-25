@@ -3,7 +3,6 @@ import ResetRadarDomain
 
 public enum StatusLineRecorderError: Error, Equatable, Sendable {
     case clockRegressed
-    case activityDecreased
 }
 
 /// Applies the observation-time and dropped-window rules in one locked read-modify-write.
@@ -36,7 +35,8 @@ public struct StatusLineRecorder: Sendable {
         }
         var increased = false
         if let counter = input.activity, let previous = prior?.lastActivity {
-            guard counter >= previous else { throw StatusLineRecorderError.activityDecreased }
+            // A lower counter means the session restarted its count; it becomes the new
+            // baseline through `lastActivity` below and is not response-linked evidence.
             increased = counter > previous
         }
         let firstAppearance = !(prior?.hasHadNormalWindows ?? false) && !input.windows.isEmpty

@@ -20,8 +20,8 @@ extension ClaudeCodeConfigurator {
         }
         if try await completeInterruptedInstall(snapshot: snapshot, prepared: prepared) { return }
         let plan = try makePlan(prepared, snapshot: snapshot)
-        try await ensureAccountRow(prepared)
         try await commit(plan, snapshot: snapshot)
+        try await ensureAccountRow(prepared)
     }
 
     /// Idempotent reapply, or completion of a transaction interrupted after the settings write.
@@ -96,8 +96,17 @@ extension ClaudeCodeConfigurator {
     }
 
     private func writeComposeRecord(for executable: String?) throws {
+        var compose: ComposeRecord?
+        if let executable {
+            // Dropping the record would silently discard the owner's existing status line.
+            compose = ComposeRecord(executablePath: executable)
+            if compose == nil {
+                try? restoreStore.remove()
+                throw ClaudeCodeConfiguratorError.compositionFailed
+            }
+        }
         do {
-            if let executable, let compose = ComposeRecord(executablePath: executable) {
+            if let compose {
                 try composeStore.save(compose)
             } else {
                 try composeStore.remove()

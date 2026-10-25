@@ -14,6 +14,7 @@ public final class ComposedCommandRunner: @unchecked Sendable {
     private let stdinWriteDescriptor: Int32
     private let lock = NSLock()
     private var stdinOpen = true
+    private let terminationLock = NSLock()
     private var terminated = false
     private let exited = DispatchSemaphore(value: 0)
 
@@ -104,19 +105,23 @@ public final class ComposedCommandRunner: @unchecked Sendable {
             ? 128 + process.terminationStatus : process.terminationStatus
     }
 
-    /// Closes input, terminates, and reaps only the child this runner created.
+    /// Terminates and reaps only the child this runner created, then closes input. The child dies
+    /// before the input lock is taken because `write` holds that lock while blocked on a child
+    /// that is not reading; closing first would wait on that write forever.
     public func terminate(grace: TimeInterval = 1) {
-        lock.lock()
+        terminationLock.lock()
         let first = !terminated
         terminated = true
-        closeStandardInputLocked()
-        lock.unlock()
-        guard first, process.isRunning else { return }
-        process.terminate()
-        if exited.wait(timeout: .now() + grace) == .timedOut {
-            kill(process.processIdentifier, SIGKILL)
-            exited.wait()
+        terminationLock.unlock()
+        guard first else { return }
+        if process.isRunning {
+            process.terminate()
+            if exited.wait(timeout: .now() + grace) == .timedOut {
+                kill(process.processIdentifier, SIGKILL)
+                exited.wait()
+            }
+            exited.signal()
         }
-        exited.signal()
+        closeStandardInput()
     }
 }

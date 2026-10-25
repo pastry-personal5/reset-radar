@@ -56,10 +56,6 @@ public struct SessionRecordFile: Sendable {
         try map { try files.remove(named: key.fileName) }
     }
 
-    func readData(named name: String) throws -> Data {
-        try map { try files.read(named: name) }
-    }
-
     private func readLocked(key: SessionKey) throws -> SessionRecord? {
         let data: Data
         do {

@@ -157,6 +157,17 @@ struct ClaudeCodeConfiguratorRestoreTests {
             let rig = try SetupRig(home, managed: managed)
             #expect(try await rig.configurator.discover().count == 1)
         }
+        try await withAsyncTrustedHome { home in
+            let rig = try SetupRig(home, managed: home.appending(path: "absent.json"))
+            #expect(try await rig.configurator.discover().count == 1)
+        }
+        try await withAsyncTrustedHome { home in
+            let managed = home.appending(path: "managed.json")
+            try Data("{not json".utf8).write(to: managed)
+            let rig = try SetupRig(home, managed: managed)
+            #expect(try await rig.configurator.discover().isEmpty)
+            #expect(!rig.restoreFileExists)
+        }
     }
 
     @Test func aMissingOrMismatchedHelperBlocksPreviewAndReplaceIsNotOffered() async throws {

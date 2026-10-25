@@ -90,9 +90,16 @@ extension ClaudeCodeConfigurator {
         if paths.environment["CLAUDE_CONFIG_DIR"].map({ !$0.isEmpty }) ?? false {
             throw ClaudeCodeConfiguratorError.customConfigurationRoot
         }
-        guard let managed = paths.managedSettingsURL, let data = try? Self.boundedRead(managed),
-            let snapshot = try? ClaudeCodeSettingsEditor.snapshot(of: data)
+        guard let managed = paths.managedSettingsURL,
+            FileManager.default.fileExists(atPath: managed.path)
         else { return }
+        let snapshot: ClaudeSettingsSnapshot
+        do {
+            snapshot = try ClaudeCodeSettingsEditor.snapshot(of: Self.boundedRead(managed))
+        } catch {
+            // A managed file that cannot be read or parsed may still override the status line.
+            throw ClaudeCodeConfiguratorError.settingsUnsafe
+        }
         if snapshot.statusLine != .absent {
             throw ClaudeCodeConfiguratorError.managedSettingsOverride
         }
