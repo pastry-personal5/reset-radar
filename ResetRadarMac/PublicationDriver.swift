@@ -5,6 +5,7 @@ import ResetRadarDomain
 enum PublicationStatusEvent: Sendable, Equatable {
     case blocked(PublishOutcome)
     case recovered
+    case published(date: Date)
 }
 
 actor PublicationDriver {
@@ -49,6 +50,7 @@ actor PublicationDriver {
             await reportBlockChange(failure)
         case .handled:
             await reportRecovery()
+            await reportOutcome(.published(date: clock.now))
         case .idle, .waiting:
             break
         }
@@ -81,6 +83,9 @@ actor PublicationDriver {
             cancelTimer()
         }
         await reportBlockChange(outcome)
+        if case .published = outcome {
+            await reportOutcome(.published(date: clock.now))
+        }
     }
 
     private func reportBlockChange(_ outcome: PublishOutcome) async {

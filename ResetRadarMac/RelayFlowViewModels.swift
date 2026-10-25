@@ -60,7 +60,8 @@ final class RelaySetupViewModel: ObservableObject {
         }
     }
 
-    func activate() async {
+    @discardableResult
+    func activate() async -> Bool {
         switch await setup.activate() {
         case .active:
             isPending = false
@@ -71,6 +72,7 @@ final class RelaySetupViewModel: ObservableObject {
             await refreshManualRequests()
             await resumeManualRequests()
             await publication.trigger(.wake)
+            return true
         case .notPrepared:
             message = "Prepare the relay first."
         case .secretsUnavailable:
@@ -80,6 +82,7 @@ final class RelaySetupViewModel: ObservableObject {
         case .bindFailed(let outcome):
             message = bindingFailureMessage(outcome)
         }
+        return false
     }
 
     private func wipeFailureMessage(_ outcome: RelayOutcome) -> String {
@@ -334,14 +337,16 @@ final class RecoveryViewModel: ObservableObject {
     private let signingCheck: SigningCheck
     private let recordedTeamIdentifier: () -> String?
     private let secretCache: SessionSecretCache
+    private let development: Bool
 
     init(
         signingCheck: SigningCheck, recordedTeamIdentifier: @escaping () -> String?,
-        secretCache: SessionSecretCache
+        secretCache: SessionSecretCache, development: Bool = false
     ) {
         self.signingCheck = signingCheck
         self.recordedTeamIdentifier = recordedTeamIdentifier
         self.secretCache = secretCache
+        self.development = development
         signing = signingCheck.evaluate(recordedTeamIdentifier: recordedTeamIdentifier())
     }
 
@@ -351,7 +356,14 @@ final class RecoveryViewModel: ObservableObject {
     }
 
     var recoveryCopy: String {
-        switch signing {
+        if development {
+            return secrets == .available
+                ? "Development uses separate local data and relay secrets. "
+                    + "A Personal Team Release build is required for the installed collector."
+                : "Development relay secrets cannot be read without interaction. "
+                    + "Unlock the login keychain and retry; Reset Radar will never prompt."
+        }
+        return switch signing {
         case .valid where secrets == .available:
             "Signing and non-interactive Keychain access are available."
         case .changedTeam:

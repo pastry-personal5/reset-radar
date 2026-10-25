@@ -6,6 +6,24 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-25 — Codex — Reviewed M12/M13 startup and menu behavior. A failed Release signing
+  check now leaves provider sources stopped and shows a collection pause; successful relay
+  activation rebuilds the collector and rechecks signing. The open menu reevaluates allowance
+  freshness and reset transitions every 30 seconds. Focused regressions and the complete gate
+  were rerun for this review.
+
+- 2026-10-25 — Codex — Completed P1-M13 and the requested M12/M13 review. The Mac Main
+  Sidebar now presents Home's persistent Account List and Account Details, standard and
+  additional provider windows, setup guidance, account-scoped Refresh, inline alias editing,
+  and a shared Global Messages pane. The menu shows per-account allowance status and session
+  publication state while Settings is the only open window, then reopens Main on demand.
+  Lifecycle review covered second-instance exit, one pairing activation poller, and manual
+  request readiness after relay and reader changes. Development Settings now explains its
+  isolated storage and secrets without suggesting that the development build needs Release
+  signing. Live Main, Settings, and menu accessibility inspection passed; the final delegated
+  `make gate` passed project generation, format, strict lint, imports, Mac tests, 28 relay tests,
+  TypeScript typecheck, and Wrangler dry run.
+
 - 2026-10-25 — Owner/Codex — Reset Radar Settings directly edits the default Claude Code user
   settings file after exact preview and confirmation. The owner's current `bash $HOME/<script>`
   status-line command exposed the previous single-path parser limit. The approved narrow form now

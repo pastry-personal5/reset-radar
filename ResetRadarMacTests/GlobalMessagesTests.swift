@@ -56,4 +56,17 @@ struct GlobalMessagesTests {
         #expect(reason.contains("publisher state"))
         #expect(!reason.contains("12345"))
     }
+
+    @MainActor
+    @Test func publicationTimeUpdatesWithoutAddingRoutineMessages() {
+        let messages = GlobalMessageCenter()
+        let publishedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        messages.reportPublication(.blocked(.secretsUnavailable))
+        messages.reportPublication(.recovered)
+        messages.reportPublication(.published(date: publishedAt))
+
+        #expect(messages.lastPublishedAt == publishedAt)
+        #expect(messages.publicationProblem == nil)
+        #expect(messages.entries.count == 2)
+    }
 }

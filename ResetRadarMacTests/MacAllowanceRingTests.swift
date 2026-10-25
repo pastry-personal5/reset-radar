@@ -120,5 +120,39 @@ struct MacAllowanceRingTests {
         #expect(
             MacMenuAccountSummary.line(account: account, snapshot: nil, now: observedAt)
                 == "Account #1 · 5h: Unavailable · Weekly: Unavailable")
+
+        let resetWindow = try window(
+            for: account, minutes: 300, percent: 37,
+            resetsAt: observedAt.addingTimeInterval(30))
+        let resetting = try snapshot(account: account, windows: [resetWindow])
+        #expect(
+            MacMenuAccountSummary.line(
+                account: account, snapshot: resetting,
+                now: observedAt.addingTimeInterval(30))
+                == "Account #1 · 5h: Waiting for Update · Weekly: Unavailable")
+    }
+
+    @Test func accountDetailsOrderStandardWindowsBeforeProviderExtras() throws {
+        let account = try account()
+        let fiveHour = try window(for: account, minutes: 300, percent: 25)
+        let weekly = try window(for: account, minutes: 10_080, percent: 61.5)
+        let extra = try window(
+            for: account, minutes: 60, percent: 12, isDefault: false)
+        let current = try snapshot(account: account, windows: [extra, weekly, fiveHour])
+
+        let details = MacDetailWindow.ordered(account: account, snapshot: current, now: observedAt)
+
+        #expect(details.map(\.label) == ["Five-hour", "Weekly", "60-minute window"])
+        #expect(details.map(\.window?.observation?.usedPercent) == [25, 61.5, 12])
+        #expect(details[0].id == .standard(.fiveHour))
+        #expect(details[1].id == .standard(.weekly))
+        #expect(details[2].id == .additional(extra.id))
+    }
+
+    @Test func accountDetailsKeepUnavailableStandardSectionsWithoutSnapshot() throws {
+        let details = MacDetailWindow.ordered(
+            account: try account(), snapshot: nil, now: observedAt)
+        #expect(details.map(\.label) == ["Five-hour", "Weekly"])
+        #expect(details.allSatisfy { $0.window == nil })
     }
 }

@@ -24,15 +24,17 @@ private struct MacMenuAccountLines: View {
     @ObservedObject var model: HomeViewModel
 
     var body: some View {
-        if model.message != nil {
-            Text("Account data unavailable")
-        } else if model.accounts.isEmpty {
-            Text("No sources configured")
-        } else {
-            ForEach(model.accounts, id: \.id) { account in
-                Text(
-                    MacMenuAccountSummary.line(
-                        account: account, snapshot: model.snapshot, now: .now))
+        TimelineView(.periodic(from: .now, by: 30)) { timeline in
+            if model.loadFailed {
+                Text("Account data unavailable")
+            } else if model.accounts.isEmpty {
+                Text("No sources configured")
+            } else {
+                ForEach(model.accounts, id: \.id) { account in
+                    Text(
+                        MacMenuAccountSummary.line(
+                            account: account, snapshot: model.snapshot, now: timeline.date))
+                }
             }
         }
     }
@@ -40,21 +42,32 @@ private struct MacMenuAccountLines: View {
 
 struct MacMenuBarContent: View {
     @ObservedObject var bootstrap: MacBootstrap
+    @ObservedObject var messages: GlobalMessageCenter
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         if let environment = bootstrap.environment {
             MacMenuAccountLines(model: environment.ownerFlows.home)
+            if !environment.collectionAllowed {
+                Text("Collection paused: review Signing and Keychain in Settings")
+            }
         } else {
             Text(bootstrap.startupFailed ? "Collector unavailable" : "Starting collector…")
+        }
+        if messages.publicationProblem != nil {
+            Text("Relay publication needs attention")
+        } else if let lastPublishedAt = messages.lastPublishedAt {
+            Text(
+                "Last published \(lastPublishedAt.formatted(date: .abbreviated, time: .shortened))")
+        } else {
+            Text("No relay publication this session")
         }
         Divider()
         Button("Refresh All") {
             Task {
                 if let environment = bootstrap.environment {
                     await bootstrap.log.record(.lifecycle(.refreshRequested))
-                    bootstrap.messages.post("Refreshing configured sources.")
-                    await environment.foreground()
+                    await environment.ownerFlows.home.refreshAll()
                 } else {
                     bootstrap.messages.post(
                         "Refresh is unavailable while the collector is stopped.",

@@ -337,6 +337,8 @@ extension MacLogEvent {
                 MacLogFields(event: "publication.blocked", reason: outcome.logReason)
             case .recovered:
                 MacLogFields(event: "publication.recovered")
+            case .published:
+                MacLogFields(event: "publication.published")
             }
         case .diagnostic(let event):
             MacLogFields(
@@ -352,7 +354,7 @@ extension MacLogEvent {
     fileprivate var requiresSync: Bool {
         switch self {
         case .startupFailure, .publication(.blocked): true
-        case .lifecycle, .publication(.recovered), .diagnostic: false
+        case .lifecycle, .publication(.recovered), .publication(.published), .diagnostic: false
         }
     }
 }

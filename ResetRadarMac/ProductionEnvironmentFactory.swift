@@ -5,58 +5,6 @@ import ResetRadarProviderAdapters
 import ResetRadarStorage
 import ResetRadarTransport
 
-private actor SyntheticCatalogStore: AccountCatalogStore {
-    let catalog: AccountCatalog
-
-    init(account: AccountMetadata) throws {
-        catalog = try AccountCatalog(validating: [account])
-    }
-
-    func loadCatalog() -> AccountCatalog { catalog }
-    func setAlias(accountID: AccountID, alias: AccountAlias?) throws -> AccountCatalog {
-        guard accountID == catalog.accounts[0].id else {
-            throw ProviderAccountCatalogStoreError.accountNotFound
-        }
-        return try AccountCatalog(validating: [catalog.accounts[0].replacingAlias(alias)])
-    }
-}
-
-private actor SyntheticUsageSource: UsageSource {
-    nonisolated let accountID: AccountID
-    nonisolated let product = ProductID.codex
-    nonisolated let updates: AsyncStream<SourceSnapshot>
-    private let continuation: AsyncStream<SourceSnapshot>.Continuation
-    private let clock: any AppClock
-    private var stopped = false
-
-    init(accountID: AccountID, clock: any AppClock) {
-        self.accountID = accountID
-        self.clock = clock
-        let pair = AsyncStream<SourceSnapshot>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        updates = pair.stream
-        continuation = pair.continuation
-    }
-
-    func start() async throws { _ = await refresh() }
-
-    func refresh() -> ReadReceipt {
-        let now = clock.now
-        guard !stopped else { return .unavailable(sourceState: .unavailable) }
-        let report = SourceSnapshot(
-            source: AccountSource(
-                accountID: accountID, product: .codex, kind: .codexAppServer,
-                version: "synthetic", state: .reporting),
-            windows: [], isCompleteReport: true)
-        continuation.yield(report)
-        return ReadReceipt(startedAt: now, finishedAt: now, succeeded: true, report: report)
-    }
-
-    func stop() {
-        stopped = true
-        continuation.finish()
-    }
-}
-
 // swiftlint:disable:next type_body_length
 enum ProductionEnvironmentFactory {
     enum FactoryError: Error { case invalidSyntheticIdentifier }
@@ -270,7 +218,9 @@ enum ProductionEnvironmentFactory {
             catalogStore: core.catalog, snapshots: core.snapshots, clock: core.clock)
         let homeModel = HomeViewModel(
             catalog: core.catalog, snapshots: core.snapshots, aliases: aliases,
-            publication: runtime.publication, updates: homeUpdates)
+            publication: runtime.publication, updates: homeUpdates,
+            publisher: core.publisher,
+            refreshSources: { await runtime.sources.refreshAccounts(accountID: $0) })
         let sourceModel = SourceSetupViewModel(
             selections: selections, configure: configure, catalog: core.catalog,
             aliases: aliases, publication: runtime.publication,
@@ -281,6 +231,7 @@ enum ProductionEnvironmentFactory {
             await runtime.manual.updateReadiness(
                 ready: state?.lifecycle == .active,
                 hasReaders: !(state?.devices.isEmpty ?? true))
+            await homeModel.load()
         }
         let pauseManualRequests: @MainActor () async -> Void = {
             await runtime.manual.setSuspended(true)
@@ -320,7 +271,7 @@ enum ProductionEnvironmentFactory {
             recovery: RecoveryViewModel(
                 signingCheck: signatureCheck,
                 recordedTeamIdentifier: { identityState.teamIdentifier },
-                secretCache: core.secrets),
+                secretCache: core.secrets, development: core.development),
             diagnostics: DiagnosticsViewModel(diagnostics: core.diagnostics))
     }
 

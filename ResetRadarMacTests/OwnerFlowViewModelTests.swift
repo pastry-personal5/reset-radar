@@ -223,7 +223,7 @@ struct OwnerFlowViewModelTests {
         #expect(rig.model.writeDigest?.count == 64)
         #expect(rig.model.adminDigest?.count == 64)
         #expect(rig.model.isPending)
-        await rig.model.activate()
+        #expect(await rig.model.activate())
         #expect(!rig.model.isPending)
         #expect(rig.publisher.state.lifecycle == .active)
     }
@@ -307,6 +307,25 @@ struct OwnerFlowViewModelTests {
             recordedTeamIdentifier: { "A" }, secretCache: lockedCache)
         await locked.refresh()
         #expect(locked.recoveryCopy.contains("login keychain is locked"))
+    }
+
+    @MainActor
+    @Test func developmentRecoveryExplainsIsolationWithoutDemandingReleaseSigning() async {
+        let store = FakeSecretStore()
+        let cache = SessionSecretCache(store: store)
+        let model = RecoveryViewModel(
+            signingCheck: SigningCheck(
+                reader: OwnerFlowSignatureReader(
+                    signature: RunningSignature(teamIdentifier: nil, isAdHoc: true))),
+            recordedTeamIdentifier: { nil }, secretCache: cache, development: true)
+
+        #expect(model.recoveryCopy.contains("Development uses separate local data"))
+        #expect(!model.recoveryCopy.contains("This build cannot prove"))
+
+        store.setReadFailure(.interactionRequired)
+        _ = try? await cache.read(.contentKey)
+        await model.refresh()
+        #expect(model.recoveryCopy.contains("Unlock the login keychain"))
     }
 }
 

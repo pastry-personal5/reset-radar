@@ -77,6 +77,24 @@ struct RuntimeDriverTests {
         #expect(await recorder.collections == 1)
     }
 
+    @Test func accountRefreshLeavesSiblingSourceUntouched() async {
+        let clock = FakeAppClock()
+        let first = FakeUsageSource(product: .codex, clock: clock)
+        let second = FakeUsageSource(product: .claudeCode, clock: clock)
+        let runtime = SourceRuntime(
+            sources: [first, second],
+            ingest: { _ in fatalError("No report is emitted by this fake") },
+            didCollect: { _ in })
+        await runtime.start()
+
+        let results = await runtime.refreshAccounts(accountID: second.accountID)
+
+        #expect(results.map(\.accountID) == [second.accountID])
+        #expect(first.refreshCount == 0)
+        #expect(second.refreshCount == 1)
+        await runtime.stop()
+    }
+
     @Test func publicationReplacesTimerAndWakePublishesImmediately() async throws {
         let clock = FakeAppClock()
         let snapshot = try runtimeSnapshot(at: clock.now)
@@ -135,7 +153,8 @@ struct RuntimeDriverTests {
         #expect(
             await queue.reported == [
                 .blocked(.stopped(.authorizationRequired)), .blocked(.envelopeTooLarge),
-                .recovered, .blocked(.stopped(.snapshotConflict)),
+                .recovered, .published(date: clock.now),
+                .blocked(.stopped(.snapshotConflict)),
             ])
         await driver.stop()
     }
@@ -157,6 +176,7 @@ struct RuntimeDriverTests {
         #expect(
             await queue.reported == [
                 .blocked(.stopped(.payloadRejected)), .recovered,
+                .published(date: clock.now),
                 .blocked(.stopped(.payloadRejected)),
             ])
         await driver.stop()

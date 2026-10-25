@@ -135,7 +135,7 @@ Plan: [overview](milestone-12-mac-collector-overview.md), [sequencing](milestone
 Notes: Mac reset notifications move to P1-M15.
 
 ### P1-M13: Mac UI
-Status: Active
+Status: Done
 Goal: Polish the functional M12 screens without changing behavior: Account List and Account
 Details layout, rings, sidebar, per-account menu-bar status, alias editing, and Settings styling.
 Plan: [overview](milestone-13-mac-ui-overview.md), [implementation plan](milestone-13-mac-ui-architecture.md)

@@ -96,7 +96,8 @@ struct SettingsRootView: View {
             SourcesSettingsView(model: models.sources, rebuildCollector: rebuildCollector)
         case .relay:
             RelaySettingsView(
-                relay: models.relay, pairing: models.pairing, devices: models.devices)
+                relay: models.relay, pairing: models.pairing, devices: models.devices,
+                rebuildCollector: rebuildCollector)
         case .diagnostics: DiagnosticsSettingsView(model: models.diagnostics)
         case .about: AboutSettingsView()
         }
@@ -129,6 +130,7 @@ private struct RelaySettingsView: View {
     @ObservedObject var relay: RelaySetupViewModel
     @ObservedObject var pairing: PairingViewModel
     @ObservedObject var devices: DevicesViewModel
+    let rebuildCollector: @MainActor () async -> Void
     @State private var showCopyWarning = false
     @State private var showDestroyConfirmation = false
 
@@ -169,7 +171,13 @@ private struct RelaySettingsView: View {
             if let admin = relay.adminDigest {
                 LabeledContent("ADMIN_TOKEN_DIGEST", value: admin).textSelection(.enabled)
             }
-            if relay.isPending { Button("Activate Relay") { Task { await relay.activate() } } }
+            if relay.isPending {
+                Button("Activate Relay") {
+                    Task {
+                        if await relay.activate() { await rebuildCollector() }
+                    }
+                }
+            }
         }
     }
 

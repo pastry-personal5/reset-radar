@@ -47,6 +47,8 @@ final class GlobalMessageCenter: ObservableObject {
     static let maximumEntries = 200
 
     @Published private(set) var entries = [Entry]()
+    @Published private(set) var lastPublishedAt: Date?
+    @Published private(set) var publicationProblem: String?
     private var nextID = 0
     private var subscriptions = Set<AnyCancellable>()
     private let log: MacRotatingLog?
@@ -69,9 +71,13 @@ final class GlobalMessageCenter: ObservableObject {
         switch event {
         case .blocked(let outcome):
             guard let text = PublicationFailureCopy.text(for: outcome) else { return }
+            publicationProblem = text
             post(text, tone: .attention)
         case .recovered:
+            publicationProblem = nil
             post("Publication resumed after a blocked attempt.", tone: .success)
+        case .published(let date):
+            lastPublishedAt = date
         }
     }
 

@@ -17,14 +17,20 @@ struct MacAllowanceDisplay: Equatable {
         let (resolution, _) = AccountWindowResolver.resolve(
             accountWindow, in: snapshot, now: now)
         guard case .window(let value) = resolution else { return unavailable }
+        return resolve(window: value, source: snapshot.source(for: account.id), now: now)
+    }
+
+    static func resolve(
+        window: AllowanceWindow, source: AccountSource?, now: Date
+    ) -> Self {
         let state = PresentationPolicy.derive(
-            window: value, source: snapshot.source(for: account.id), now: now
+            window: window, source: source, now: now
         ).state
         switch state {
         case .current, .stale:
             return Self(
-                state: state, usedPercent: value.observation?.usedPercent,
-                fractionDigits: value.observation?.fractionDigits)
+                state: state, usedPercent: window.observation?.usedPercent,
+                fractionDigits: window.observation?.fractionDigits)
         case .resetAwaitingRefresh, .unavailable:
             return Self(state: state, usedPercent: nil, fractionDigits: nil)
         }
@@ -50,7 +56,7 @@ struct MacAllowanceDisplay: Equatable {
         }
     }
 
-    private static let unavailable = Self(
+    static let unavailable = Self(
         state: .unavailable, usedPercent: nil, fractionDigits: nil)
 }
 
@@ -63,38 +69,58 @@ struct MacAllowanceRing: View {
         TimelineView(.periodic(from: .now, by: 30)) { timeline in
             let display = MacAllowanceDisplay.resolve(
                 account: account, window: window, snapshot: snapshot, now: timeline.date)
-            VStack(spacing: 3) {
-                ZStack {
-                    Circle()
-                        .stroke(Color.secondary.opacity(0.24), lineWidth: 5)
-                    if let usedPercent = display.usedPercent {
-                        Circle()
-                            .trim(from: 0, to: CGFloat(usedPercent / 100))
-                            .stroke(
-                                ringColor(for: display.state),
-                                style: StrokeStyle(lineWidth: 5, lineCap: .round)
-                            )
-                            .rotationEffect(.degrees(-90))
-                    }
-                    VStack(spacing: 1) {
-                        Text(display.percentageText ?? "—")
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .minimumScaleFactor(0.7)
-                        if let symbol = statusSymbol(for: display.state) {
-                            Image(systemName: symbol)
-                                .font(.system(size: 10, weight: .semibold))
-                        }
-                    }
-                    .foregroundStyle(ringColor(for: display.state))
-                }
-                .frame(width: 62, height: 62)
-                Text(window == .fiveHour ? "5h" : "Weekly")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(accessibilityLabel(for: display))
+            MacAllowanceFace(
+                display: display, label: window == .fiveHour ? "5h" : "Weekly",
+                accessibilityLabel: accessibilityLabel(for: display))
         }
+    }
+
+    private func accessibilityLabel(for display: MacAllowanceDisplay) -> String {
+        let product = account.product == .codex ? "Codex" : "Claude Code"
+        let name = window == .fiveHour ? "Five-hour" : "Weekly"
+        let reading = display.percentageText.map { "\($0) used" } ?? "No percentage available"
+        let identity = "\(account.effectiveDisplayLabel), \(product), \(name)"
+        return "\(identity), \(reading), \(display.statusText)"
+    }
+}
+
+struct MacAllowanceFace: View {
+    let display: MacAllowanceDisplay
+    let label: String
+    let accessibilityLabel: String
+
+    var body: some View {
+        VStack(spacing: 3) {
+            ZStack {
+                Circle()
+                    .stroke(Color.secondary.opacity(0.24), lineWidth: 5)
+                if let usedPercent = display.usedPercent {
+                    Circle()
+                        .trim(from: 0, to: CGFloat(usedPercent / 100))
+                        .stroke(
+                            ringColor(for: display.state),
+                            style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                }
+                VStack(spacing: 1) {
+                    Text(display.percentageText ?? "—")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .minimumScaleFactor(0.7)
+                    if let symbol = statusSymbol(for: display.state) {
+                        Image(systemName: symbol)
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                }
+                .foregroundStyle(ringColor(for: display.state))
+            }
+            .frame(width: 62, height: 62)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
     }
 
     private func ringColor(for state: PresentationState) -> Color {
@@ -114,11 +140,4 @@ struct MacAllowanceRing: View {
         }
     }
 
-    private func accessibilityLabel(for display: MacAllowanceDisplay) -> String {
-        let product = account.product == .codex ? "Codex" : "Claude Code"
-        let name = window == .fiveHour ? "Five-hour" : "Weekly"
-        let reading = display.percentageText.map { "\($0) used" } ?? "No percentage available"
-        let identity = "\(account.effectiveDisplayLabel), \(product), \(name)"
-        return "\(identity), \(reading), \(display.statusText)"
-    }
 }

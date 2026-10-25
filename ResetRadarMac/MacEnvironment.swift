@@ -11,6 +11,7 @@ final class MacEnvironment: ObservableObject {
 
     let publishingMode: PublishingMode
     let ownerFlows: OwnerFlowModels
+    var collectionAllowed: Bool { signingReady }
     @Published private(set) var state = State.stopped
 
     private let instanceLock: SingleInstanceLock
@@ -71,7 +72,7 @@ final class MacEnvironment: ObservableObject {
         await ownerFlows.home.load()
         await manualRequests.updateReadiness(ready: manualReady, hasReaders: hasReaders)
         await appNap.start()
-        await sources.start()
+        if signingReady { await sources.start() }
         await wakeMonitor.start()
         await networkMonitor.start()
         await secretRetry.start()

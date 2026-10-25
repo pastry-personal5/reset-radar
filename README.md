@@ -14,6 +14,12 @@ Claude Code setup verifies its local helper, then directly edits `~/.claude/sett
 Settings after an exact preview and confirmation. It preserves a safe existing status-line
 command, including a trusted `bash $HOME/<script>` form, and explains when composition is blocked.
 Home rows show five-hour and weekly Percentage Used when those provider windows have readings.
+The Mac menu bar shows each configured account's five-hour and weekly status and opens the main
+window with Open Reset Radar. It also shows the last successful relay publication or an attention
+state. An open menu updates reading status as time passes. If Release signing fails, collection
+pauses and Settings explains how to recover. Home's Main Sidebar and Account Details show every provider window, reset and freshness
+information, and account-specific Refresh. A setup banner points to the next source, relay, or
+pairing action while keeping configured accounts visible.
 Local Mac readings do not require relay setup; the relay publishes them to other devices.
 
 The Mac app keeps a redacted troubleshooting history for up to eight days. Find its active folder

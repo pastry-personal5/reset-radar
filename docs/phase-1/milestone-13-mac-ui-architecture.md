@@ -1,6 +1,6 @@
 # P1-M13: Mac UI implementation plan
 
-Status: Active
+Status: Done
 
 Polish the Mac composition's SwiftUI views without changing the Domain, Application, or provider
 contracts. This sequence follows the [Mac UI goal](milestone-13-mac-ui-overview.md) and the

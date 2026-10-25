@@ -4,28 +4,53 @@ import ResetRadarDomain
 import ResetRadarProviderAdapters
 import ResetRadarStorage
 
+enum MacSetupStep: Equatable {
+    case sources
+    case relay
+    case pairing
+}
+
+private func noAccountRefresh(_ accountID: AccountID?) async -> [AccountRefreshResult] { [] }
+
 @MainActor
 final class HomeViewModel: ObservableObject {
     @Published private(set) var accounts = [AccountMetadata]()
     @Published private(set) var snapshot: UsageSnapshot?
     @Published private(set) var message: String?
+    @Published private(set) var relayLifecycle = RelayLifecycle.notConfigured
+    @Published private(set) var pairedReaderCount = 0
+    @Published private(set) var isRefreshing = false
+    @Published private(set) var loadFailed = false
 
     private let catalog: any AccountCatalogStore
     private let snapshots: any LocalSnapshotCommitting
     private let aliases: UpdateAccountAlias
     private let publication: PublicationDriver
     private let updates: HomeSnapshotUpdates?
+    private let publisher: (any PublisherStore)?
+    private let refreshSources: @Sendable (AccountID?) async -> [AccountRefreshResult]
 
     init(
         catalog: any AccountCatalogStore, snapshots: any LocalSnapshotCommitting,
         aliases: UpdateAccountAlias, publication: PublicationDriver,
-        updates: HomeSnapshotUpdates? = nil
+        updates: HomeSnapshotUpdates? = nil, publisher: (any PublisherStore)? = nil,
+        refreshSources: @escaping @Sendable (AccountID?) async -> [AccountRefreshResult] =
+            noAccountRefresh
     ) {
         self.catalog = catalog
         self.snapshots = snapshots
         self.aliases = aliases
         self.publication = publication
         self.updates = updates
+        self.publisher = publisher
+        self.refreshSources = refreshSources
+    }
+
+    var setupStep: MacSetupStep? {
+        if accounts.isEmpty { return .sources }
+        if relayLifecycle != .active { return .relay }
+        if pairedReaderCount == 0 { return .pairing }
+        return nil
     }
 
     func load() async {
@@ -34,8 +59,15 @@ final class HomeViewModel: ObservableObject {
             let current = try await snapshots.load()
             accounts = AccountDisplayOrder.sorted(configured)
             snapshot = current
+            if let publisher {
+                let state = try await publisher.load()
+                relayLifecycle = state.lifecycle
+                pairedReaderCount = state.devices.count
+            }
+            loadFailed = false
             message = nil
         } catch {
+            loadFailed = true
             message = "Local collector data could not be read. Quit and reopen Reset Radar."
         }
     }
@@ -43,6 +75,52 @@ final class HomeViewModel: ObservableObject {
     func didCollect(_ current: UsageSnapshot) {
         accounts = AccountDisplayOrder.sorted(current.accounts)
         snapshot = current
+    }
+
+    func refreshAll() async {
+        await refresh(accountID: nil)
+    }
+
+    func refreshAccount(_ accountID: AccountID) async {
+        await refresh(accountID: accountID)
+    }
+
+    private func refresh(accountID: AccountID?) async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+        message = nil
+        let results = await refreshSources(accountID)
+        guard !results.isEmpty else {
+            message =
+                accountID == nil
+                ? "No configured sources are available to refresh."
+                : "This account is not available for refresh."
+            return
+        }
+        let accountOrder = Dictionary(
+            uniqueKeysWithValues: accounts.enumerated().map { ($0.element.id, $0.offset) })
+        let orderedResults = results.sorted {
+            let left = accountOrder[$0.accountID] ?? Int.max
+            let right = accountOrder[$1.accountID] ?? Int.max
+            return left == right ? $0.accountID.hex < $1.accountID.hex : left < right
+        }
+        message = orderedResults.map { result in
+            let label =
+                accounts.first(where: { $0.id == result.accountID })?
+                .effectiveDisplayLabel ?? "Account"
+            switch result.receipt {
+            case .performed(_, _, true, _):
+                return "Refreshed \(label)."
+            case .performed(_, _, false, _):
+                return "Could not refresh \(label). Its last reading remains visible."
+            case .deferred(let retryAt, _):
+                return "\(label) refresh is backing off until "
+                    + retryAt.formatted(date: .omitted, time: .shortened) + "."
+            case .unavailable:
+                return "\(label) source is unavailable. Its last reading remains visible."
+            }
+        }.joined(separator: "\n")
     }
 
     func updateAlias(accountID: AccountID, input: String) async {

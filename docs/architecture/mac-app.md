@@ -94,6 +94,9 @@ The Mac app must never show a Keychain prompt.
 ## Collector runtime
 
 - **Sources.** `SourceRuntime` starts each configured `UsageSource` after launch, routes their update streams into `CollectUsage`, and forwards `wake`, `foreground`, and `manual` refresh reasons.
+  A failed Release signing check leaves source startup paused so no source can read relay
+  secrets. Activating a replacement relay rebuilds the collector and rechecks signing before
+  sources resume.
 - **Publication.** `PublicationDriver` arms one timer for the instant `PublicationPolicy` next allows, and calls `PublishSnapshot` when it fires or when a `transition` change arrives. It forwards changed blocked outcomes from ordinary and manual-request publication to the session-local Global Messages Pane, preserving the `StopReason` category but never forwarding raw relay responses or secrets; it reports recovery after a later successful publish.
 - **Home updates.** After `CollectUsage` commits a source report, the composition root forwards its
   snapshot to the process-owned Home model on the main actor. Alias edits from Home or Sources
@@ -103,7 +106,18 @@ The Mac app must never show a Keychain prompt.
   by account ID and duration. A presentable reading shows provider-reported Percentage Used in
   its ring; stale readings keep the value with a status symbol, while waiting and unavailable
   windows show no percentage. The row reevaluates presentation as time advances.
+- **Mac account details.** The Main Sidebar keeps Home's Account List beside the selected account.
+  Home persists a valid local selection, shows the next source, relay, or pairing setup action,
+  and allows all-source Refresh. The Account Details pane shows both standard windows followed by
+  other valid provider windows, with provider-reported Percentage Used, Reset Time, Last Updated,
+  availability explanations, provenance, and account-scoped Refresh. The selected Home ring
+  emphasizes its Window Details section. The process-owned Home model also supplies account
+  status to the menu bar when Settings opens before the main window.
 - **Manual reader requests.** While collection and relay setup are active and at least one reader is paired, `ManualRequestDriver` polls the relay every 15 seconds for pending IDs, coalesces them through `HandleManualRefreshRequests`, and publishes their encrypted result immediately. Polling stops with no readers, or during setup, destruction, or `secretsUnavailable`. A sleeping Mac cannot receive or satisfy a request; the driver resumes on wake. The result is acknowledged at the relay only after publication succeeds.
+- **Reader readiness.** Pairing confirmation, roster reconciliation, revocation, relay activation,
+  and destruction refresh the manual-request driver's local reader state. Sleep changes only its
+  sleep state, so wake cannot re-enable polling after relay or reader state changes. Setup and
+  destruction suspend polling before changing relay state.
 - **Relay lifecycle.** Setup and destruction persist a non-active lifecycle state and pause `PublicationDriver` before any credential or remote-state change. A pending setup is recoverable after an interrupted provisioning step; publication resumes only after the new publisher binds. A failed or interrupted remote destroy leaves publication paused and the prior local state available for an explicit retry.
 - **Notifications.** M12 exposes a post-commit `ResetNotificationHook` seam but starts no
   notification driver, requests no permission, and does not import
@@ -157,8 +171,13 @@ directory.
   overflow in the detail pane wraps rather than truncating. The sidebar stays visible at that
   size, and opening Settings directly triggers the same idempotent collector startup as the main
   window.
-- **Menu-bar extra.** Provides Refresh All, Open Reset Radar, Settings, and Quit; closing the main
-  window leaves it running. P1-M13 owns per-account state and last-publication presentation.
+- **Menu-bar extra.** Shows one five-hour and weekly status line per configured account, followed
+  by Refresh All, Open Reset Radar, Settings, and Quit. Open Reset Radar targets the main window;
+  closing it leaves the collector running. The menu shows the last successful publication time
+  or an attention state after a blocked attempt. Ordinary refresh feedback does not hide the
+  per-account status lines.
+  The open menu reevaluates each reading every 30 seconds so staleness and reset transitions
+  appear without a new source report.
 - **Login launch.** Starts the menu-bar extra without bringing the main window forward.
 
 ## Installation and lifecycle

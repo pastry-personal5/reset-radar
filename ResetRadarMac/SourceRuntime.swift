@@ -1,6 +1,11 @@
 import ResetRadarApplication
 import ResetRadarDomain
 
+struct AccountRefreshResult: Sendable {
+    let accountID: AccountID
+    let receipt: ReadReceipt
+}
+
 actor SourceRuntime {
     typealias Ingest = @Sendable (SourceSnapshot) async throws -> CollectResult
     typealias DidCollect = @Sendable (CollectResult) async -> Void
@@ -42,11 +47,21 @@ actor SourceRuntime {
     }
 
     func refresh(_ reason: RuntimeRefreshReason) async {
-        guard started else { return }
-        await withTaskGroup(of: Void.self) { group in
-            for source in sources {
-                group.addTask { _ = await source.refresh() }
+        _ = await refreshAccounts(accountID: nil)
+    }
+
+    func refreshAccounts(accountID: AccountID?) async -> [AccountRefreshResult] {
+        guard started else { return [] }
+        return await withTaskGroup(of: AccountRefreshResult.self) { group in
+            for source in sources where accountID == nil || source.accountID == accountID {
+                group.addTask {
+                    AccountRefreshResult(
+                        accountID: source.accountID, receipt: await source.refresh())
+                }
             }
+            var results: [AccountRefreshResult] = []
+            for await result in group { results.append(result) }
+            return results
         }
     }
 

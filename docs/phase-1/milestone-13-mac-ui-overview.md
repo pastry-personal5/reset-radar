@@ -1,6 +1,6 @@
 # P1-M13: Mac UI overview
 
-Status: Active
+Status: Done
 
 Polish the functional Mac screens from P1-M12 while preserving their source, relay, and
 confirmation behavior. The [implementation plan](milestone-13-mac-ui-architecture.md) starts with
@@ -11,11 +11,34 @@ the owner-facing Sources settings layout.
 - Present Codex sources in a card with Alias and Home Folder columns, an empty add row, and an
   editable new row; keep discovery, exact-change preview, confirmation, and the two-account cap.
 - Present Claude Code connection actions in their own card, preserving guided setup and restore.
-- Continue with Account List and Details, rings, sidebar, menu-bar status, and remaining Settings
-  styling in later M13 work.
+- Polish Account List and Details, rings, sidebar, menu-bar status, and remaining Settings
+  styling while retaining the M12 collector behavior.
 
 ## Completion checklist
 
+- [x] M12/M13 review: prevent source startup after a failed Release signing check, rebuild on
+  successful relay activation so signing is rechecked, and keep menu allowance freshness current
+  while the menu is open. Evidence: focused Mac allowance and owner-flow tests, and the delegated
+  complete contribution-guide gate on 2026-10-25 (project generation, Swift format, strict lint
+  with zero violations, imports, Mac tests, 28 relay tests, TypeScript, Wrangler dry run).
+- [x] Main Sidebar shows Home, Benefits, Community, Insight, and All; Home keeps its Account List
+  beside Account Details and a setup banner when needed. Selection survives reopening when valid;
+  row rings focus their Window Details, every provider window appears with usage, reset, freshness,
+  and source explanations, and Refresh targets the selected account. Evidence: focused Mac
+  presentation/window tests, live main-window layout and accessibility inspection, and the
+  delegated complete gate on 2026-10-25.
+- [x] The menu bar shows per-account windows and actual last-publication status, updates while
+  Settings is the only open scene, and opens the main window. Evidence: focused menu and message
+  tests, live menu inspection with Settings alone followed by reopening Main, and the delegated
+  complete gate on 2026-10-25.
+- [x] Development Settings explains its isolated data and relay secrets without implying that the
+  development build must have Release signing; preserve the Release identity and locked-Keychain
+  recovery guidance. Evidence: focused copy tests, live Development General Settings accessibility
+  inspection, and the delegated complete gate on 2026-10-25.
+- [x] Review M12/M13 lifecycle and menu-bar behavior: ensure a second collector exits, manual
+  request polling follows pairing and relay state, pairing activation has one poller, and the
+  menu shows current per-account status and opens the main window. Evidence: focused regressions,
+  live Settings-only/menu inspection, and the delegated complete gate on 2026-10-25.
 - [x] Ensure the bundled status-line helper writes session records into the same Development or
   Release Application Support directory that the Mac collector reads. Evidence: the focused
   helper test passed for both paths, and the complete escalated `make gate` passed on 2026-10-25
@@ -98,6 +121,10 @@ the owner-facing Sources settings layout.
   the shared Settings card and scroll layout; the delegated complete contribution-guide gate
   passed on 2026-10-25 (project generation, formatting, strict lint, imports, Mac tests, relay
   tests, TypeScript, and Wrangler dry run), as did `git diff --check`.
-- [ ] Remaining M13 Mac UI scope is implemented and validated against the UX documents.
-- [ ] The complete contribution-guide gate passes from the final M13 state and affected docs are
-  updated.
+- [x] Remaining M13 Mac UI scope is implemented and validated against the UX documents. Evidence:
+  focused presentation, details, menu, and owner-flow tests; live Main, Settings, and menu
+  accessibility/layout inspection; and the delegated complete gate on 2026-10-25.
+- [x] The complete contribution-guide gate passes from the final M13 state and affected docs are
+  updated. Evidence: the delegated final `make gate` passed project generation, Swift format,
+  strict SwiftLint with zero violations, imports, Mac tests, 28 relay tests, TypeScript typecheck,
+  and Wrangler dry run on 2026-10-25; focused Mac presentation tests passed 3 tests.

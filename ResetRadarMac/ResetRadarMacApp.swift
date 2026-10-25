@@ -39,11 +39,19 @@ final class MacBootstrap: ObservableObject {
             await environment.start()
             switch environment.state {
             case .running:
-                await log.record(.lifecycle(.ready))
-                messages.post("Mac collector is running.", tone: .success)
+                if environment.collectionAllowed {
+                    await log.record(.lifecycle(.ready))
+                    messages.post("Mac collector is running.", tone: .success)
+                } else {
+                    messages.post(
+                        "Collection is paused until signing is resolved. Review Signing and "
+                            + "Keychain in Settings.", tone: .attention)
+                }
             case .secondInstance:
                 await log.record(.lifecycle(.secondInstance))
-                NSApplication.shared.terminate(nil)
+                if !Self.isTestHost {
+                    NSApplication.shared.terminate(nil)
+                }
             case .stopped:
                 await log.record(.lifecycle(.stopped))
                 messages.post("Mac collector stopped before startup completed.", tone: .attention)
@@ -55,6 +63,11 @@ final class MacBootstrap: ObservableObject {
                 "Mac collector failed closed: \(startupFailureReason(error))",
                 tone: .attention)
         }
+    }
+
+    private static var isTestHost: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || NSClassFromString("XCTestCase") != nil
     }
 
     func startupFailureReason(_ error: any Error) -> String {
@@ -163,7 +176,7 @@ struct ResetRadarMacApp: App {
             .task { await bootstrap.start() }
         }
         MenuBarExtra("Reset Radar", systemImage: "gauge.with.dots.needle.50percent") {
-            MacMenuBarContent(bootstrap: bootstrap)
+            MacMenuBarContent(bootstrap: bootstrap, messages: bootstrap.messages)
         }
     }
 }
