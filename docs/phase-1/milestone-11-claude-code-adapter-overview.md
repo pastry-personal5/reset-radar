@@ -379,6 +379,12 @@ it lands first and is explicitly referenced from the M11 implementation record.
   without being failed by the concurrent composed-child termination regression. Evidence: all
   three passed together 10 consecutive times, the complete 655-test Mac suite passed 10
   consecutive times, and the complete contribution-guide gate passed on 2026-10-25.
+- [x] `make test` overlaps the independent Mac and relay suites with bounded concurrency, retains
+  both suites' native internal scheduling and failure propagation, and demonstrates a repeatable
+  wall-clock improvement without reviving the process-launch regressions. Evidence: alternating
+  sequential/concurrent runs improved median wall time from 14.40 to 13.43 seconds (6.7%); 10
+  consecutive concurrent runs passed all 655 Mac and 31 relay tests with a 12.87-second median;
+  the complete contribution-guide gate passed on 2026-10-25.
 - [ ] The `test_runner` passes the complete contribution-guide gate from the final reviewable
   worktree; focused ProviderAdapters/helper tests, `git diff --check`, and relative Markdown
   links also pass.

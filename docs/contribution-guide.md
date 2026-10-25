@@ -5,7 +5,9 @@ Status: Active
 How to set up `reset-radar`, validate a change, write commit messages, and open a pull request.
 
 The documented local checks are also available as named targets in the root
-`Makefile`; run `make help` to list them and `make gate` for the complete gate.
+`Makefile`; run `make help` to list them and `make gate` for the complete gate. `make test`
+overlaps the independent macOS and relay test suites while each suite retains its native bounded
+test scheduling.
 
 ## Setup and development
 

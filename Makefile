@@ -13,7 +13,7 @@ help:
 		'relay-typecheck Run relay TypeScript checks' \
 		'relay-dry-run  Validate the relay deployment without contacting Cloudflare' \
 		'relay-ci       Run all relay checks' \
-		'test           Run the macOS and relay tests' \
+		'test           Run the macOS and relay tests concurrently' \
 		'gate           Run the complete contribution-guide gate'
 
 generate:
@@ -48,6 +48,7 @@ relay-dry-run:
 
 relay-ci: relay-install relay-test relay-typecheck relay-dry-run
 
-test: test-mac relay-test
+test:
+	+@$(MAKE) --no-print-directory -j2 test-mac relay-test
 
 gate: generate format-check lint imports test-mac relay-ci
