@@ -6,6 +6,12 @@ This document defines the owner-approved interface behavior. Product scope is in
 [product-behavior.md](product-behavior.md); component vocabulary is in
 [ux-terms.md](ux-terms.md).
 
+## App icon
+
+The iOS and iPadOS Home Screen icon is an original radar mark: two concentric reading rings,
+a sweep, and one highlighted reading dot on a dark background. The universal app uses the same
+icon on iPhone and iPad; the system supplies the rounded mask and appearance variations.
+
 ## First iPhone screen
 
 The iOS app shows a five-item **Main Toolbar** along the bottom edge. Every toolbar item has an original, neutral, tintable bitmap icon above its label. The fixed items are:

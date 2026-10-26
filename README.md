@@ -2,6 +2,8 @@
 
 Reset Radar monitors Codex and Claude Code allowance usage across your Mac, iPhone, iPad, and Apple Watch.
 
+The iPhone and iPad app uses an original radar icon with reading rings and a highlighted dot.
+
 *See what’s left. Know when it resets.*
 
 The Collector Mac reads coding-allowance data from Codex and Claude Code without copying provider credentials. Reset Radar shares encrypted, timestamped readings with the owner's iPhone, iPad, and Apple Watch, where it shows Percentage Used, Reset Times, and data state in apps, widgets, Reset Live Activities, and an Allowance Complication.

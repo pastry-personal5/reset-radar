@@ -10,6 +10,7 @@ Directory structure of the `reset-radar` repository: the Xcode project, the `Res
 reset-radar/
 ├── project.yml                     XcodeGen source of truth for targets, schemes, configurations
 ├── ResetRadar.xcodeproj/           Generated, ignored Xcode project; never edited directly
+├── Design/                          Editable source artwork for exported app assets
 ├── ResetRadarKit/                  Local Swift package; no third-party dependencies
 │   ├── Package.swift               Nine library products/targets and eight test targets
 │   ├── Sources/

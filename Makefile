@@ -1,9 +1,12 @@
-.PHONY: help generate run run-mac format format-check lint imports test-mac test-ios test-ipad test-ios-ipad test-apple relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
+.PHONY: help generate run run-mac iphone ipad watch format format-check lint imports test-mac test-ios test-ipad test-ios-ipad test-apple relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
 
 help:
 	@printf '%s\n' \
 		'generate       Generate the ignored Xcode project' \
 		'run-mac        Build and open the Mac collector (Development, live sources)' \
+		'iphone         Build the iPhone app for the reference simulator' \
+		'ipad           Build the iPad app for the reference simulator' \
+		'watch          Build the Watch app for the reference simulator' \
 		'format         Format maintained Swift sources in place' \
 		'format-check   Check Swift formatting' \
 		'lint           Run strict SwiftLint' \
@@ -31,6 +34,22 @@ run-mac: generate
 		-destination 'platform=macOS' -derivedDataPath .build/mac-run
 	@open .build/mac-run/Build/Products/Development/ResetRadarMac.app
 
+IPHONE_DESTINATION := platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1
+IPAD_DESTINATION := platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1
+WATCH_DESTINATION := platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)
+
+iphone: generate
+	@xcodebuild -quiet build -scheme ResetRadar -configuration Development \
+		-destination '$(IPHONE_DESTINATION)'
+
+ipad: generate
+	@xcodebuild -quiet build -scheme ResetRadar -configuration Development \
+		-destination '$(IPAD_DESTINATION)'
+
+watch: generate
+	@xcodebuild -quiet build -scheme ResetRadarWatch -configuration Development \
+		-destination '$(WATCH_DESTINATION)'
+
 format:
 	swift-format format --in-place --recursive $$(tr '\n' ' ' < Scripts/swift-roots.txt)
 
@@ -45,9 +64,6 @@ imports:
 
 test-mac:
 	@xcodebuild -quiet test -scheme ResetRadarMac -destination 'platform=macOS'
-
-IPHONE_DESTINATION := platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1
-IPAD_DESTINATION := platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1
 
 test-ios:
 	@xcodebuild -quiet test -scheme ResetRadar -destination '$(IPHONE_DESTINATION)'

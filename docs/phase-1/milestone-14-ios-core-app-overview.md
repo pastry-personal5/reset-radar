@@ -103,6 +103,17 @@ are recorded in [owner decisions](owner-decisions.md#p1-m14-decisions):
 
 ## Completion checklist
 
+- [x] The root Makefile provides phony `iphone`, `ipad`, and `watch` targets that generate the
+  project and build the corresponding Development scheme for each reference simulator without
+  enabling the suspended Watch test run. Evidence on 2026-10-27: `make -qp` reports all three as
+  phony dependencies of `generate`; `make iphone`, `make ipad`, and `make watch` each build their
+  documented reference simulator successfully; and `make help` lists the three targets.
+- [x] Give the universal iPhone/iPad app an original, vendor-neutral Home Screen icon; keep an
+  editable source, include the compiled icon in both simulator and Release app bundles, and
+  inspect it at Home Screen size. Evidence on 2026-10-27: the 1024-pixel opaque icon and editable
+  SVG are checked in; a rounded 60-pixel preview remains legible. Generic iOS Simulator and
+  unsigned Release builds contain `Assets.car`, `CFBundleIconName=AppIcon`, and both iPhone and
+  iPad icon metadata. `make gate` and `git diff --check` pass.
 - [x] App composition and reader presentation are implemented with focused iPhone and iPad
   simulator tests; evidence will be the generated project targets and the restored documented
   `xcodebuild test` commands. Evidence on 2026-10-26: the generated `ResetRadar` scheme builds
