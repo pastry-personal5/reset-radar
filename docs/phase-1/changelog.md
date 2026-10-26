@@ -6,6 +6,18 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-26 — Claude Code — Finished the agent-side P1-M14 checks against the overview
+  checklist. New reader tests cover a camera that cannot scan, per-account Refresh refusals, a
+  mismatched result followed by a delayed match, a sleeping Mac, and Account Row reading order.
+  Simulator screenshots showed three layout defects, now fixed. The iPad sidebar overlapped the
+  two rings, and the iOS Account Details bitmap had flattened edges; the app now uses the intact
+  M13 Mac asset. The in-ring percentage also did not grow at accessibility sizes. An unsigned
+  Release build confirmed the app embeds its widget and the Watch app with its complication. M14
+  stays `Active`. Its entry criterion is still unmet and the two owner questions are still open.
+  The physical-device checks, the deployed manual-refresh evidence, and the seven-day re-sign
+  remain owner-run, so M14 can close no earlier than seven days after the owner's first
+  Sideloadly install.
+
 - 2026-10-26 — Claude Code — Measured slow iOS runs: compilation was not the cause (incremental
   iOS builds take about 4 s; an empty-DerivedData build about 107 s, with the shared packages
   compiled for both iOS and watchOS because the iOS app embeds the Watch app). About 12 UI tests

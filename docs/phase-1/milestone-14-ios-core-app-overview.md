@@ -106,9 +106,11 @@ document.
 
 ## Completion checklist
 
-- [ ] App composition and reader presentation are implemented with focused iPhone and iPad
+- [x] App composition and reader presentation are implemented with focused iPhone and iPad
   simulator tests; evidence will be the generated project targets and the restored documented
-  `xcodebuild test` commands.
+  `xcodebuild test` commands. Evidence on 2026-10-26: the generated `ResetRadar` scheme builds
+  the app, widget, and Watch targets. `ResetRadarTests`, `ResetRadarUITests`, and the shared UI
+  component tests pass in `make test-ios-ipad` on both reference simulators.
 - [x] Define M14 reader setup, delivery, and Refresh feedback vocabulary in the UX terms;
   distinguish confirming pairing, waiting for Mac data, preserved-cache sync problems, Refresh
   results, cleanup, and Watch-erasure status. Evidence: [UX terms](../ux-terms.md#canonical-ios-pairing-sync-and-refresh-feedback) updated on 2026-10-26.
@@ -117,31 +119,75 @@ document.
   feedback. Evidence: `LoadHome`, `LoadUsageDetails`, `LoadPairingStatus`, `VisibleSnapshot`,
   `AcceptPairing`, and `RequestMacRefresh` were compared with the iOS/UI architecture and UX docs
   on 2026-10-26; the M14 entry gate and scaffold status remain explicit.
-- [ ] Entry criteria and baseline are recorded; M9 limitations are carried into M14's device
-  evidence without being described as passing cellular behavior.
+- [x] Entry criteria and baseline are recorded; M9 limitations are carried into M14's device
+  evidence without being described as passing cellular behavior. Evidence: the
+  [entry and baseline record](#entry-and-baseline-record) states the entry criterion as unmet and
+  not waived, and the installation procedure records a cellular read separately. No simulator
+  result here is cellular evidence.
 - [ ] The iOS composition uses the shared App Group and explicit Keychain access group; physical
   first-unlock, locked-device, and Development/Release isolation checks have dated evidence.
+  Agent-side evidence on 2026-10-26: `ReaderCompositionTests` show that Release requires the App
+  Group container, that the Keychain group must be the expanded shared group, and that Development
+  storage stays in its own `Debug` directory. An unsigned Release build for `generic/platform=iOS`
+  embeds `ResetRadarWidgets.appex` and `ResetRadarWatch.app`, with
+  `ResetRadarWatchWidgets.appex` inside the Watch app. Its `ResetRadarKeychainAccessGroup` value
+  ends in `group.com.unidentifiedstealthstartup.ResetRadar`, and the team prefix stays empty
+  until the build is signed. **Open:** the owner-run physical checks.
 - [ ] Pairing by QR and manual paste, exact-code confirmation, preflight, activation retry,
   expiry/revocation, staging recovery, and re-pair through Forget Mac have focused tests and
-  owner-visible results.
-- [ ] The reader ingests and commits only authenticated, strictly newer snapshots. Concurrent
+  owner-visible results. Agent-side evidence on 2026-10-26: `ReaderPairingTests` cover pasted and
+  invalid packages, the confirmation code before any save, lost and overlapping activation, expiry
+  or revocation, a first-publication `404`, a failed preflight or local save, staging recovery,
+  re-pairing after Forget Mac, and manual paste staying usable when the camera is not. The iPhone
+  and iPad UI tests show the camera-unavailable and invalid-package messages. **Open:** the
+  simulator has no data scanner, so a real QR scan is first exercised in step 4 of the owner
+  procedure.
+- [x] The reader ingests and commits only authenticated, strictly newer snapshots. Concurrent
   claims, lock/lease expiry, unexpected `304`, invalid envelope, offline relay, and a late result
-  after Forget Mac preserve the correct last-valid or cleared state.
+  after Forget Mac preserve the correct last-valid or cleared state. Evidence on 2026-10-26:
+  `ReaderDeliveryTests` (strictly newer commits, offline and unverifiable envelopes, unexpected
+  `304`, locked secrets, a live lease seen by an independent store, and a late result after
+  Forget Mac), with lease expiry in
+  `StorageIntegrationTests.concurrentLoserIsInProgressAndExpiredClaimResultIsRejected` and
+  `IngestRelaySnapshotTests.aLateResultFromAnExpiredClaimIsRejected`.
 - [ ] Home and account-scoped Refresh follow the approved Codex/Claude Code behavior, expose
   per-account outcomes and the 45-second wait/cancellation boundary, and have synthetic tests
   for mismatched or delayed results and an unavailable Mac. The owner-run manual-refresh evidence
   covers authentication, replay/rate limits, sleeping-Mac timeout, encrypted acknowledgement,
-  latency, and Free-tier capacity before this path uses real data.
-- [ ] iPhone and iPad show the approved navigation, list ordering, empty and unavailable states,
+  latency, and Free-tier capacity before this path uses real data. Agent-side evidence on
+  2026-10-26: `ReaderRefreshTests` cover the single `allCodex` post, an opaque per-account
+  target, Claude Code reads without posting, and the 45-second timeout. They also cover leaving
+  the foreground without reposting, a mismatched result that keeps waiting until a delayed match
+  completes, a sleeping Mac, and per-account lines for rate-limited, already-completed,
+  unreachable-relay, and revoked-token refusals. **Open:** the owner-run evidence against the
+  deployed relay.
+- [x] iPhone and iPad show the approved navigation, list ordering, empty and unavailable states,
   all valid Account Details windows, provenance, Settings routes, icons, and accessibility labels.
   Activation and first-publication guidance never infer Mac account setup from an empty local
   snapshot. Simulator UI tests exercise both reference destinations and large text sizes.
-- [ ] Forget Mac completes local erasure or exposes retryable cleanup, never resurrects an old
+  Evidence on 2026-10-26: `ReaderHomeUITests` and `ReaderSettingsUITests` pass on both reference
+  simulators. They include the accessibility-XXXL row and an Account Row read in alias, five-hour,
+  weekly, then Account Details order at default and accessibility sizes. Screenshot inspection of
+  the synthetic paired Home at default and accessibility-XXXL sizes found three defects, now
+  fixed. The iPad sidebar overlapped the two rings, so it now has room for a full row and its
+  rings never compress. The Account Details bitmap had flattened edges, so the iOS app now uses
+  the intact M13 Mac asset. The in-ring percentage stayed small at accessibility sizes, so the
+  row's rings now grow with Dynamic Type, up to 96 pt.
+- [x] Forget Mac completes local erasure or exposes retryable cleanup, never resurrects an old
   cache, and distinguishes pending from acknowledged Watch erasure. M16's delivery dependency is
-  recorded without treating an unreachable Watch as cleared.
-- [ ] The iPhone and iPad `xcodebuild test` commands are documented and included in the complete
+  recorded without treating an unreachable Watch as cleared. Evidence on 2026-10-26:
+  `ReaderDeliveryTests` (local erasure with a pending Watch clear and no receipt, no iPad Watch
+  state, retryable interrupted cleanup, and no restored cache after a late result),
+  `ReaderFeedbackTests.watchErasureIsPendingUntilAReceiptAndThenNamesOnlyTheRespondingWatch`,
+  `ReaderSettingsUITests.testInterruptedCleanupIsRetryableAndWatchErasureStaysPendingOnIPhone`,
+  and the [boundary](#boundary-and-handoff) recording M16's delivery dependency.
+- [x] The iPhone and iPad `xcodebuild test` commands are documented and included in the complete
   gate; project generation, formatting, strict lint, imports, Mac tests, both iOS destinations,
-  and relay checks pass from the final worktree.
+  and relay checks pass from the final worktree. Evidence on 2026-10-26: the
+  [contribution guide](../contribution-guide.md#required-validation) and `Makefile` run both
+  destinations in `make test-ios-ipad`. `make gate` passed in 2 min 4 s from this worktree, with
+  0 SwiftLint violations, every iPhone and iPad test case passing, 28 relay tests passing, and a
+  clean relay typecheck and deployment dry run.
 - [x] iOS simulator test time is measured and reduced without dropping coverage or changing the
   reference simulators: UI tests poll instead of waiting on XCTest's one-second predicate checks,
   and the gate tests both iOS destinations concurrently in one `xcodebuild test`. Evidence on
