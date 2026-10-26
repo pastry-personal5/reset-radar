@@ -1,9 +1,9 @@
-import ActivityKit
+@preconcurrency import ActivityKit
 import Foundation
 import ResetRadarApplication
 import ResetRadarDomain
 import UIKit
-import UserNotifications
+import WidgetKit
 
 struct SystemReaderClock: AppClock {
     var now: Date { Date() }
@@ -13,23 +13,13 @@ struct SystemReaderClock: AppClock {
     }
 }
 
-/// System authorization the reader reports read-only until the scheduling drivers exist.
+/// System state that is not already owned by a Scheduling adapter.
 protocol ReaderSystemStatus: Sendable {
-    func notificationAuthorization() async -> NotificationAuthorization
     /// `nil` where Live Activities are not offered, which includes iPad.
     func liveActivitiesEnabled() async -> Bool?
 }
 
 struct LiveReaderSystemStatus: ReaderSystemStatus {
-    func notificationAuthorization() async -> NotificationAuthorization {
-        switch await UNUserNotificationCenter.current().notificationSettings().authorizationStatus {
-        case .authorized, .provisional, .ephemeral: .authorized
-        case .denied: .denied
-        case .notDetermined: .notDetermined
-        @unknown default: .notDetermined
-        }
-    }
-
     func liveActivitiesEnabled() async -> Bool? {
         guard await MainActor.run(body: { UIDevice.current.userInterfaceIdiom == .phone }) else {
             return nil
@@ -125,26 +115,17 @@ struct BackgroundTaskReaderStore: ReaderStore {
     }
 }
 
-/// Placeholders for the widget reloader, notification, and Live Activity drivers; the
-/// after-commit pipeline already calls them in its approved order.
-struct PendingSchedulingReloader: SurfaceReloader {
-    func reloadWidgets() {}
+/// A WidgetKit reload request is the completion boundary for the app pipeline; WidgetKit decides
+/// when it renders the new committed cache.
+struct WidgetCenterReloader: SurfaceReloader {
+    func reloadWidgets() {
+        WidgetCenter.shared.reloadAllTimelines()
+    }
     func reloadComplications() {}
 }
 
-struct PendingSchedulingStep: AfterCommitStep {
-    func afterCommit(_ event: CommitEvent) async {}
-}
-
-struct PendingNotificationScheduler: NotificationScheduler {
-    func authorization() async -> NotificationAuthorization { .notDetermined }
-    func requestAuthorization() async -> NotificationAuthorization { .notDetermined }
-    func pending() async -> [ResetRequest] { [] }
-    func schedule(_ request: ResetRequest) async throws {}
-    func cancel(accountWindow: AccountWindow) async {}
-}
-
-struct PendingLiveActivityController: LiveActivityController {
+/// Explicit iPad implementation: Live Activities are unsupported on this platform configuration.
+struct UnavailableLiveActivityController: LiveActivityController {
     func areActivitiesEnabled() async -> Bool { false }
     func list() async -> [RunningActivity] { [] }
     func start(

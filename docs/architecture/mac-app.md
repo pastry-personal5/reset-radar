@@ -119,9 +119,9 @@ The Mac app must never show a Keychain prompt.
   sleep state, so wake cannot re-enable polling after relay or reader state changes. Setup and
   destruction suspend polling before changing relay state.
 - **Relay lifecycle.** Setup and destruction persist a non-active lifecycle state and pause `PublicationDriver` before any credential or remote-state change. A pending setup is recoverable after an interrupted provisioning step; publication resumes only after the new publisher binds. A failed or interrupted remote destroy leaves publication paused and the prior local state available for an explicit retry.
-- **Notifications.** M12 exposes a post-commit `ResetNotificationHook` seam but starts no
-  notification driver, requests no permission, and does not import
-  `UNUserNotificationCenter`. P1-M15 owns `NotificationDriver` and reset notifications.
+- **Notifications.** The post-commit `ResetNotificationHook` invokes an injected
+  `NotificationDriver`, whose Scheduling adapter owns `UNUserNotificationCenter`. The collector
+  never requests permission; only the per-window owner action may do so.
 - **Quit.** Stops sources and publication cleanly and releases the instance lock.
 
 ## Local troubleshooting log
@@ -210,6 +210,7 @@ Recovery documentation covers a missing app, a lost Mac, a rejected login item, 
 | Item | Value |
 |---|---|
 | Deployment target | macOS 26.7.1 (see [Platform targets](../architecture.md#platform-targets)) |
+| Architecture | Apple silicon `arm64` only; `x86_64` is excluded from every configuration |
 | App Sandbox | Off |
 | Hardened Runtime | On |
 | Entitlements | None that require a provisioning profile |

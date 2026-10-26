@@ -2,7 +2,12 @@ import Foundation
 
 /// One stage that runs after a snapshot commits: reminders, Live Activities, or the Watch.
 public protocol AfterCommitStep: Sendable {
-    func afterCommit(_ event: CommitEvent) async
+    func afterCommitOutcome(_ event: CommitEvent) async -> AfterCommitOutcome
+}
+
+public enum AfterCommitOutcome: Sendable, Equatable {
+    case complete
+    case retryable
 }
 
 /// Runs the stages in order: widget reload, reset notifications, Live Activities, Watch. The
@@ -31,12 +36,18 @@ public struct AfterCommitPipeline: Sendable {
     public func run(_ event: CommitEvent) async {
         switch event.process {
         case .widget:
-            await notifications.afterCommit(event)
+            _ = await notifications.afterCommitOutcome(event)
         case .app:
-            await runAll(event)
+            let outcome = await runAll(event)
+            guard outcome == .complete else { return }
             // A widget commit during the run sets the flag for a newer snapshot; keep it then.
-            try? await reader.transact { state in
-                if state.snapshot == event.snapshot { state.needsAppReconcile = false }
+            _ = try? await reader.transact { state in
+                let isCurrent =
+                    state.snapshot?.publisherID == event.publisherID
+                    && state.committedSequence == event.relaySequence
+                if isCurrent {
+                    state.needsAppReconcile = false
+                }
             }
         }
     }
@@ -46,19 +57,31 @@ public struct AfterCommitPipeline: Sendable {
         guard let state = try? await reader.load(), state.needsAppReconcile,
             let snapshot = state.snapshot
         else { return }
-        await run(CommitEvent(snapshot: snapshot, process: .app))
+        await run(
+            CommitEvent(
+                snapshot: snapshot, process: .app, relaySequence: state.committedSequence ?? 0))
+    }
+
+    /// Reconciles the currently committed cache on an app activation. This catches permission,
+    /// clock, and time-zone changes even when no new relay snapshot arrives.
+    public func reconcileCurrent() async {
+        guard let state = try? await reader.load(), let snapshot = state.snapshot else { return }
+        await run(
+            CommitEvent(
+                snapshot: snapshot, process: .app, relaySequence: state.committedSequence ?? 0))
     }
 
     /// A transport-status change with no new snapshot still reaches widgets and the Watch.
     public func statusChanged(_ event: CommitEvent) async {
         reloader.reloadWidgets()
-        await watch?.afterCommit(event)
+        _ = await watch?.afterCommitOutcome(event)
     }
 
-    private func runAll(_ event: CommitEvent) async {
+    private func runAll(_ event: CommitEvent) async -> AfterCommitOutcome {
         reloader.reloadWidgets()
-        await notifications.afterCommit(event)
-        await liveActivities.afterCommit(event)
-        await watch?.afterCommit(event)
+        guard await notifications.afterCommitOutcome(event) == .complete else { return .retryable }
+        guard await liveActivities.afterCommitOutcome(event) == .complete else { return .retryable }
+        guard await watch?.afterCommitOutcome(event) != .retryable else { return .retryable }
+        return .complete
     }
 }

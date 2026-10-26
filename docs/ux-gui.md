@@ -195,27 +195,36 @@ On iPhone, iPad, and Mac, each valid provider-reported account window, including
 Account Details limit, has an off-by-default reset-notification control that applies only to that
 device. A notification is scheduled only while that window has a known future Reset Time.
 Notification copy identifies the account by its displayed alias. Enabling the first control on a
-device triggers that device's system authorization request. On iPhone,
+device triggers that device's system authorization request. Fully authorized notifications use
+the default sound and show a banner while Reset Radar is active on iPhone, iPad, or Mac;
+provisional authorization remains quiet. On iPhone,
 eligible five-hour windows also offer Start Live Activity; activities never start automatically
-and visibly identify the alias. Watch Account Details has neither control; the Watch shows the
-iPhone's forwarded notifications.
+and visibly identify the alias. Start is unavailable with an explanation when the reading is
+already stale or its reset is beyond the eight-hour activity horizon. While that exact window has
+a running activity, the action becomes Stop Live Activity and ends it with immediate dismissal.
+Watch Account Details has neither control; the Watch shows the iPhone's forwarded notifications.
 
 ## Widgets and Live Activities
 
 On iPhone and iPad, small Home Screen and rectangular Lock Screen widgets show one user-configured
 valid provider window, including an additional Account Details limit. Circular and inline Lock
 Screen widget families are not part of this version. The read-only App Intent accepts
-the same all-window selection. The medium Home Screen widget shows both standard windows for one
+the same all-window selection and identifies the selected alias, product, and window in its
+cache-only result. The medium Home Screen widget shows both standard windows for one
 user-configured account. A temporarily missing additional window becomes unavailable and resumes
 only if the same exact window ID returns; a changed ID never silently takes its place.
 Widgets visibly identify the middle-truncated alias, include freshness, and render only from the
 committed local cache. When the system reloads a widget, it may first refresh that cache from the
-relay if the last successful refresh is more than five minutes old.
+relay if the last successful refresh is more than five minutes old. A timeline requests routine
+reload after 30 minutes; the request is not a promise that the system will run it then.
 
 A Reset Live Activity, available on iPhone only, shows one eligible five-hour account window. It
 starts only from a foreground Account Details action, receives local opportunistic updates,
 displays stale state honestly until its known reset even if the reading ages, and ends on the next
 app execution after reset, observation invalidation for another reason, or removal of its
-account. Weekly windows never start Live Activities. A widget or complication whose account was
-removed becomes unavailable until the owner chooses another account; it never silently retargets.
+account. It also ends immediately if an updated reset moves beyond its fixed eight-hour horizon.
+When several activities run, the soonest reset receives highest Dynamic Island relevance; equal
+reset instants use stable global account number. Weekly windows never start Live Activities. A
+widget or complication whose account was removed becomes unavailable until the owner chooses
+another account; it never silently retargets.
 

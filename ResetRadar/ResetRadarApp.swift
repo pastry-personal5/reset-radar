@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct ResetRadarApp: App {
+    @UIApplicationDelegateAdaptor private var appDelegate: ResetRadarAppDelegate
     private let launch = LaunchedReader.make()
 
     var body: some Scene {

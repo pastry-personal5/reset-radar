@@ -135,6 +135,16 @@ final class ReminderRig: @unchecked Sendable {
         #expect(rig.scheduler.scheduled.count == 1)
     }
 
+    @Test func malformedOwnedRequestsAreRemovedWithoutTouchingTypedSelections() async {
+        let malformed = "reset.corrupt-owned-request"
+        rig.scheduler.seedMalformedOwned(identifier: malformed)
+        await rig.preferences.setNotificationOptIn(codexFiveHour, enabled: true)
+
+        #expect(await rig.reconcile().run(onIOS: true) == .reconciled)
+        #expect(!(await rig.scheduler.ownedPendingIdentifiers()).contains(malformed))
+        #expect(rig.scheduler.current[codexFiveHour] != nil)
+    }
+
     @Test func theMacUsesNoGate() async {
         await rig.preferences.setNotificationOptIn(codexFiveHour, enabled: true)
         _ = await rig.gate.claim()
@@ -142,12 +152,38 @@ final class ReminderRig: @unchecked Sendable {
         #expect(rig.scheduler.scheduled.count == 1)
     }
 
-    @Test func copyCarriesOnlyAnAccountWindowAndNeverATimeOrPercentage() {
+    @Test func requestCarriesTheExactSelectionAndTypedDisplayContent() {
         let request = ResetRequest(accountWindow: claudeWeekly, fireAt: epoch)
-        #expect(
-            Mirror(reflecting: request).children.compactMap(\.label)
-                == ["accountWindow", "fireAt"])
-        #expect(request.accountWindow == claudeWeekly)
+        #expect(request.selection == .standard(claudeWeekly))
+        #expect(request.window == .standard(.weekly))
+        #expect(request.fireAt == epoch)
+    }
+
+    @Test func anAdditionalWindowRetainsItsExactOptInAndDoesNotRetarget() async throws {
+        let rig = ReminderRig()
+        let additional = window(scope: scopeA, limitID: "extra", minutes: 60, isDefault: false)
+        let selection = WindowSelection.additional(additional.id)
+        await rig.preferences.setNotificationOptIn(selection, enabled: true)
+        #expect(await rig.preferences.notificationOptIn(selection) == true)
+        try await rig.store.commitLocal(snapshot(windows: [window(), additional]))
+        let committed = try await rig.store.load()
+        #expect(committed?.windows.contains(where: { $0.id == additional.id }) == true)
+        if let committed {
+            let resolution = WindowSelectionResolver.resolve(
+                selection, in: committed, now: rig.clock.now
+            ).0
+            #expect(resolution == .window(additional))
+        }
+
+        _ = await rig.reconcile().run(onIOS: true)
+        #expect(rig.scheduler.scheduled.count == 1)
+        #expect(rig.scheduler.selectionCurrent[selection]?.selection == selection)
+
+        let replacement = window(scope: scopeB, limitID: "extra", minutes: 60, isDefault: false)
+        try await rig.store.commitLocal(snapshot(windows: [window(), replacement]))
+        _ = await rig.reconcile().run(onIOS: true)
+        #expect(rig.scheduler.selectionCurrent[selection] == nil)
+        #expect(rig.scheduler.selectionCurrent[.additional(replacement.id)] == nil)
     }
 
     @Test func withoutAuthorizationNothingIsScheduledAndNothingIsRequested() async {
@@ -156,6 +192,24 @@ final class ReminderRig: @unchecked Sendable {
         _ = await rig.reconcile().run(onIOS: true)
         #expect(rig.scheduler.scheduled.isEmpty)
         #expect(rig.scheduler.authorizationRequests == 0)
+    }
+
+    @Test func provisionalAuthorizationSchedulesQuietEligibleRequests() async {
+        rig.scheduler.setAuthorization(.provisional)
+        await rig.preferences.setNotificationOptIn(codexFiveHour, enabled: true)
+        #expect(await rig.reconcile().run(onIOS: true) == .reconciled)
+        #expect(rig.scheduler.current[codexFiveHour] != nil)
+    }
+
+    @Test func aSchedulingCapacityFailureIsRetryableWithoutDroppingOtherDesiredWork() async {
+        await rig.preferences.setNotificationOptIn(codexFiveHour, enabled: true)
+        rig.scheduler.failSchedules(true)
+        #expect(await rig.reconcile().run(onIOS: true) == .retryable)
+        #expect(rig.scheduler.current.isEmpty)
+
+        rig.scheduler.failSchedules(false)
+        #expect(await rig.reconcile().run(onIOS: true) == .reconciled)
+        #expect(rig.scheduler.current[codexFiveHour] != nil)
     }
 }
 
@@ -185,6 +239,29 @@ final class ReminderRig: @unchecked Sendable {
         #expect(rig.scheduler.authorizationRequests == 1)
         #expect(await rig.preferences.notificationOptIn(codexFiveHour) == true)
         #expect(rig.scheduler.scheduled.isEmpty)
+    }
+
+    @Test func provisionalAndUnknownResultsStayDistinctWithoutReprompting() async {
+        let use = make()
+        rig.scheduler.setAuthorization(.provisional)
+        #expect(await use.set(codexFiveHour, enabled: true) == .provisional)
+        #expect(rig.scheduler.authorizationRequests == 0)
+        #expect(rig.scheduler.current[codexFiveHour] != nil)
+
+        rig.scheduler.setAuthorization(.unknown)
+        #expect(await use.set(codexFiveHour, enabled: true) == .unavailable)
+        #expect(rig.scheduler.authorizationRequests == 0)
+        #expect(rig.scheduler.current[codexFiveHour] == nil)
+    }
+
+    @Test func aFrameworkFailureStaysDistinctWithoutReprompting() async {
+        rig.scheduler.setAuthorization(.notDetermined, grantOnRequest: .failed)
+        let use = make()
+
+        #expect(await use.set(codexFiveHour, enabled: true) == .unavailable)
+        #expect(await use.set(codexFiveHour, enabled: true) == .unavailable)
+        #expect(rig.scheduler.authorizationRequests == 1)
+        #expect(await rig.preferences.notificationOptIn(codexFiveHour) == true)
     }
 
     @Test func disablingCancelsTheRequest() async {

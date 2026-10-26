@@ -1,11 +1,13 @@
 import ResetRadarApplication
 import ResetRadarUI
 import SwiftUI
+import UIKit
 
 /// iOS Settings: Pairing & Sync, notification and (iPhone) Live Activity authorization status,
 /// Privacy & Data, Diagnostics, and About. Per-window controls wait for the scheduling drivers.
 struct SettingsView: View {
     @ObservedObject var environment: ReaderEnvironment
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         List {
@@ -22,13 +24,28 @@ struct SettingsView: View {
                 LabeledContent(
                     "Notifications",
                     value: Self.authorization(environment.notificationAuthorization))
+                if environment.notificationAuthorization == .denied {
+                    Button("Open Notification Settings") {
+                        guard
+                            let url = URL(
+                                string: UIApplication.openNotificationSettingsURLString)
+                        else { return }
+                        openURL(url)
+                    }
+                }
                 if let enabled = environment.liveActivitiesEnabled {
                     LabeledContent("Live Activities", value: enabled ? "Allowed" : "Not allowed")
                 }
+                LabeledContent(
+                    "Background Refresh",
+                    value: environment.backgroundRefreshAvailable ? "Registered" : "Unavailable")
             } header: {
                 Text("System Permissions")
             } footer: {
-                Text("Reset reminders and Live Activities are not available in this version.")
+                Text(
+                    "Reset reminders are device-local. Live Activity availability depends on this"
+                        + " device."
+                )
             }
             Section {
                 NavigationLink("Privacy & Data") { PrivacyView() }
@@ -42,8 +59,11 @@ struct SettingsView: View {
     static func authorization(_ value: NotificationAuthorization) -> String {
         switch value {
         case .authorized: "Allowed"
+        case .provisional: "Quietly allowed"
         case .denied: "Not allowed"
         case .notDetermined: "Not requested"
+        case .failed: "Unavailable"
+        case .unknown: "Unknown"
         }
     }
 }

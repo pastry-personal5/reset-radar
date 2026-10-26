@@ -147,16 +147,16 @@ Status: Active
 Goal: Pairing, relay reader, iPhone Account List, iPad split Account List and Account Details,
 Setup Banner, and Main Toolbar screens; re-enables the iPhone and iPad test runs in the gate.
 Plan: [overview](milestone-14-ios-core-app-overview.md), [sequence](milestone-14-ios-core-app-sequence.md)
-
 Notes: The initial signed iPhone installation, first launch after trust, and physical QR pairing
 succeeded on 2026-10-27. M14 remains Active pending its IPA target, remaining physical
 App Group/Keychain and cache checks, deployed-relay manual-refresh evidence, seven-day renewal,
 and closure documentation.
+
 ### P1-M15: Scheduling
-Status: Planned
+Status: Active
 Goal: Reset notifications (including the Mac `NotificationDriver` moved from P1-M12), background refresh, widgets, and Live Activities, with their shared-state validation.
-Plan: [overview](milestone-15-scheduling-overview.md), [sequence](milestone-15-scheduling-sequence.md), [Scheduling](../architecture/scheduling.md)
-Notes: M9 exit is not an M15 prerequisite under the owner's 2026-10-26 instruction; M14's app and widget handoff remains the implementation dependency. The owner's all-window and stale Live Activity choices are in [owner decisions](owner-decisions.md#time-zone-and-scheduling-semantics).
+Plan: [overview](milestone-15-scheduling-overview.md), [sequence](milestone-15-scheduling-sequence.md), [validation](milestone-15-scheduling-validation.md), [Scheduling](../architecture/scheduling.md)
+Notes: M9 exit is not an M15 prerequisite under the owner's 2026-10-26 instruction; M14's app and widget handoff remains the implementation dependency. The owner's all-window, notification-presentation, widget-budget, Live Activity lifecycle/prioritization, and local-dependency choices are recorded in [owner decisions](owner-decisions.md#time-zone-and-scheduling-semantics) and summarized in the [M15 overview](milestone-15-scheduling-overview.md#resolved-owner-decisions).
 
 ### P1-M16: Watch
 Status: Planned

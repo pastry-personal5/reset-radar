@@ -1,3 +1,4 @@
+import AppKit
 import ResetRadarApplication
 import ResetRadarDomain
 import SwiftUI
@@ -91,7 +92,8 @@ struct SettingsRootView: View {
     @ViewBuilder
     private func detail(_ models: OwnerFlowModels) -> some View {
         switch selection {
-        case .general: GeneralSettingsView(model: models.general, recovery: models.recovery)
+        case .general:
+            GeneralSettingsView(model: models.general, recovery: models.recovery, home: models.home)
         case .sources:
             SourcesSettingsView(model: models.sources, rebuildCollector: rebuildCollector)
         case .relay:
@@ -107,6 +109,7 @@ struct SettingsRootView: View {
 private struct GeneralSettingsView: View {
     @ObservedObject var model: LoginItemViewModel
     @ObservedObject var recovery: RecoveryViewModel
+    @ObservedObject var home: HomeViewModel
 
     var body: some View {
         SettingsCardColumn {
@@ -120,9 +123,34 @@ private struct GeneralSettingsView: View {
                 Text(recovery.recoveryCopy).wrapsInMainPane()
                 Button("Retry") { Task { await recovery.refresh() } }
             }
+            SettingsCard(title: "Reset Notifications") {
+                LabeledContent("Authorization", value: authorizationText)
+                if home.notificationAuthorization == .denied {
+                    Button("Open System Settings") {
+                        NSWorkspace.shared.open(
+                            URL(filePath: "/System/Applications/System Settings.app"))
+                    }
+                }
+                Text("Enable a reminder from an Account Details window to request permission.")
+                    .foregroundStyle(.secondary)
+            }
         }
         .navigationTitle("General")
-        .task { await recovery.refresh() }
+        .task {
+            await recovery.refresh()
+            await home.reconcileNotifications()
+        }
+    }
+
+    private var authorizationText: String {
+        switch home.notificationAuthorization {
+        case .notDetermined: "Not requested"
+        case .denied: "Denied in System Settings"
+        case .authorized: "Allowed"
+        case .provisional: "Provisional"
+        case .failed: "Could not request permission"
+        case .unknown: "Unknown system status"
+        }
     }
 }
 

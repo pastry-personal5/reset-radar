@@ -9,6 +9,7 @@ The iPhone and iPad app uses an original radar icon with reading rings and a hig
 The Collector Mac reads coding-allowance data from Codex and Claude Code without copying provider credentials. Reset Radar shares encrypted, timestamped readings with the owner's iPhone, iPad, and Apple Watch, where it shows Percentage Used, Reset Times, and data state in apps, widgets, Reset Live Activities, and an Allowance Complication.
 
 The project is in its Foundation phase. The Mac collector, local package, Cloudflare relay, and iPhone/iPad reader are implemented; widgets, reset reminders, Live Activities, and the Apple Watch app are still in progress. It is designed for personal sideloading with a free Apple account, not App Store or TestFlight distribution. The Mac main window and Settings share a Global Messages pane for collector and setup status, including the reason publication stops safely. Mac Settings offers a Codex source table with login-shell executable discovery and a Claude Code connection card; review the selected `CODEX_HOME` in the [installation guide](docs/mac-installation-and-recovery.md#configure-sources).
+The Mac collector supports Apple silicon only; every Mac build is arm64-only and Intel Macs are unsupported.
 Mac Settings groups each section's controls into titled cards above Global Messages.
 The Mac Home account list and selected details refresh as the collector commits new readings;
 alias edits from Home or Sources update both open views.

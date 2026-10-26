@@ -117,7 +117,11 @@ public enum ReconcileOutcome: Sendable, Equatable {
 
 public enum OptInOutcome: Sendable, Equatable {
     case enabled
+    /// The system granted quiet provisional delivery.
+    case provisional
     case disabled
     /// Authorization is denied; the UI shows the route to system settings.
     case denied
+    /// The framework request failed or returned a future status the app does not understand.
+    case unavailable
 }

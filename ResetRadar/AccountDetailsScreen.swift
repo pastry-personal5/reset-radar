@@ -32,7 +32,8 @@ struct AccountDetailsScreen: View {
                 ForEach(WindowSection.ordered(account)) { section in
                     Section {
                         WindowDetailsView(
-                            section: section, source: account.source,
+                            section: section, source: account.source, accountID: account.account.id,
+                            environment: environment,
                             emphasized: focus.map { .standard($0) } == section.id)
                     }
                     .id(section.id)
@@ -76,7 +77,12 @@ struct AccountDetailsScreen: View {
 private struct WindowDetailsView: View {
     let section: WindowSection
     let source: AccountSource
+    let accountID: AccountID
+    @ObservedObject var environment: ReaderEnvironment
     let emphasized: Bool
+    @State private var remindersEnabled: Bool?
+    @State private var liveActivityRunning = false
+    @State private var liveActivityMessage: String?
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -96,6 +102,11 @@ private struct WindowDetailsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                reminderToggle
+                liveActivityControl
+                if let liveActivityMessage {
+                    Text(liveActivityMessage).font(.caption).foregroundStyle(.secondary)
+                }
                 if section.ambiguous {
                     Text("More than one provider window matches this window, so none is shown.")
                         .font(.caption)
@@ -108,9 +119,76 @@ private struct WindowDetailsView: View {
             }
         }
         .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(windowAccessibilityLabel)
         .accessibilityIdentifier("windowDetails.\(section.title)")
         .accessibilityAddTraits(emphasized ? .isSelected : [])
+        .task(id: selection.versionedID) {
+            remindersEnabled = await environment.notificationOptIn(selection)
+            if case .standard(let accountWindow) = selection {
+                liveActivityRunning = await environment.liveActivityRunning(accountWindow)
+            }
+        }
+    }
+
+    private var selection: WindowSelection {
+        switch section.id {
+        case .standard(let standard):
+            .standard(AccountWindow(accountID: accountID, window: standard))
+        case .additional(let id): .additional(id)
+        }
+    }
+
+    private var windowAccessibilityLabel: String {
+        let reading = section.display.percentText.map { "\($0) used" } ?? "No percentage"
+        return "\(section.title), \(reading), \(section.display.statusText)"
+    }
+
+    @ViewBuilder private var reminderToggle: some View {
+        if section.details != nil, source.state != .incompatible {
+            Toggle(
+                "Reset Reminder",
+                isOn: Binding(
+                    get: { remindersEnabled ?? false },
+                    set: { enabled in
+                        remindersEnabled = enabled
+                        Task {
+                            _ = await environment.setNotificationOptIn(selection, enabled: enabled)
+                        }
+                    })
+            )
+            .font(.caption)
+            .accessibilityIdentifier("resetReminder.\(selection.versionedID)")
+        }
+    }
+
+    @ViewBuilder private var liveActivityControl: some View {
+        if let accountWindow = liveActivityWindow {
+            Button(liveActivityRunning ? "Stop Live Activity" : "Start Live Activity") {
+                Task {
+                    let outcome = await environment.toggleLiveActivity(accountWindow)
+                    liveActivityRunning = await environment.liveActivityRunning(accountWindow)
+                    switch outcome {
+                    case .unavailable:
+                        liveActivityMessage =
+                            "A fresh reading with a reset in the next eight hours is required."
+                    case .failed:
+                        liveActivityMessage = "The Live Activity could not be started."
+                    case .started, .alreadyRunning, nil:
+                        liveActivityMessage = nil
+                    }
+                }
+            }
+            .font(.caption)
+            .accessibilityIdentifier("liveActivity.\(accountWindow.accountID.hex)")
+        }
+    }
+
+    private var liveActivityWindow: AccountWindow? {
+        guard environment.hasWatchStage, case .standard(let accountWindow) = selection,
+            accountWindow.window == .fiveHour, section.details?.window.resetsAt != nil
+        else { return nil }
+        return accountWindow
     }
 
     @ViewBuilder private func reset(_ window: AllowanceWindow) -> some View {

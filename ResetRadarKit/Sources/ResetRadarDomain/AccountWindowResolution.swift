@@ -29,3 +29,20 @@ public enum AccountWindowResolver {
         }
     }
 }
+
+public enum WindowSelectionResolver {
+    /// Resolves a saved exact selection without retargeting an unavailable additional window.
+    public static func resolve(
+        _ selection: WindowSelection, in snapshot: UsageSnapshot, now: Date
+    ) -> (AccountWindowResolution, DiagnosticEvent?) {
+        switch selection {
+        case .standard(let accountWindow):
+            return AccountWindowResolver.resolve(accountWindow, in: snapshot, now: now)
+        case .additional(let windowID):
+            guard let window = snapshot.windows.first(where: { $0.id == windowID }) else {
+                return (.unavailable, nil)
+            }
+            return (.window(window), nil)
+        }
+    }
+}

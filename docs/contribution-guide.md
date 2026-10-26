@@ -29,7 +29,7 @@ redacted events and retain at most eight UTC days. Do not copy the logs into the
 
 ## Setup and development
 
-- macOS 26.7.1 or newer, with an Xcode whose SDKs are at least iOS 26.1, watchOS 26.6, and macOS 26.7, and iOS and watchOS simulator runtimes at or above the minimum OS versions in [Platform targets](architecture.md#platform-targets). Select that Xcode with `xcode-select` and accept its license before building.
+- An Apple-silicon Mac running macOS 26.7.1 or newer, with an Xcode whose SDKs are at least iOS 26.1, watchOS 26.6, and macOS 26.7, and iOS and watchOS simulator runtimes at or above the minimum OS versions in [Platform targets](architecture.md#platform-targets). Select that Xcode with `xcode-select` and accept its license before building. Mac targets are arm64-only; Intel development and `x86_64` slices are unsupported.
 - swiftlint, for example `brew install swiftlint`.
 - swift-format, bundled with the Swift toolchain.
 - XcodeGen 2.46.0 exactly, for example `brew install xcodegen`; `Scripts/generate-project.sh` refuses any other version.
@@ -45,9 +45,10 @@ swift-format format --in-place --recursive <maintained roots in Scripts/swift-ro
 Scripts/lint-swift-format.sh                                                               # check formatting
 swiftlint --strict                                                                         # lint
 Scripts/check-imports.sh                                                                   # enforce the dependency rule
+Scripts/check-mac-architecture.sh                                                          # build and inspect unsigned Release Mac binaries
 ```
 
-The relay exposes reproducible npm scripts for TypeScript checking, Workers Vitest tests, and a Wrangler deployment dry run that never contacts Cloudflare. Mac Release builds need an untracked `Config/Build/Local.xcconfig` copied from `Local.xcconfig.template`; Development builds and the gate do not. Do not run a real deployment until the synthetic-data procedure confirms Workers Free, disabled observability, and owner-present approval.
+The relay exposes reproducible npm scripts for TypeScript checking, Workers Vitest tests, and a Wrangler deployment dry run that never contacts Cloudflare. Mac Release builds need an untracked `Config/Build/Local.xcconfig` copied from `Local.xcconfig.template`; Development builds and the gate do not. The architecture check makes an isolated unsigned Release build and verifies every Mach-O executable with `lipo`; it does not replace the signed Release scheme check. Do not run a real deployment until the synthetic-data procedure confirms Workers Free, disabled observability, and owner-present approval.
 
 ## Required validation
 
@@ -58,6 +59,7 @@ Scripts/generate-project.sh
 Scripts/lint-swift-format.sh
 swiftlint --strict
 Scripts/check-imports.sh
+Scripts/check-mac-architecture.sh
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
 xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1' \
   -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'

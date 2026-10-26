@@ -87,13 +87,16 @@ public actor ForgetMac {
         } catch {
             return .cleanupPending
         }
-        for request in await notifications.pending() {
-            await notifications.cancel(accountWindow: request.accountWindow)
+        for identifier in await notifications.ownedPendingIdentifiers() {
+            await notifications.cancel(identifier: identifier)
         }
         for activity in await activities.list() {
             await activities.end(accountWindow: activity.accountWindow)
         }
         reloader.reloadWidgets()
+        // Removal is fire-and-forget at the framework boundary. Do not clear the durable cleanup
+        // marker while an owned request is still visible on a subsequent read.
+        guard await notifications.ownedPendingIdentifiers().isEmpty else { return .cleanupPending }
         do {
             try await reader.transact { $0.forgetCleanupPending = false }
         } catch {

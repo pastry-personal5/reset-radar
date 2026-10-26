@@ -26,7 +26,7 @@ the Development folder directly for startup and publication root-cause analysis.
 
 ## Before the first install
 
-1. Confirm the Mac meets the toolchain requirements in the [contribution guide](contribution-guide.md#setup-and-development).
+1. Confirm the Apple-silicon Mac meets the toolchain requirements in the [contribution guide](contribution-guide.md#setup-and-development). Reset Radar Mac builds are arm64-only and do not run on Intel Macs.
    Generate the ignored project from the checked-in specification:
 
    ```sh

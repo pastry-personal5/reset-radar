@@ -58,8 +58,9 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [phase-1/milestone-13-mac-ui-architecture.md](phase-1/milestone-13-mac-ui-architecture.md) | P1-M13 Mac UI implementation sequence. Done. |
 | [phase-1/milestone-14-ios-core-app-overview.md](phase-1/milestone-14-ios-core-app-overview.md) | P1-M14 iPhone/iPad reader scope, entry criteria, handoffs, and completion checklist. Active; physical iPhone QR pairing is verified, with remaining owner-run device evidence pending. |
 | [phase-1/milestone-14-ios-core-app-sequence.md](phase-1/milestone-14-ios-core-app-sequence.md) | P1-M14 composition, pairing, refresh, UI, test, and device-validation order. Active. |
-| [phase-1/milestone-15-scheduling-overview.md](phase-1/milestone-15-scheduling-overview.md) | P1-M15 scheduling scope, M14 handoff, review findings, and completion checklist. Planned. |
-| [phase-1/milestone-15-scheduling-sequence.md](phase-1/milestone-15-scheduling-sequence.md) | P1-M15 Scheduling, Mac notifications, background refresh, widgets, ActivityKit, and device-validation order. Planned. |
+| [phase-1/milestone-15-scheduling-overview.md](phase-1/milestone-15-scheduling-overview.md) | P1-M15 scheduling scope, M14 handoff, review findings, and completion checklist. Active. |
+| [phase-1/milestone-15-scheduling-sequence.md](phase-1/milestone-15-scheduling-sequence.md) | P1-M15 Scheduling, Mac notifications, background refresh, widgets, ActivityKit, and device-validation order. Active. |
+| [phase-1/milestone-15-scheduling-validation.md](phase-1/milestone-15-scheduling-validation.md) | P1-M15 automated review evidence, known validation limits, and pending owner-run device checks. Active. |
 | [phase-1/milestone-16-watch-overview.md](phase-1/milestone-16-watch-overview.md) | P1-M16 Watch scope, handoff review, physical-device evidence, and completion checklist. Planned. |
 | [phase-1/milestone-16-watch-sequence.md](phase-1/milestone-16-watch-sequence.md) | P1-M16 WatchSync, iPhone and Watch wiring, complication, signing, and validation order. Planned. |
 | [research/cloudflare-relay-spike-runbook.md](research/cloudflare-relay-spike-runbook.md) | Active owner-run P1-M9 deployment, smoke, 30-minute sample, fault, release, and teardown procedure. |
@@ -78,5 +79,6 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [research/mac-keychain-access.md](research/mac-keychain-access.md) | P1-M2 Mac Keychain research: why ad-hoc signing prompts, storage options, the owner-selected stable-signing design, and its validation spike. Active. |
 | [research/mac-keychain-validation-spike-runbook.md](research/mac-keychain-validation-spike-runbook.md) | P1-M2 owner-run, synthetic-only harness and evidence procedure for validating unattended Mac Keychain access. Active. |
 | [research/source-calibration-spike-runbook.md](research/source-calibration-spike-runbook.md) | P1-M2 owner-run, privacy-safe command-line procedure for calibrating the installed signed-in Codex and Claude Code sources. Active. |
+| [research/m15-scheduling-device-runbook.md](research/m15-scheduling-device-runbook.md) | P1-M15 owner-run synthetic-device procedure for notifications, widgets, Live Activities, background refresh, and re-sign evidence. Active. |
 | [research/spike-results.md](research/spike-results.md) | P1-M2 spike evidence: relay, platform lifecycle, and source calibration measurements. Draft. |
 | [phase-1/changelog.md](phase-1/changelog.md) | Phase 1 decisions and plan changes. |

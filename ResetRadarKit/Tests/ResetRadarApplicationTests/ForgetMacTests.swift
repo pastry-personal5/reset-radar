@@ -113,6 +113,12 @@ final class ProbeWatchLink: WatchLink, @unchecked Sendable {
         #expect(rig.reloader.widgetReloads >= 1)
     }
 
+    @Test func forgetMacAlsoRemovesMalformedOwnedRequests() async {
+        scheduler.seedMalformedOwned(identifier: "reset.malformed")
+        #expect(await make(watch: nil).forget() == .complete)
+        #expect(!(await scheduler.ownedPendingIdentifiers()).contains("reset.malformed"))
+    }
+
     @Test func aCleanupFailureHidesUsageBlocksPairingAndFetchAndRetryCompletes() async {
         let use = make(watch: nil)
         rig.secrets.setWriteFailure(.interactionRequired)

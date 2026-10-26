@@ -16,18 +16,26 @@ public actor SetNotificationOptIn {
     }
 
     public func set(_ accountWindow: AccountWindow, enabled: Bool) async -> OptInOutcome {
-        await preferences.setNotificationOptIn(accountWindow, enabled: enabled)
+        await set(.standard(accountWindow), enabled: enabled)
+    }
+
+    public func set(_ selection: WindowSelection, enabled: Bool) async -> OptInOutcome {
+        await preferences.setNotificationOptIn(selection, enabled: enabled)
         guard enabled else {
-            await scheduler.cancel(accountWindow: accountWindow)
+            await scheduler.cancel(selection: selection)
             return .disabled
         }
         var authorization = await scheduler.authorization()
         if authorization == .notDetermined {
             authorization = await scheduler.requestAuthorization()
         }
-        // The choice stays recorded when denied, so the UI can show it with a settings route.
-        guard authorization == .authorized else { return .denied }
+        // Reconcile every terminal state: a later denial also removes an older pending request.
         _ = await reconcile?.run(onIOS: true)
-        return .enabled
+        switch authorization {
+        case .authorized: return .enabled
+        case .provisional: return .provisional
+        case .denied: return .denied
+        case .failed, .unknown, .notDetermined: return .unavailable
+        }
     }
 }

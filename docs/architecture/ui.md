@@ -83,7 +83,11 @@ details use the earliest future `WindowDetails.nextChange` for the selected acco
 reload recomputes presentation state from the clock, while the reset countdown uses a dynamic
 date display. This keeps stale and post-reset transitions moving without polling storage.
 
-**Actions.** Refresh, notification opt-in, Start Live Activity, pairing, and the diagnostics export each call one injected use case and show its typed outcome.
+**Actions.** Refresh, notification opt-in, Start/Stop Live Activity, pairing, and the diagnostics
+export each call one injected use case and show its typed outcome. The activity action is derived
+from the exact standard window's running state; it never guesses from cached UI state. Start is
+unavailable with an explanatory outcome when the observation is stale or its reset exceeds the
+eight-hour horizon.
 
 **Pairing and erasure.** The iPhone Settings model consumes `PairingStatusReadModel` and distinguishes local Forget Mac completion, pending Watch cache erasure, and a matching Watch receipt. It never labels a rendered complication frame as erased on the basis of that receipt. The Watch Settings model calls the owner-confirmed `EraseWatchData` use case and shows the local delivery hold until Reset Watch Pairing.
 

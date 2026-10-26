@@ -45,6 +45,12 @@ import UIKit
         }
     }
 
+    @Test func releasePreferencesFailClosedWithoutTheAppGroupSuite() throws {
+        #expect(throws: ReaderComposition.CompositionError.preferencesUnavailable) {
+            try ReaderComposition.preferenceStore(appGroupSuite: nil, build: .release)
+        }
+    }
+
     @Test func onlyADevelopmentTestLaunchSelectsASyntheticOrHostedMode() {
         let scenario = ReaderLaunch.current(
             arguments: ["app", ReaderLaunch.scenarioArgument, "paired"], environment: [:])

@@ -1,4 +1,5 @@
 import Foundation
+import ResetRadarApplication
 import ResetRadarDomain
 import SwiftUI
 
@@ -93,7 +94,7 @@ struct MacAccountDetailsView: View {
                     ) { item in
                         MacWindowDetailsCard(
                             account: account, source: model.snapshot?.source(for: account.id),
-                            detail: item, now: timeline.date,
+                            detail: item, model: model, now: timeline.date,
                             emphasized: item.id == focusedWindow.map { .standard($0) })
                     }
                     provenance
@@ -199,8 +200,10 @@ private struct MacWindowDetailsCard: View {
     let account: AccountMetadata
     let source: AccountSource?
     let detail: MacDetailWindow
+    @ObservedObject var model: HomeViewModel
     let now: Date
     let emphasized: Bool
+    @State private var remindersEnabled: Bool?
 
     private var display: MacAllowanceDisplay {
         guard let window = detail.window else { return .unavailable }
@@ -235,6 +238,7 @@ private struct MacWindowDetailsCard: View {
                 } else {
                     LabeledContent("Reset Time", value: "Not reported")
                 }
+                reminderToggle
                 Text(explanation)
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -250,6 +254,32 @@ private struct MacWindowDetailsCard: View {
                 .strokeBorder(
                     emphasized ? Color.accentColor : Color.secondary.opacity(0.25),
                     lineWidth: emphasized ? 2 : 1)
+        }
+        .task(id: selection.versionedID) {
+            remindersEnabled = await model.notificationOptIn(selection)
+        }
+    }
+
+    private var selection: WindowSelection {
+        switch detail.id {
+        case .standard(let standard):
+            .standard(AccountWindow(accountID: account.id, window: standard))
+        case .additional(let windowID): .additional(windowID)
+        }
+    }
+
+    @ViewBuilder private var reminderToggle: some View {
+        if detail.window != nil, let source, source.state != .incompatible {
+            Toggle(
+                "Reset Reminder",
+                isOn: Binding(
+                    get: { remindersEnabled ?? false },
+                    set: { enabled in
+                        remindersEnabled = enabled
+                        Task { _ = await model.setNotificationOptIn(selection, enabled: enabled) }
+                    })
+            )
+            .font(.callout)
         }
     }
 

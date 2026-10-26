@@ -35,10 +35,8 @@ final class MemorySelectionStore: AccountSelectionStore, @unchecked Sendable {
 }
 
 struct FixedSystemStatus: ReaderSystemStatus {
-    var notifications = NotificationAuthorization.denied
     var liveActivities: Bool? = true
 
-    func notificationAuthorization() async -> NotificationAuthorization { notifications }
     func liveActivitiesEnabled() async -> Bool? { liveActivities }
 }
 
@@ -71,7 +69,9 @@ final class ReaderHarness {
                 reader: store, snapshots: ReaderSnapshotStore(store: store), secrets: secrets,
                 relay: relay, cipher: cipher, codec: codec, random: random, clock: clock,
                 diagnostics: FakeDiagnosticsSink(), system: FixedSystemStatus(),
-                selection: selection, hasWatchStage: watch))
+                selection: selection, preferences: FakePreferenceStore(),
+                notificationGate: FakeNotificationReconcileGate(clock: clock), hasWatchStage: watch)
+        )
     }
 
     var state: ReaderState {

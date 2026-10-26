@@ -19,6 +19,8 @@ struct ReaderDependencies {
     var diagnostics: any DiagnosticsSink
     var system: any ReaderSystemStatus
     var selection: any AccountSelectionStore
+    var preferences: any PreferenceStore
+    var notificationGate: any NotificationReconcileGate
     /// False on iPad, which has no Watch stage.
     var hasWatchStage: Bool
 }
@@ -44,6 +46,7 @@ enum ReaderComposition {
     enum CompositionError: Error, Equatable {
         case appGroupUnavailable
         case keychainGroupUnavailable
+        case preferencesUnavailable
     }
 
     /// Release requires the shared App Group container. Development builds are unsigned, so on a
@@ -72,6 +75,23 @@ enum ReaderComposition {
         return value
     }
 
+    static func preferenceStore(
+        appGroupSuite: UserDefaults?, build: Build
+    ) throws(CompositionError) -> DefaultsPreferenceStore {
+        switch build {
+        case .release:
+            guard let appGroupSuite else { throw .preferencesUnavailable }
+            return DefaultsPreferenceStore(defaults: appGroupSuite)
+        case .development:
+            if let appGroupSuite { return DefaultsPreferenceStore(defaults: appGroupSuite) }
+            guard
+                let isolated = UserDefaults(
+                    suiteName: "com.unidentifiedstealthstartup.ResetRadar.debug")
+            else { throw .preferencesUnavailable }
+            return DefaultsPreferenceStore(defaults: isolated)
+        }
+    }
+
     @MainActor
     static func live() throws -> ReaderDependencies {
         let fileManager = FileManager.default
@@ -81,16 +101,21 @@ enum ReaderComposition {
             applicationSupport: URL.applicationSupportDirectory, build: .current)
         let accessGroup = try keychainAccessGroup(
             infoValue: Bundle.main.object(forInfoDictionaryKey: keychainGroupInfoKey))
+        let preferences = try preferenceStore(
+            appGroupSuite: UserDefaults(suiteName: appGroup), build: .current)
         let store = BackgroundTaskReaderStore(
             store: FileReaderStore(locations: locations), assertion: ApplicationBackgroundTask())
+        let clock = SystemReaderClock()
         return ReaderDependencies(
             reader: store, snapshots: ReaderSnapshotStore(store: store),
             secrets: KeychainSecretStore(
                 build: Build.current == .release ? .release : .debug, accessGroup: accessGroup),
             relay: HTTPRelayGateway(), cipher: AESGCMEnvelopeCipher(), codec: JSONPairingCodec(),
-            random: CryptoSecretGenerator(), clock: SystemReaderClock(),
+            random: CryptoSecretGenerator(), clock: clock,
             diagnostics: LogDiagnosticsSink(locations: locations),
             system: LiveReaderSystemStatus(), selection: UserDefaultsSelectionStore(),
+            preferences: preferences,
+            notificationGate: FileNotificationReconcileGate(locations: locations, clock: clock),
             hasWatchStage: UIDevice.current.userInterfaceIdiom == .phone)
     }
 }

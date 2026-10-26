@@ -3,14 +3,13 @@
 # with a scoped import (for example `import struct ResetRadarScheduling.ResetActivityAttributes`)
 # of a symbol listed under [scoped-symbols].
 ResetRadar: Domain Application Storage Transport Scheduling WatchSync UI
-ResetRadarWidgets: Domain Application Storage Transport Scheduling(scoped) UI
+ResetRadarWidgets: Domain Application Storage Transport Scheduling UI
 ResetRadarWatch: Domain Application Storage WatchSync UI
 ResetRadarWatchWidgets: Domain Application Storage UI
-ResetRadarMac: Domain Application Storage Transport ProviderAdapters UI
+ResetRadarMac: Domain Application Storage Transport Scheduling ProviderAdapters UI
 ResetRadarStatusLine: Domain ProviderAdapters
 ResetRadarTests: App Domain Application Storage Transport Scheduling WatchSync UI TestSupport
 ResetRadarUITests:
 ResetRadarMacTests: Mac Domain Application Storage Transport ProviderAdapters UI TestSupport
 ResetRadarWatchTests: Domain Application Storage WatchSync UI TestSupport
 [scoped-symbols]
-ResetRadarWidgets/ResetRadarScheduling: ResetActivityAttributes

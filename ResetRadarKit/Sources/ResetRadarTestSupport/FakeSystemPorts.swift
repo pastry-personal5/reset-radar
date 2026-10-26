@@ -5,6 +5,7 @@ import ResetRadarDomain
 public final class FakePreferenceStore: PreferenceStore, @unchecked Sendable {
     private struct State {
         var optIn: [AccountWindow: Bool] = [:]
+        var additionalOptIn: [WindowSelection: Bool] = [:]
         var complication = false
     }
 
@@ -18,6 +19,21 @@ public final class FakePreferenceStore: PreferenceStore, @unchecked Sendable {
 
     public func setNotificationOptIn(_ accountWindow: AccountWindow, enabled: Bool) async {
         state.withLock { $0.optIn[accountWindow] = enabled }
+    }
+
+    public func notificationOptIn(_ selection: WindowSelection) async -> Bool? {
+        switch selection {
+        case .standard(let accountWindow): return await notificationOptIn(accountWindow)
+        case .additional: return state.withLock { $0.additionalOptIn[selection] }
+        }
+    }
+
+    public func setNotificationOptIn(_ selection: WindowSelection, enabled: Bool) async {
+        switch selection {
+        case .standard(let accountWindow):
+            await setNotificationOptIn(accountWindow, enabled: enabled)
+        case .additional: state.withLock { $0.additionalOptIn[selection] = enabled }
+        }
     }
 
     public func complicationEnabled() async -> Bool { state.withLock { $0.complication } }
@@ -64,11 +80,12 @@ public final class FakeNotificationScheduler: NotificationScheduler, @unchecked 
     private struct State {
         var authorization: NotificationAuthorization = .authorized
         var grantOnRequest: NotificationAuthorization = .authorized
-        var requests: [AccountWindow: ResetRequest] = [:]
+        var requests: [WindowSelection: ResetRequest] = [:]
         var authorizationRequests = 0
         var scheduled: [ResetRequest] = []
         var cancelled: [AccountWindow] = []
         var scheduleFailure = false
+        var malformedOwned: Set<String> = []
     }
 
     private let state = Locked(State())
@@ -80,7 +97,19 @@ public final class FakeNotificationScheduler: NotificationScheduler, @unchecked 
     public var authorizationRequests: Int { state.withLock { $0.authorizationRequests } }
     public var scheduled: [ResetRequest] { state.withLock { $0.scheduled } }
     public var cancelled: [AccountWindow] { state.withLock { $0.cancelled } }
-    public var current: [AccountWindow: ResetRequest] { state.withLock { $0.requests } }
+    public var current: [AccountWindow: ResetRequest] {
+        state.withLock { state in
+            Dictionary(
+                uniqueKeysWithValues: state.requests.compactMap { _, request in
+                    request.accountWindow.map { ($0, request) }
+                })
+        }
+    }
+    public var selectionCurrent: [WindowSelection: ResetRequest] { state.withLock { $0.requests } }
+
+    public func seedMalformedOwned(identifier: String) {
+        state.withLock { $0.malformedOwned.insert(identifier) }
+    }
 
     public func setAuthorization(
         _ value: NotificationAuthorization, grantOnRequest: NotificationAuthorization? = nil
@@ -109,18 +138,45 @@ public final class FakeNotificationScheduler: NotificationScheduler, @unchecked 
         state.withLock { Array($0.requests.values) }
     }
 
+    public func ownedPendingIdentifiers() async -> Set<String> {
+        state.withLock { state in
+            Set(state.requests.values.map(\.identifier)).union(state.malformedOwned)
+        }
+    }
+
     public func schedule(_ request: ResetRequest) async throws {
         try state.withLock { state in
             if state.scheduleFailure { throw FakeStoreError.injected }
-            state.requests[request.accountWindow] = request
+            state.requests[request.selection] = request
             state.scheduled.append(request)
         }
     }
 
     public func cancel(accountWindow: AccountWindow) async {
+        await cancel(selection: .standard(accountWindow))
+    }
+
+    public func cancel(selection: WindowSelection) async {
         state.withLock { state in
-            state.requests[accountWindow] = nil
-            state.cancelled.append(accountWindow)
+            state.requests[selection] = nil
+            if case .standard(let accountWindow) = selection {
+                state.cancelled.append(accountWindow)
+            }
+        }
+    }
+
+    public func cancel(identifier: String) async {
+        state.withLock { state in
+            state.malformedOwned.remove(identifier)
+            let matches = state.requests.compactMap { selection, request in
+                request.identifier == identifier ? selection : nil
+            }
+            for selection in matches {
+                state.requests[selection] = nil
+                if case .standard(let accountWindow) = selection {
+                    state.cancelled.append(accountWindow)
+                }
+            }
         }
     }
 }
@@ -169,7 +225,9 @@ public final class FakeLiveActivityController: LiveActivityController, @unchecke
     public func list() async -> [RunningActivity] {
         state.withLock { state in
             state.running.map {
-                RunningActivity(accountWindow: $0.key, windowID: $0.value.content.windowID)
+                RunningActivity(
+                    accountWindow: $0.key, windowID: $0.value.content.windowID,
+                    startedAt: $0.value.content.startedAt)
             }
         }
     }

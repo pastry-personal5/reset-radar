@@ -18,6 +18,13 @@ public struct DefaultsPreferenceStore: PreferenceStore {
         "notificationOptIn.\(accountWindow.accountID.hex).\(accountWindow.window.rawValue)"
     }
 
+    private static func optInKey(_ selection: WindowSelection) -> String {
+        switch selection {
+        case .standard(let accountWindow): optInKey(accountWindow)
+        case .additional: "notificationOptIn.v1.\(selection.stableDigest)"
+        }
+    }
+
     public func notificationOptIn(_ accountWindow: AccountWindow) async -> Bool? {
         let key = Self.optInKey(accountWindow)
         guard defaults.object(forKey: key) != nil else { return nil }
@@ -26,6 +33,16 @@ public struct DefaultsPreferenceStore: PreferenceStore {
 
     public func setNotificationOptIn(_ accountWindow: AccountWindow, enabled: Bool) async {
         defaults.set(enabled, forKey: Self.optInKey(accountWindow))
+    }
+
+    public func notificationOptIn(_ selection: WindowSelection) async -> Bool? {
+        let key = Self.optInKey(selection)
+        guard defaults.object(forKey: key) != nil else { return nil }
+        return defaults.bool(forKey: key)
+    }
+
+    public func setNotificationOptIn(_ selection: WindowSelection, enabled: Bool) async {
+        defaults.set(enabled, forKey: Self.optInKey(selection))
     }
 
     public func complicationEnabled() async -> Bool {

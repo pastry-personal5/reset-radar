@@ -222,3 +222,24 @@ func fullSnapshot(
         #expect(decoded == export.events)
     }
 }
+
+@Suite struct LoadWindowSelectionTests {
+    let clock = FakeAppClock(start: epoch)
+
+    @Test func additionalSelectionsResolveOnlyTheirExactConcreteID() async {
+        let additional = window(scope: scopeA, limitID: "extra", minutes: 60, isDefault: false)
+        let store = FakeSnapshotStore(snapshot: snapshot(windows: [window(), additional]))
+        let query = LoadWindowSelection(
+            visible: VisibleSnapshot(snapshots: store), clock: clock)
+        let selected = WindowSelection.additional(additional.id)
+
+        guard case .window(_, _, let details) = await query.load(selected) else {
+            Issue.record("Expected an exact additional-window match")
+            return
+        }
+        #expect(details.window.id == additional.id)
+
+        try? await store.commitLocal(snapshot(windows: [window()]))
+        #expect(await query.load(selected) == .unavailable(selected))
+    }
+}

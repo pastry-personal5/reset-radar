@@ -142,6 +142,8 @@ The relay is a separate TypeScript package with its own internal layering: [rela
 | `ResetRadarStatusLine` | ✓ | | | | | | ✓ | |
 
 Watch targets and the status-line helper never import Transport, so they cannot reach the relay or a relay secret. The iOS widget extension imports Transport to run the same validated ingest as the app and Scheduling to reconcile opted-in reset notifications.
+`ResetRadarSchedulingTests` depends directly on Scheduling, Domain, Application, and TestSupport.
+These are existing local products, not new external dependencies.
 
 ## Platform targets
 
@@ -153,6 +155,11 @@ Watch targets and the status-line helper never import Transport, so they cannot 
 | Mac | macOS 26.7.1 | MacBook Pro, Apple M5 Max, 128 GB | `platform=macOS` |
 
 Building requires an Xcode whose SDKs are at least iOS 26.1, watchOS 26.6, and macOS 26.7, plus iOS and watchOS simulator runtimes at or above the minimums. Scaffolding confirms that Xcode and the Swift package accept the patch-level deployment targets. If either does not, the build setting uses the minor version (26.6 or 26.7), and the patch minimum remains the supported floor, validated on the reference devices. The iOS and iPadOS floor is the minor version 26.1, the oldest installable simulator runtime that creates both reference devices; it is proven only in the simulator, because the physical reference devices run a newer release.
+
+Every macOS target and configuration is Apple-silicon-only: `ARCHS` resolves to `arm64`,
+`x86_64` is excluded, and Intel Macs are unsupported. The contribution gate builds the unsigned
+Release app solely for architecture inspection and rejects any Mach-O executable that is not
+arm64-only; the separate signed Release scheme check remains authoritative for distribution.
 
 ## Interface structure
 
@@ -292,7 +299,7 @@ A user-visible diagnostics export requires confirmation. Normal operation uses u
 | Mac Keychain needs interaction at process start | Pause publication with `secretsUnavailable`, retry every minute and on session activation, then show the recovery screen. Never prompt and never regenerate secrets silently. A later Keychain lock does not evict secrets already held by the running process or pause it; Settings discloses this behavior. |
 | iPhone secrets unavailable before first unlock | Keep the cache, report `secretsUnavailable`, and retry on the next trigger. |
 | Pairing preflight, local save, or activation fails | A preflight read never activates the reader. Failed local save removes staged secrets. An interrupted activation response leaves `awaitingActivation` for idempotent retry; only a relay `401` clears the pending pairing. |
-| Widget commits while the app is not running | The extension reconciles opted-in reset notifications before its timeline completes, without asking for authorization. The app retries unfinished notification work and updates Live Activities and the Watch on its next run. |
+| Reader commits before post-commit work finishes | Every newer app or widget commit atomically marks reconciliation pending. The widget attempts already-authorized notification work without prompting; the app retries all installed stages before its next network read and clears the marker only for the same publisher and sequence. |
 | Relay returns `304` after the local cache was lost | Clear the old ETag and retry once unconditionally; do not treat the missing cache as current. |
 | A delayed Watch message arrives after Forget Mac or re-pairing | Reject a lower delivery revision, including an old clear or an old publisher. Preserve a durable clear tombstone and withhold new Watch usage until its matching erase receipt. A changed iPhone installation requires Watch-side reset confirmation. |
 | Watch unreachable during Forget Mac | Clear iPhone data immediately, retain a pending Watch clear, and report remote erasure as unconfirmed. Resend on Watch-session activation. A Watch-local erase is available; neither path promises immediate removal of a previously rendered complication frame. |
@@ -316,12 +323,15 @@ Each module and composition-root design lists its automated tests. The tests run
 Each of these is exercised on the reference devices in [Platform targets](#platform-targets). Synthetic data is used in isolated harnesses, and the real first-party tools only where noted. None of the harness code is product code.
 
 - **Shared storage and Keychain:**
-  - App Group sharing between the iOS app and widget extension, including the cross-process lock;
+  - App Group sharing between the iOS app and widget extension, including the cross-process lock
+    and bidirectional shared-preference visibility;
   - Watch App Group sharing between the Watch app and its complication;
   - iOS Keychain access after first unlock from the app and the widget extension; and
   - Mac login-Keychain access with no dialog across a rebuild, at login launch after a reboot, and at least eight days after signing, plus an error, never a dialog, for an ad-hoc build or a keychain locked before launch; a later lock preserves the running process's cached-secret behavior;
   - iOS Keychain items still readable by the app and widget extension after a Sideloadly re-sign; and
-  - an app suspended, or a background task expiring, during a locked claim or commit leaves no held lock and no termination.
+  - an app suspended, or a background task expiring, during a locked claim or commit leaves no held
+    lock and no termination; expiration releases its claim without falsely recording a relay
+    failure or backoff.
 - **Refresh timing:**
   - Mac timer drift with the main window closed over 24 hours, confirming App Nap is held off;
   - the actual run intervals of the iOS background task over 24 hours; and
@@ -330,7 +340,9 @@ Each of these is exercised on the reference devices in [Platform targets](#platf
   - notification replacement and cancellation from a widget-only commit, including expiry before reconciliation completes.
 - **WidgetKit and ActivityKit:**
   - WidgetKit configuration and timeline-entry degradation at threshold crossings;
-  - Live Activity start, update, stale display, the eight-hour end, and absence on iPad.
+  - Live Activity fresh-start eligibility, out-of-horizon rejection and policy end, stop, update,
+    stale display, soonest-reset relevance with stable account-number ties, system end after eight
+    hours, possible Lock Screen retention for four more hours, and absence on iPad.
 - **Notifications:**
   - local notification reconciliation on iPhone, iPad, and Mac;
   - a fixed fire instant across a time-zone change.
@@ -342,8 +354,8 @@ Each of these is exercised on the reference devices in [Platform targets](#platf
   - complication reload.
 - **Mac and installation:**
   - `SMAppService.mainApp` state;
-  - Sideloadly installation on iPhone, iPad, and Watch.
   - physical iPhone QR pairing;
+  - Sideloadly installation on iPhone, iPad, and Watch.
 - **First-party tools:**
   - Codex app-server method and field shape, default-bucket identity, notification frequency, and child exit on standard-input close;
   - legitimate Codex JSON-RPC messages fitting the bounded frame, string, nesting, and window limits;

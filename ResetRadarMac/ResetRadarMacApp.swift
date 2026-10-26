@@ -156,6 +156,7 @@ final class MacBootstrap: ObservableObject {
 
 @main
 struct ResetRadarMacApp: App {
+    @NSApplicationDelegateAdaptor private var appDelegate: ResetRadarMacAppDelegate
     @StateObject private var bootstrap = MacBootstrap()
 
     var body: some Scene {

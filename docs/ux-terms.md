@@ -90,5 +90,6 @@ authorize the phone to contact a product source directly.
 | Application configuration destination | **Settings** | `settings` | Opens from the top-right Settings button on iOS All and from the standard macOS Settings scene. |
 | Watch-face presentation | **Allowance Complication** | `allowanceComplication` | Shows one user-selected account window from the Watch cache. |
 | User-started short-window activity | **Reset Live Activity** | `resetLiveActivity` | Shows one eligible five-hour account window on iPhone until reset, invalidation, or account removal. |
+| End the selected window's running activity | **Stop Live Activity** | `stopLiveActivity` | Replaces Start Live Activity for that exact running window and dismisses it immediately. |
 
 Toolbar icons are original, neutral, monochrome template bitmaps that accept platform tint. The icon metaphors, in toolbar order, are house, faceted gem, three-person group, lightbulb, and three horizontal bars.

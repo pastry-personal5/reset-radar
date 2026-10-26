@@ -43,6 +43,7 @@ public actor IngestRelaySnapshot {
     }
 
     public func run(trigger: FetchTrigger, inAppProcess: Bool) async -> IngestOutcome {
+        guard !Task.isCancelled else { return .skipped }
         let claimed: ClaimedFetch
         do {
             switch try await claims.claim(trigger: trigger) {
@@ -54,16 +55,41 @@ public actor IngestRelaySnapshot {
             return .storageFailed
         }
         let verdict = await fetch(claimed)
+        // A background-task expiration is not a relay failure. Release only our lease so a
+        // later foreground or system request can make a fresh attempt without inheriting
+        // failure backoff or an offline presentation.
+        guard !Task.isCancelled else {
+            await abandon(claimed)
+            return .skipped
+        }
         guard let applied = await apply(verdict, to: claimed, inAppProcess: inAppProcess) else {
             return .storageFailed
         }
+        // If expiration arrives after the atomic commit, leave the durable reconciliation marker
+        // for the next app execution instead of running system stages on expired background time.
+        guard !Task.isCancelled else { return .skipped }
         await notify(applied, verdict: verdict, inAppProcess: inAppProcess)
         return applied.outcome
     }
 
+    private func abandon(_ claimed: ClaimedFetch) async {
+        let claimID = claimed.claim.id
+        let reader = reader
+        // Storage lock acquisition correctly refuses cancelled tasks. Perform this bounded,
+        // ownership-checked cleanup in a fresh task so expiration cannot strand its own lease.
+        await Task.detached {
+            _ = try? await reader.transact { state in
+                guard state.lease?.id == claimID else { return }
+                state.lease = nil
+            }
+        }.value
+    }
+
     private func notify(_ applied: Applied, verdict: Verdict, inAppProcess: Bool) async {
         guard let state = try? await reader.load(), let snapshot = state.snapshot else { return }
-        let event = CommitEvent(snapshot: snapshot, process: inAppProcess ? .app : .widget)
+        let event = CommitEvent(
+            snapshot: snapshot, process: inAppProcess ? .app : .widget,
+            relaySequence: state.committedSequence ?? 0)
         if applied.outcome == .committed {
             await afterCommit.run(event)
         } else if applied.statusChanged && inAppProcess {
@@ -190,7 +216,9 @@ public actor IngestRelaySnapshot {
             state.committedSequence = sequence
             state.etag = etag
             state.lastCommitAt = now
-            if !inAppProcess { state.needsAppReconcile = true }
+            // The commit and durable catch-up marker must be atomic: an app can terminate after
+            // this transaction but before its post-commit surfaces run just as a widget can.
+            state.needsAppReconcile = true
             return .committed
         case .notModified:
             markSuccess(&state, now: now, status: .current)

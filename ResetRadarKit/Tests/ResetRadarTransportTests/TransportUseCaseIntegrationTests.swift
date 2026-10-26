@@ -6,7 +6,7 @@ import ResetRadarTransport
 import Testing
 
 private struct NoOpAfterCommitStep: AfterCommitStep {
-    func afterCommit(_ event: CommitEvent) async {}
+    func afterCommitOutcome(_ event: CommitEvent) async -> AfterCommitOutcome { .complete }
 }
 
 private func sealedOutcome(

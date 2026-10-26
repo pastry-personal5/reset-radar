@@ -104,7 +104,7 @@ its diagnostic.
 | `AccountMetadata` | Account ID, product, global positive account number, and optional alias. The catalog permits at most two Codex rows and one Claude Code row. |
 | `AccountWindow` | Account ID plus the standard `fiveHour` or `weekly` discriminator. The stable key for Home rings, medium widget windows, Watch complication configuration, and five-hour Live Activities. |
 | `WindowID` | Composite of Account ID, product, provider account scope when available, provider limit ID, and duration discriminator; never an array position. It identifies one concrete provider window and changes when the provider scope changes. |
-| `WindowSelection` | One standard `AccountWindow` or one additional concrete `WindowID`. Per-device notification opt-in, small and Lock Screen widget configuration, and the read-only App Intent use it. A missing additional ID is unavailable, and the saved choice resumes only if the exact ID returns; it never falls back to a sibling window. |
+| `WindowSelection` | A versioned tagged value containing one standard `AccountWindow` or one additional concrete `WindowID`. Per-device notification opt-in, small and Lock Screen widget configuration, and the read-only App Intent use it. Its canonical identity encoding is length-delimited and stable for preference/entity keys and adapter-side digests; it is not a transport wire-profile change. A missing additional ID is unavailable, and the saved choice resumes only if the exact ID returns; it never falls back to a sibling window. |
 | `AccountScope` | Codex only: an opaque 128-bit value. How it is derived is defined in [Transport](transport.md#account-scope); the domain only compares it. Claude Code exposes no account identifier, so its windows carry no scope. |
 | `PublisherID` | Random 256-bit identifier for one Mac/relay relationship. |
 | `ReaderID` | Random opaque identifier for one paired iPhone or iPad. |
@@ -189,6 +189,14 @@ no other duration is inferred. No match yields an unavailable ring. More than on
 yields an unavailable ring plus a diagnostic. Every other valid window appears in Account Details
 and diagnostics without taking a Home ring.
 
+`WindowSelectionResolver` resolves a standard selection through `AccountWindowResolver` and an
+additional selection by exact `WindowID` within the same visible snapshot. It never treats an
+additional window that happens to match a standard duration as the standard selection, and it
+never rewrites a missing ID. The canonical identity encoding includes the selection tag and every
+identity component, including optional-scope and optional-duration presence, so two distinct
+selections cannot be concatenation aliases. Scheduling may hash these bytes for a bounded system
+identifier; persisted values and App Intent entities retain the versioned tagged value itself.
+
 ## Availability
 
 Availability has independent inputs, so the passage of time never depends on a device that may be asleep or offline.
@@ -230,7 +238,8 @@ Claude Code. Both were confirmed by owner-present source calibration on 2026-10-
 - unknown enum values and unknown mandatory schema versions;
 - account-window resolution, including the ambiguous case of two default windows with the same duration;
 - `WindowSelection` identity for standard and additional windows, exact-ID return, and a changed
-  provider scope that never retargets an additional selection;
+  provider scope that never retargets an additional selection; canonical-identity test vectors,
+  optional-field separation, and decode rejection for unknown mandatory selection versions;
 - the presentation-state precedence at each threshold crossing, including a retained Home window after its last reset, the next-change instant, and clock skew;
 - manual-refresh result validation, per-reader retention cap, expiry, and wrong-reader matching;
 - Mac liveness; and

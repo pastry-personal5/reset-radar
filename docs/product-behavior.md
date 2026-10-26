@@ -38,14 +38,21 @@ Status: Active. Approved by the owner in [Phase 1 owner decisions](phase-1/owner
   time zone. A user may opt into one local reset notification per account window on each iPhone,
   iPad, or Mac, including additional valid provider windows; the same reset can therefore alert
   on more than one device. A temporarily missing additional window cancels its pending request;
-  its opt-in resumes only if that exact window returns.
+  its opt-in resumes only if that exact window returns. Fully authorized reset notifications use
+  the default sound and show a foreground banner while Reset Radar is active; provisional
+  authorization remains quiet.
 - The iOS app runs natively on iPhone and iPad with the same Account List, Account Details,
   Settings, and widgets. iPad uses a split list/detail Home and has no Live Activities or paired
   Apple Watch.
 - The app shows configurable small Home Screen and rectangular Lock Screen widgets and a read-only
   App Intent for any valid provider window; the medium widget shows one account's two standard
-  windows. It includes user-started Live Activities for eligible five-hour windows. A stale Live Activity
-  remains visibly stale until its known reset; weekly windows are not Live Activities.
+  windows. It includes user-started Live Activities for eligible five-hour windows, with an
+  immediate Stop action for the selected running window. Start requires a fresh reading whose
+  reset fits within the activity's eight-hour horizon. A stale running activity remains visibly
+  stale until its known reset; if an updated reset leaves the horizon, the activity ends
+  immediately. The soonest reset has highest Dynamic Island relevance, with stable account number
+  as the tie-breaker. Weekly windows are not Live Activities. Widget timelines request routine
+  reload after 30 minutes, but the system may delay or omit execution.
 - The first version includes an Apple Watch app with an N-by-two account/window ring matrix,
   stable pastel account palettes, account-scoped details, and one configurable account-window
   complication. It receives normalized snapshots through the paired iPhone and does not connect

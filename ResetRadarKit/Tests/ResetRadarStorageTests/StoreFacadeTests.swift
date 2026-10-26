@@ -97,6 +97,44 @@ struct DefaultsPreferenceStoreTests {
         #expect(await other.notificationOptIn(codexWeekly) == nil)
         #expect(await other.complicationEnabled() == false)
     }
+
+    @Test func standardSelectionUsesTheExistingAccountWindowKeyInBothDirections() async {
+        let (defaults, name) = suite()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let store = DefaultsPreferenceStore(defaults: defaults)
+        let selection = WindowSelection.standard(codexWeekly)
+
+        await store.setNotificationOptIn(codexWeekly, enabled: true)
+        #expect(await store.notificationOptIn(selection) == true)
+        await store.setNotificationOptIn(selection, enabled: false)
+        #expect(await store.notificationOptIn(codexWeekly) == false)
+    }
+
+    @Test func additionalSelectionsUseBoundedDistinctKeysVisibleAcrossInstances() async {
+        let (defaults, name) = suite()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let first = DefaultsPreferenceStore(defaults: defaults)
+        let second = DefaultsPreferenceStore(defaults: UserDefaults(suiteName: name)!)
+        let scopeA = AccountScope(data: bytes(16, 0xA1))!
+        let scopeB = AccountScope(data: bytes(16, 0xB1))!
+        let selectionA = WindowSelection.additional(
+            WindowID(
+                accountID: codexAccountID, product: .codex, scope: scopeA, limitID: "burst",
+                durationMinutes: 60))
+        let selectionB = WindowSelection.additional(
+            WindowID(
+                accountID: codexAccountID, product: .codex, scope: scopeB, limitID: "burst",
+                durationMinutes: 60))
+
+        await first.setNotificationOptIn(selectionA, enabled: true)
+        #expect(await second.notificationOptIn(selectionA) == true)
+        #expect(await second.notificationOptIn(selectionB) == nil)
+        let ownedKeys = defaults.dictionaryRepresentation().keys.filter {
+            $0.hasPrefix("notificationOptIn.v1.")
+        }
+        #expect(ownedKeys.count == 1)
+        #expect(ownedKeys.first?.count == 85)
+    }
 }
 
 struct FileNotificationReconcileGateTests {

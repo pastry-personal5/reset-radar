@@ -62,6 +62,9 @@ lint:
 imports:
 	Scripts/check-imports.sh
 
+mac-arch-check: generate
+	Scripts/check-mac-architecture.sh
+
 test-mac:
 	@xcodebuild -quiet test -scheme ResetRadarMac -destination 'platform=macOS'
 
@@ -99,4 +102,4 @@ test-apple:
 test:
 	+@$(MAKE) --no-print-directory -j2 test-apple relay-test
 
-gate: generate format-check lint imports test-mac test-ios-ipad relay-ci
+gate: generate format-check lint imports mac-arch-check test-mac test-ios-ipad relay-ci

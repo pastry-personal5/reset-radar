@@ -34,6 +34,15 @@ import Testing
         #expect(await make().start(accountWindow: codexFiveHour) == .unavailable)
     }
 
+    @Test func aStaleReadingOrAnOutOfHorizonResetCannotStart() async throws {
+        try await store.commitLocal(
+            fullSnapshot(observedAt: epoch.addingTimeInterval(-901)))
+        #expect(await make().start(accountWindow: codexFiveHour) == .unavailable)
+
+        try await store.commitLocal(fullSnapshot(fiveHourReset: 8 * 60 * 60 + 1))
+        #expect(await make().start(accountWindow: codexFiveHour) == .unavailable)
+    }
+
     @Test(arguments: [
         (3_600.0, 900.0), (600.0, 600.0), (900.0, 900.0), (901.0, 900.0), (899.0, 899.0),
     ])
@@ -48,8 +57,30 @@ import Testing
         _ = await use.start(accountWindow: codexFiveHour)
         try await store.commitLocal(fullSnapshot(fiveHourReset: 3_000))
         await use.run()
-        #expect(controller.updates == [codexFiveHour])
+        #expect(controller.updates == [codexFiveHour, codexFiveHour])
         #expect(controller.running[codexFiveHour]?.content.resetsAt == at(3_000))
+        #expect(controller.running[codexFiveHour]?.content.accountLabel == "Account #1")
+        #expect(controller.running[codexFiveHour]?.content.product == .codex)
+        #expect(controller.running[codexFiveHour]?.content.window == .standard(.fiveHour))
+    }
+
+    @Test func soonestResetGetsHighestRelevanceWithStableAccountNumberTies() async {
+        let use = make()
+        _ = await use.start(accountWindow: codexFiveHour)
+        _ = await use.start(accountWindow: claudeFiveHour)
+        let codex = controller.running[codexFiveHour]?.content.relevanceScore
+        let claude = controller.running[claudeFiveHour]?.content.relevanceScore
+        #expect(claude != nil && codex != nil)
+        #expect((claude ?? 0) > (codex ?? 0))
+    }
+
+    @Test func anUpdateOutsideTheOriginalEightHourHorizonEndsTheActivity() async throws {
+        let use = make()
+        _ = await use.start(accountWindow: codexFiveHour)
+        try await store.commitLocal(fullSnapshot(fiveHourReset: 8 * 60 * 60 + 1))
+        await use.run()
+        #expect(controller.ends == [codexFiveHour])
+        #expect(controller.running.isEmpty)
     }
 
     @Test func anActivityEndsWithImmediateDismissalWhenItsResetHasPassed() async {
@@ -72,6 +103,14 @@ import Testing
         let use = make()
         _ = await use.start(accountWindow: codexFiveHour)
         try await store.clear()
+        await use.run()
+        #expect(controller.ends == [codexFiveHour])
+    }
+
+    @Test func anActivityEndsWhenItsSourceBecomesIncompatible() async throws {
+        let use = make()
+        _ = await use.start(accountWindow: codexFiveHour)
+        try await store.commitLocal(fullSnapshot(codexState: .incompatible))
         await use.run()
         #expect(controller.ends == [codexFiveHour])
     }

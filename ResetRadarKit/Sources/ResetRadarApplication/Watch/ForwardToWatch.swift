@@ -19,35 +19,48 @@ public actor ForwardToWatch: AfterCommitStep {
         self.clock = clock
     }
 
-    public func afterCommit(_ event: CommitEvent) async {
-        await send(after: event)
+    public func afterCommitOutcome(_ event: CommitEvent) async -> AfterCommitOutcome {
+        await sendOutcome(after: event)
     }
 
     public func send(after event: CommitEvent) async {
-        guard let state = try? await reader.load() else { return }
+        _ = await sendOutcome(after: event)
+    }
+
+    private func sendOutcome(after event: CommitEvent) async -> AfterCommitOutcome {
+        let state: ReaderState
+        do {
+            state = try await reader.load()
+        } catch {
+            return .retryable
+        }
         if let erasure = state.watchErasePending {
             // Later usage waits for the receipt: only the saved clear goes out.
             await deliver(erasure.clear)
-            return
+            return .complete
         }
-        guard !state.forgetCleanupPending, !state.awaitingActivation, state.pairing != nil,
-            let payload = await persistPayload(for: event)
-        else { return }
+        guard !state.forgetCleanupPending, !state.awaitingActivation, state.pairing != nil else {
+            return .complete
+        }
+        let payload: WatchPayload
+        do {
+            payload = try await persistPayload(for: event)
+        } catch {
+            return .retryable
+        }
         await deliver(payload)
-        await transferComplication(payload, snapshot: event.snapshot)
+        return await transferComplication(payload, snapshot: event.snapshot)
     }
 
     /// Persists one revision per distinct payload before anything is sent.
-    private func persistPayload(for event: CommitEvent) async -> WatchPayload? {
+    private func persistPayload(for event: CommitEvent) async throws -> WatchPayload {
         let snapshot = Self.watchCopy(of: event.snapshot)
-        return try? await reader.transact { state -> WatchPayload? in
-            guard
-                let candidate = try? WatchPayload(
-                    installationID: state.installationID, deliveryRevision: 0, snapshot: snapshot,
-                    relaySequence: state.committedSequence, transportStatus: state.transportStatus,
-                    lastRelayContactAt: state.lastContactAt, lastCommitAt: state.lastCommitAt,
-                    cleared: false)
-            else { return nil }
+        return try await reader.transact { state in
+            let candidate = try WatchPayload(
+                installationID: state.installationID, deliveryRevision: 0, snapshot: snapshot,
+                relaySequence: state.committedSequence, transportStatus: state.transportStatus,
+                lastRelayContactAt: state.lastContactAt, lastCommitAt: state.lastCommitAt,
+                cleared: false)
             if let last = state.lastWatchPayload, last.withRevision(0) == candidate {
                 return last
             }
@@ -56,7 +69,7 @@ public actor ForwardToWatch: AfterCommitStep {
             let payload = candidate.withRevision(state.watchDeliveryRevision)
             state.lastWatchPayload = payload
             return payload
-        } ?? nil
+        }
     }
 
     /// The Watch needs usage state, not other readers' opaque request results.
@@ -74,28 +87,37 @@ public actor ForwardToWatch: AfterCommitStep {
         try? await watch.sendContext(payload)
     }
 
-    private func transferComplication(_ payload: WatchPayload, snapshot: UsageSnapshot) async {
+    private func transferComplication(
+        _ payload: WatchPayload, snapshot: UsageSnapshot
+    ) async -> AfterCommitOutcome {
         let now = clock.now
         let values = Self.complicationValues(of: snapshot, now: now)
         let enabled = await preferences.complicationEnabled()
-        let allowed = try? await reader.transact { state -> Bool in
-            let budget = ComplicationBudgetState(
-                enabled: enabled, transfers: state.complicationTransfers)
-            guard
-                ComplicationBudgetPolicy.allows(
-                    state: budget, changedSince: values != state.lastComplicationValues, now: now)
-            else { return false }
-            // Deliberately counted before the transfer: a failed transfer still spends budget,
-            // which keeps the system's daily allowance safe, and the unchanged values are not
-            // retried until they change.
-            state.complicationTransfers =
-                state.complicationTransfers.filter {
-                    now.timeIntervalSince($0) < ComplicationBudgetPolicy.window
-                } + [now]
-            state.lastComplicationValues = values
-            return true
+        let allowed: Bool
+        do {
+            allowed = try await reader.transact { state -> Bool in
+                let budget = ComplicationBudgetState(
+                    enabled: enabled, transfers: state.complicationTransfers)
+                guard
+                    ComplicationBudgetPolicy.allows(
+                        state: budget, changedSince: values != state.lastComplicationValues,
+                        now: now)
+                else { return false }
+                // Deliberately counted before the transfer: a failed transfer still spends budget,
+                // which keeps the system's daily allowance safe, and the unchanged values are not
+                // retried until they change.
+                state.complicationTransfers =
+                    state.complicationTransfers.filter {
+                        now.timeIntervalSince($0) < ComplicationBudgetPolicy.window
+                    } + [now]
+                state.lastComplicationValues = values
+                return true
+            }
+        } catch {
+            return .retryable
         }
-        if allowed == true { try? await watch.transferComplication(payload) }
+        if allowed { try? await watch.transferComplication(payload) }
+        return .complete
     }
 
     static func complicationValues(of snapshot: UsageSnapshot, now: Date) -> ComplicationValues {

@@ -3,8 +3,8 @@
 Status: Active
 
 This record captures the owner's decisions after reviewing the P1-M1 research results, subsequent
-architecture choices, the 2026-10-24 P1-M10 account-model revision, and the 2026-10-26 M15
-scheduling review. These decisions constrain Phase 1 work; validation gates listed here remain
+architecture choices, the 2026-10-24 P1-M10 account-model revision, and the 2026-10-26 through
+2026-10-27 M15 scheduling reviews. These decisions constrain Phase 1 work; validation gates listed here remain
 mandatory and are not implied to have passed.
 
 ## Product and security boundaries
@@ -59,6 +59,22 @@ after the reset; ActivityKit's eight-hour active-lifetime limit is the fallback 
 does not run. Background execution is not guaranteed. These choices resolve the M15 all-window
 and stale-lifecycle questions without changing the standard Home rings, medium widget, Watch
 complication, or Live Activity eligibility.
+
+On 2026-10-27 the owner chose the default notification sound and foreground banners for reset
+notifications on iPhone, iPad, and Mac. A provisional authorization remains quiet; the app does
+not override the system's provisional-delivery behavior.
+
+On 2026-10-27 the owner chose a 30-minute routine WidgetKit reload request interval. Timelines
+still contain known stale, reset, and invalidation transitions; the interval is an earliest
+request only, and the system may delay or omit execution.
+
+On 2026-10-27 the owner required a fresh observation to start a Reset Live Activity. A reset more
+than eight hours after start is ineligible; if an update moves a running activity's reset beyond
+its `startedAt + 8 hours` horizon, the app ends it immediately. When several activities run, the
+soonest reset receives highest Dynamic Island relevance, with stable global account number as the
+tie-breaker. The owner also approved linking the existing local `ResetRadarScheduling` product
+into the Mac target and adding direct `ResetRadarDomain` and `ResetRadarApplication` dependencies
+to `ResetRadarSchedulingTests`; no external dependency is approved.
 
 ## Synchronization and freshness
 
@@ -135,7 +151,9 @@ The owner made these decisions on 2026-10-19 while reviewing the [software archi
   | Apple Watch | Apple Watch Series 11 (42mm) | watchOS 26.6 |
   | Mac | MacBook Pro, Apple M5 Max, 128 GB | macOS 26.7.1 |
 
-  The same models are the simulator destinations. See [Platform targets](../architecture.md#platform-targets).
+  The same models are the simulator destinations. Every Mac target and configuration builds only
+  `arm64`; `x86_64` slices and Intel Mac support are excluded. See
+  [Platform targets](../architecture.md#platform-targets).
 
 ## P1-M14 decisions
 

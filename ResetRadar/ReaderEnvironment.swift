@@ -1,11 +1,54 @@
+import BackgroundTasks
+// This object intentionally owns the full iOS scene, refresh, pairing, and scheduling
+// composition. Its private state is tightly coupled and tested through the single environment.
+// swiftlint:disable file_length
 import Foundation
 import ResetRadarApplication
 import ResetRadarDomain
+import ResetRadarScheduling
 import ResetRadarUI
+import UIKit
 
-/// The iOS process's object graph and its scene, ticker, and manual-refresh drivers. Policy
-/// stays in the use cases: this type only routes events and publishes their read models.
 @MainActor
+private struct ReaderScheduling {
+    let notifications: any NotificationScheduler
+    let activities: any LiveActivityController
+    let setNotificationOptIn: SetNotificationOptIn
+    let liveActivities: ReconcileLiveActivities
+    let afterCommit: AfterCommitPipeline
+
+    init(
+        dependencies: ReaderDependencies, visible: VisibleSnapshot,
+        reloader: any SurfaceReloader
+    ) {
+        let notifications = SystemNotificationScheduler()
+        let activities: any LiveActivityController
+        if dependencies.hasWatchStage, #available(iOS 16.1, *) {
+            activities = SystemLiveActivityController()
+        } else {
+            activities = UnavailableLiveActivityController()
+        }
+        let reminders = ReconcileResetNotifications(
+            visible: visible, preferences: dependencies.preferences, scheduler: notifications,
+            gate: dependencies.notificationGate, clock: dependencies.clock)
+        let liveActivities = ReconcileLiveActivities(
+            visible: visible, controller: activities, clock: dependencies.clock)
+        self.notifications = notifications
+        self.activities = activities
+        self.setNotificationOptIn = SetNotificationOptIn(
+            preferences: dependencies.preferences, scheduler: notifications,
+            reconcile: reminders)
+        self.liveActivities = liveActivities
+        afterCommit = AfterCommitPipeline(
+            reader: dependencies.reader, reloader: reloader, notifications: reminders,
+            liveActivities: liveActivities, watch: nil)
+    }
+}
+
+// The iOS process's object graph and its scene, ticker, and manual-refresh drivers. Policy
+// stays in the use cases: this type only routes events and publishes their read models.
+@MainActor
+// swiftlint:disable:next type_body_length
 final class ReaderEnvironment: ObservableObject {
     enum PairingStep: Equatable {
         case entry
@@ -26,11 +69,13 @@ final class ReaderEnvironment: ObservableObject {
     @Published private(set) var forgetMessage: String?
     @Published private(set) var notificationAuthorization = NotificationAuthorization.notDetermined
     @Published private(set) var liveActivitiesEnabled: Bool?
+    @Published private(set) var backgroundRefreshAvailable = true
     @Published private(set) var selectedAccountID: AccountID?
 
     let hasWatchStage: Bool
 
     private let clock: any AppClock
+    private let reader: any ReaderStore
     private let refreshClock: ForegroundWaitClock
     private let system: any ReaderSystemStatus
     private let selection: any AccountSelectionStore
@@ -42,11 +87,17 @@ final class ReaderEnvironment: ObservableObject {
     private let requestRefresh: RequestMacRefresh
     private let acceptPairing: AcceptPairing
     private let forgetMac: ForgetMac
+    private let preferences: any PreferenceStore
+    private let notifications: any NotificationScheduler
+    private let setNotificationOptIn: SetNotificationOptIn
+    private let liveActivities: ReconcileLiveActivities
+    private let afterCommit: AfterCommitPipeline
     private let exportDiagnostics: ExportDiagnostics
     private var preview: PairingPreview?
     private var activation: Task<Void, Never>?
     private var ticker: Task<Void, Never>?
     private var changeReload: Task<Void, Never>?
+    private var systemChangeTasks: [Task<Void, Never>] = []
     private var refreshTask: Task<Void, Never>?
     /// Pull-to-refresh callers, resumed once the request is accepted or the Refresh ends.
     private var acceptanceWaiters: [UUID: CheckedContinuation<Void, Never>] = [:]
@@ -56,22 +107,27 @@ final class ReaderEnvironment: ObservableObject {
 
     init(dependencies: ReaderDependencies) {
         let deps = dependencies
+        reader = deps.reader
         clock = deps.clock
         refreshClock = ForegroundWaitClock(base: deps.clock)
         system = deps.system
         selection = deps.selection
+        preferences = deps.preferences
         hasWatchStage = deps.hasWatchStage
-        let reloader = PendingSchedulingReloader()
+        let reloader = WidgetCenterReloader()
+        let visible = VisibleSnapshot(snapshots: deps.snapshots, reader: deps.reader)
+        let scheduling = ReaderScheduling(
+            dependencies: deps, visible: visible, reloader: reloader)
+        notifications = scheduling.notifications
+        setNotificationOptIn = scheduling.setNotificationOptIn
         // Scheduling replaces the notification and Live Activity steps; WatchSync adds the
         // Watch stage.
-        let afterCommit = AfterCommitPipeline(
-            reader: deps.reader, reloader: reloader, notifications: PendingSchedulingStep(),
-            liveActivities: PendingSchedulingStep(), watch: nil)
-        let visible = VisibleSnapshot(snapshots: deps.snapshots, reader: deps.reader)
+        liveActivities = scheduling.liveActivities
+        afterCommit = scheduling.afterCommit
         let ingest = IngestRelaySnapshot(
             reader: deps.reader, secrets: deps.secrets, cipher: deps.cipher, relay: deps.relay,
             random: deps.random, clock: deps.clock, diagnostics: deps.diagnostics,
-            afterCommit: afterCommit)
+            afterCommit: scheduling.afterCommit)
         self.ingest = ingest
         loadHome = LoadHome(visible: visible, clock: deps.clock)
         loadDetails = LoadUsageDetails(visible: visible, clock: deps.clock)
@@ -81,14 +137,16 @@ final class ReaderEnvironment: ObservableObject {
             clock: refreshClock, ingest: ingest)
         acceptPairing = AcceptPairing(
             reader: deps.reader, secrets: deps.secrets, relay: deps.relay, cipher: deps.cipher,
-            codec: deps.codec, clock: deps.clock, afterCommit: afterCommit)
+            codec: deps.codec, clock: deps.clock, afterCommit: scheduling.afterCommit)
         // Until WatchConnectivity is wired there is no link: a saved clear stays pending.
         forgetMac = ForgetMac(
             reader: deps.reader, secrets: deps.secrets,
-            notifications: PendingNotificationScheduler(),
-            activities: PendingLiveActivityController(), reloader: reloader, watch: nil)
+            notifications: scheduling.notifications, activities: scheduling.activities,
+            reloader: reloader, watch: nil)
         exportDiagnostics = ExportDiagnostics(diagnostics: deps.diagnostics, clock: deps.clock)
         selectedAccountID = deps.selection.load()
+        backgroundRefreshAvailable = BackgroundRefreshDriver.register(environment: self)
+        observeSystemTimeChanges()
     }
 
     var setupStep: ReaderSetupStep? {
@@ -100,6 +158,28 @@ final class ReaderEnvironment: ObservableObject {
 
     func accountDetails(_ accountID: AccountID) -> AccountDetails? {
         details.accounts.first { $0.account.id == accountID }
+    }
+
+    func notificationOptIn(_ selection: WindowSelection) async -> Bool? {
+        await preferences.notificationOptIn(selection)
+    }
+
+    func setNotificationOptIn(_ selection: WindowSelection, enabled: Bool) async -> OptInOutcome {
+        let outcome = await setNotificationOptIn.set(selection, enabled: enabled)
+        notificationAuthorization = await notifications.authorization()
+        return outcome
+    }
+
+    func liveActivityRunning(_ accountWindow: AccountWindow) async -> Bool {
+        await liveActivities.isRunning(accountWindow: accountWindow)
+    }
+
+    func toggleLiveActivity(_ accountWindow: AccountWindow) async -> ActivityStartOutcome? {
+        if await liveActivities.isRunning(accountWindow: accountWindow) {
+            await liveActivities.stop(accountWindow: accountWindow)
+            return nil
+        }
+        return await liveActivities.start(accountWindow: accountWindow)
     }
 
     // MARK: scene
@@ -117,6 +197,8 @@ final class ReaderEnvironment: ObservableObject {
                     _ = await forgetMac.retryCleanup()
                 }
                 _ = await acceptPairing.resumeActivation()
+                await afterCommit.reconcilePending()
+                await afterCommit.reconcileCurrent()
                 await reload()
                 _ = await ingest.run(trigger: .foregroundActivation, inAppProcess: true)
                 await reload()
@@ -136,13 +218,61 @@ final class ReaderEnvironment: ObservableObject {
         changeReload?.cancel()
         changeReload = nil
         if refresh?.isRunning == true { refreshClock.cancelWaits() }
+        Task { await scheduleBackgroundRefresh() }
+    }
+
+    func runBackgroundRefresh(_ task: any BackgroundRefreshTask) async {
+        await runBackgroundRefresh(task) { [weak self] in
+            await self?.scheduleBackgroundRefresh()
+        }
+    }
+
+    /// The injected resubmission boundary keeps expiration/completion behavior deterministic in
+    /// tests without simulating `BGTaskScheduler` itself.
+    func runBackgroundRefresh(
+        _ task: any BackgroundRefreshTask,
+        resubmit: @escaping @MainActor @Sendable () async -> Void
+    ) async {
+        let work = Task { [ingest] in
+            await ingest.run(trigger: .backgroundTask, inAppProcess: true)
+        }
+        task.expirationHandler = { work.cancel() }
+        let outcome = await work.value
+        await resubmit()
+        task.setTaskCompleted(success: outcome == .committed || outcome == .unchanged)
+    }
+
+    private func scheduleBackgroundRefresh() async {
+        let state = try? await reader.load()
+        let nextReset = state?.snapshot?.windows.compactMap(\.resetsAt).filter { $0 > clock.now }
+            .min()
+        backgroundRefreshAvailable = BackgroundRefreshDriver.submit(
+            earliestBeginDate: ReaderRefreshPolicy.nextBackgroundRequest(
+                lastSuccess: state?.lastSuccessAt, nextReset: nextReset, now: clock.now))
+    }
+
+    private func observeSystemTimeChanges() {
+        let names: [Notification.Name] = [
+            UIApplication.significantTimeChangeNotification,
+            .NSSystemTimeZoneDidChange,
+            .NSSystemClockDidChange,
+        ]
+        systemChangeTasks = names.map { name in
+            Task { [weak self] in
+                for await _ in NotificationCenter.default.notifications(named: name) {
+                    guard let self else { return }
+                    await afterCommit.reconcileCurrent()
+                    await reload()
+                }
+            }
+        }
     }
 
     func reload() async {
         home = await loadHome.load()
         details = await loadDetails.load()
         pairing = await loadPairing.load()
-        notificationAuthorization = await system.notificationAuthorization()
+        notificationAuthorization = await notifications.authorization()
         liveActivitiesEnabled = await system.liveActivitiesEnabled()
         loaded = true
         resolveSelection()

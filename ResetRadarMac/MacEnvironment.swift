@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 
@@ -28,6 +29,11 @@ final class MacEnvironment: ObservableObject {
     private let activationObserver: FirstInstanceActivationObserver
     private let prepareSources: @MainActor () -> Void
     private let signingReady: Bool
+    private var systemChangeObservers: [Task<Void, Never>] = []
+
+    deinit {
+        for observer in systemChangeObservers { observer.cancel() }
+    }
 
     init(
         publishingMode: PublishingMode, instanceLock: SingleInstanceLock,
@@ -56,6 +62,7 @@ final class MacEnvironment: ObservableObject {
         self.activationObserver = activationObserver
         self.prepareSources = prepareSources
         self.signingReady = signingReady
+        observeSchedulingChanges()
     }
 
     func start() async {
@@ -70,6 +77,7 @@ final class MacEnvironment: ObservableObject {
             await manualRequests.setSuspended(true)
         }
         await ownerFlows.home.load()
+        await ownerFlows.home.reconcileNotifications()
         await manualRequests.updateReadiness(ready: manualReady, hasReaders: hasReaders)
         await appNap.start()
         if signingReady { await sources.start() }
@@ -80,7 +88,24 @@ final class MacEnvironment: ObservableObject {
     }
 
     func foreground() async {
+        await ownerFlows.home.reconcileNotifications()
         await sources.refresh(.foreground)
+    }
+
+    private func observeSchedulingChanges() {
+        let names: [Notification.Name] = [
+            NSApplication.didBecomeActiveNotification,
+            .NSSystemTimeZoneDidChange,
+            .NSSystemClockDidChange,
+        ]
+        systemChangeObservers = names.map { name in
+            Task { [weak self] in
+                for await _ in NotificationCenter.default.notifications(named: name) {
+                    guard let self else { return }
+                    await ownerFlows.home.reconcileNotifications()
+                }
+            }
+        }
     }
 
     func stop() async {

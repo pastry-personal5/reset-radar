@@ -151,6 +151,7 @@ targets:
       path: .generated/ResetRadarWidgets/Info.plist
       properties:
         CFBundleDisplayName: Reset Radar Widgets
+        ResetRadarKeychainAccessGroup: $(AppIdentifierPrefix)group.com.unidentifiedstealthstartup.ResetRadar
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
@@ -261,6 +262,8 @@ targets:
         product: ResetRadarStorage
       - package: ResetRadarKit
         product: ResetRadarTransport
+      - package: ResetRadarKit
+        product: ResetRadarScheduling
       - package: ResetRadarKit
         product: ResetRadarProviderAdapters
       - package: ResetRadarKit

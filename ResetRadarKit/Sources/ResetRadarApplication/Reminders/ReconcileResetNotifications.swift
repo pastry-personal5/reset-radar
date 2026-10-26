@@ -22,8 +22,8 @@ public actor ReconcileResetNotifications: AfterCommitStep {
         self.clock = clock
     }
 
-    public func afterCommit(_ event: CommitEvent) async {
-        _ = await run(onIOS: gate != nil)
+    public func afterCommitOutcome(_ event: CommitEvent) async -> AfterCommitOutcome {
+        await run(onIOS: gate != nil) == .reconciled ? .complete : .retryable
     }
 
     public func run(onIOS: Bool) async -> ReconcileOutcome {
@@ -38,47 +38,121 @@ public actor ReconcileResetNotifications: AfterCommitStep {
         let now = clock.now
         let snapshot: UsageSnapshot?
         do { snapshot = try await visible.load() } catch { return .retryable }
-        let authorized = await scheduler.authorization() == .authorized
+        let authorization = await scheduler.authorization()
+        let maySchedule = authorization == .authorized || authorization == .provisional
         let pending = Dictionary(
-            await scheduler.pending().map { ($0.accountWindow, $0) },
+            await scheduler.pending().map { ($0.selection, $0) },
             uniquingKeysWith: { first, _ in first }
         )
-        let configured = AccountDisplayOrder.sorted(snapshot?.accounts ?? []).flatMap { account in
+        let configured = Self.configuredSelections(snapshot)
+        let ownedBefore = await scheduler.ownedPendingIdentifiers()
+        let result = await apply(
+            configured: configured, snapshot: snapshot, now: now, maySchedule: maySchedule,
+            pending: pending)
+        await removeObsolete(
+            configured: Set(configured), pending: pending, ownedBefore: ownedBefore)
+        return await verifiedOutcome(expected: result.expected, initial: result.outcome)
+    }
+
+    private static func configuredSelections(_ snapshot: UsageSnapshot?) -> [WindowSelection] {
+        let standards = AccountDisplayOrder.sorted(snapshot?.accounts ?? []).flatMap { account in
             AccountWindow.StandardWindow.allCases.map {
-                AccountWindow(accountID: account.id, window: $0)
+                WindowSelection.standard(
+                    AccountWindow(accountID: account.id, window: $0))
             }
         }
-        let configuredSet = Set(configured)
+        let additional = (snapshot?.windows ?? []).filter { !$0.isDefaultLimit }.map {
+            WindowSelection.additional($0.id)
+        }
+        return standards + additional
+    }
+
+    private func apply(
+        configured: [WindowSelection], snapshot: UsageSnapshot?, now: Date, maySchedule: Bool,
+        pending: [WindowSelection: ResetRequest]
+    ) async -> (expected: [WindowSelection: ResetRequest], outcome: ReconcileOutcome) {
+        var expected: [WindowSelection: ResetRequest] = [:]
         var outcome = ReconcileOutcome.reconciled
-        for accountWindow in configured {
-            let desired = await desiredRequest(accountWindow, snapshot: snapshot, now: now)
-            if let desired, authorized {
-                guard pending[accountWindow]?.fireAt != desired.fireAt else { continue }
+        for selection in configured {
+            let desired = await desiredRequest(selection, snapshot: snapshot, now: now)
+            if let desired, maySchedule {
+                expected[selection] = desired
+                guard pending[selection] != desired else { continue }
                 do {
                     try await scheduler.schedule(desired)
                 } catch {
                     outcome = .retryable  // the remaining slots still reconcile
                 }
-            } else if pending[accountWindow] != nil {
-                await scheduler.cancel(accountWindow: accountWindow)
+            } else if pending[selection] != nil {
+                await scheduler.cancel(selection: selection)
             }
         }
-        for removed in Set(pending.keys).subtracting(configuredSet) {
-            await scheduler.cancel(accountWindow: removed)
+        return (expected, outcome)
+    }
+
+    private func removeObsolete(
+        configured: Set<WindowSelection>, pending: [WindowSelection: ResetRequest],
+        ownedBefore: Set<String>
+    ) async {
+        for removed in Set(pending.keys).subtracting(configured) {
+            await scheduler.cancel(selection: removed)
         }
-        return outcome
+        // The typed view intentionally excludes malformed owned requests. Remove those by their
+        // reserved identifier while leaving all other app notifications untouched.
+        let typedIdentifiers = Set(pending.values.map(\.identifier))
+        for identifier in ownedBefore.subtracting(typedIdentifiers) {
+            await scheduler.cancel(identifier: identifier)
+        }
+    }
+
+    private func verifiedOutcome(
+        expected: [WindowSelection: ResetRequest], initial: ReconcileOutcome
+    ) async -> ReconcileOutcome {
+        // `removePending...` has no completion callback. Read back once so a failed removal is
+        // retained as durable retry work rather than being reported as reconciled.
+        let typedAfter = Dictionary(
+            await scheduler.pending().map { ($0.selection, $0) },
+            uniquingKeysWith: { first, _ in first })
+        let remaining = await scheduler.ownedPendingIdentifiers()
+        if typedAfter != expected || remaining != Set(expected.values.map(\.identifier)) {
+            return .retryable
+        }
+        return initial
     }
 
     private func desiredRequest(
-        _ accountWindow: AccountWindow, snapshot: UsageSnapshot?, now: Date
+        _ selection: WindowSelection, snapshot: UsageSnapshot?, now: Date
     ) async -> ResetRequest? {
-        guard await preferences.notificationOptIn(accountWindow) == true, let snapshot,
-            snapshot.source(for: accountWindow.accountID)?.state != .incompatible
+        guard await preferences.notificationOptIn(selection) == true, let snapshot,
+            let account = snapshot.accounts.first(where: { $0.id == selection.accountID }),
+            let source = snapshot.source(for: selection.accountID), source.state != .incompatible
         else { return nil }
-        let (resolution, _) = AccountWindowResolver.resolve(accountWindow, in: snapshot, now: now)
+        let (resolution, _) = WindowSelectionResolver.resolve(selection, in: snapshot, now: now)
         guard case .window(let window) = resolution, let resetsAt = window.resetsAt,
             resetsAt > now
         else { return nil }
-        return ResetRequest(accountWindow: accountWindow, fireAt: resetsAt)
+        let descriptor: WindowDisplayDescriptor
+        switch selection {
+        case .standard(let accountWindow):
+            descriptor = .standard(accountWindow.window)
+        case .additional:
+            descriptor = .additional(
+                label: Self.bounded(window.label), durationMinutes: window.durationMinutes)
+        }
+        return ResetRequest(
+            selection: selection, fireAt: resetsAt, accountLabel: account.effectiveDisplayLabel,
+            product: account.product, window: descriptor, sourceState: source.state,
+            fractionDigits: window.observation?.fractionDigits)
+    }
+
+    private static func bounded(_ value: String?, utf8Limit: Int = 96) -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        var result = ""
+        for character in value {
+            let candidate = result + String(character)
+            guard candidate.utf8.count <= utf8Limit else { break }
+            result = candidate
+        }
+        return result.isEmpty ? nil : result
     }
 }

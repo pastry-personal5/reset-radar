@@ -161,7 +161,7 @@ public actor AcceptPairing {
                 state.lastContactAt = nil
                 state.failureCount = 0
                 state.backoffUntil = nil
-                state.needsAppReconcile = false
+                state.needsAppReconcile = preflight.snapshot != nil
                 state.pendingManualRequest = nil
             }
             return true
@@ -187,20 +187,25 @@ public actor AcceptPairing {
 
     private func finishActivation() async -> PairingOutcome {
         let now = clock.now
-        let finished: UsageSnapshot?
+        let finished: (UsageSnapshot, UInt64)?
         do {
-            finished = try await reader.transact { state -> UsageSnapshot? in
+            finished = try await reader.transact { state -> (UsageSnapshot, UInt64)? in
                 state.awaitingActivation = false
                 state.lastContactAt = now
                 state.lastSuccessAt = now
                 state.transportStatus = state.snapshot == nil ? .awaitingFirstPublish : .current
-                return state.snapshot
+                guard let snapshot = state.snapshot, let sequence = state.committedSequence else {
+                    return nil
+                }
+                state.needsAppReconcile = true
+                return (snapshot, sequence)
             }
         } catch {
             return .awaitingActivation
         }
-        if let snapshot = finished {
-            await afterCommit.run(CommitEvent(snapshot: snapshot, process: .app))
+        if let (snapshot, sequence) = finished {
+            await afterCommit.run(
+                CommitEvent(snapshot: snapshot, process: .app, relaySequence: sequence))
         }
         return .paired
     }

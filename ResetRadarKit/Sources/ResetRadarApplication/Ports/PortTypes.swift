@@ -11,10 +11,17 @@ public enum ProcessKind: Sendable, Equatable {
 public struct CommitEvent: Sendable, Equatable {
     public let snapshot: UsageSnapshot
     public let process: ProcessKind
+    public let publisherID: PublisherID
+    public let relaySequence: UInt64
 
-    public init(snapshot: UsageSnapshot, process: ProcessKind) {
+    public init(
+        snapshot: UsageSnapshot, process: ProcessKind, relaySequence: UInt64 = 0,
+        publisherID: PublisherID? = nil
+    ) {
         self.snapshot = snapshot
         self.process = process
+        self.publisherID = publisherID ?? snapshot.publisherID
+        self.relaySequence = relaySequence
     }
 }
 
@@ -242,21 +249,62 @@ public enum NotificationAuthorization: Sendable, Equatable {
     case notDetermined
     case denied
     case authorized
+    case provisional
+    case failed
+    case unknown
 }
 
-/// A reset reminder. The identifier derives from the local account and standard window only;
-/// copy names the displayed alias and carries no formatted time or percentage.
+/// Typed, bounded window copy chosen by Application and localized by a framework adapter.
+public enum WindowDisplayDescriptor: Codable, Hashable, Sendable {
+    case standard(AccountWindow.StandardWindow)
+    case additional(label: String?, durationMinutes: Int?)
+}
+
+/// A reset reminder. Standard identifiers retain their legacy form; additional-window
+/// identifiers derive from the complete versioned selection so they cannot inherit an old opt-in.
 public struct ResetRequest: Sendable, Equatable {
-    public let accountWindow: AccountWindow
+    public let selection: WindowSelection
     public let fireAt: Date
+    public let accountLabel: String
+    public let product: ProductID
+    public let window: WindowDisplayDescriptor
+    public let sourceState: SourceState
+    public let fractionDigits: Int?
+
+    public var accountWindow: AccountWindow? {
+        guard case .standard(let accountWindow) = selection else { return nil }
+        return accountWindow
+    }
 
     public var identifier: String {
-        "reset.\(accountWindow.accountID.hex).\(accountWindow.window.rawValue)"
+        switch selection {
+        case .standard(let accountWindow):
+            "reset.\(accountWindow.accountID.hex).\(accountWindow.window.rawValue)"
+        case .additional:
+            "reset.v1.\(selection.stableDigest)"
+        }
     }
 
     public init(accountWindow: AccountWindow, fireAt: Date) {
-        self.accountWindow = accountWindow
+        self.init(
+            selection: .standard(accountWindow), fireAt: fireAt, accountLabel: "Account",
+            product: .codex, window: .standard(accountWindow.window), sourceState: .reporting,
+            fractionDigits: nil)
+    }
+
+    public init(
+        selection: WindowSelection, fireAt: Date, accountLabel: String = "Account",
+        product: ProductID = .codex,
+        window: WindowDisplayDescriptor = .additional(label: nil, durationMinutes: nil),
+        sourceState: SourceState = .reporting, fractionDigits: Int? = nil
+    ) {
+        self.selection = selection
         self.fireAt = fireAt
+        self.accountLabel = accountLabel
+        self.product = product
+        self.window = window
+        self.sourceState = sourceState
+        self.fractionDigits = fractionDigits
     }
 }
 
@@ -273,24 +321,50 @@ public struct GateClaim: Sendable, Equatable {
 /// The content of a Reset Live Activity: only enums, identifiers, numbers, and dates.
 public struct ActivityContent: Sendable, Equatable {
     public let windowID: WindowID
+    /// Immutable ActivityKit lifetime anchor retained by the static attributes in production.
+    public let startedAt: Date
     public let usedPercent: Double
     public let resetsAt: Date
     public let observedAt: Date
+    public let accountLabel: String
+    public let product: ProductID
+    public let window: WindowDisplayDescriptor
+    public let sourceState: SourceState
+    public let fractionDigits: Int?
+    public let relevanceScore: Double
 
-    public init(windowID: WindowID, usedPercent: Double, resetsAt: Date, observedAt: Date) {
+    public init(
+        windowID: WindowID, usedPercent: Double, resetsAt: Date, observedAt: Date,
+        startedAt: Date = .distantPast, accountLabel: String = "Account",
+        product: ProductID? = nil,
+        window: WindowDisplayDescriptor = .additional(label: nil, durationMinutes: nil),
+        sourceState: SourceState = .reporting, fractionDigits: Int? = nil,
+        relevanceScore: Double = 0
+    ) {
         self.windowID = windowID
+        self.startedAt = startedAt
         self.usedPercent = usedPercent
         self.resetsAt = resetsAt
         self.observedAt = observedAt
+        self.accountLabel = accountLabel
+        self.product = product ?? windowID.product
+        self.window = window
+        self.sourceState = sourceState
+        self.fractionDigits = fractionDigits
+        self.relevanceScore = relevanceScore
     }
 }
 
 public struct RunningActivity: Sendable, Equatable {
     public let accountWindow: AccountWindow
     public let windowID: WindowID
+    public let startedAt: Date
 
-    public init(accountWindow: AccountWindow, windowID: WindowID) {
+    public init(
+        accountWindow: AccountWindow, windowID: WindowID, startedAt: Date = .distantPast
+    ) {
         self.accountWindow = accountWindow
         self.windowID = windowID
+        self.startedAt = startedAt
     }
 }

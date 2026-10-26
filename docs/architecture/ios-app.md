@@ -88,11 +88,13 @@ iOS may terminate a process that is suspended while it holds a lock on a file in
 3. reconciles Live Activities; and
 4. forwards the payload to the Watch.
 
+Every newer app or widget commit sets `needsAppReconcile` in the same atomic reader transaction.
 When the widget process commits, it reconciles opted-in reset notifications before completing the
-timeline request and sets `needsAppReconcile`. The app retries unfinished notification work and
-runs the Live Activity and Watch stages the next time it executes for any reason. An app-side
-reconciliation failure also keeps durable work pending. The marker clears only after all required
-stages succeed for the still-current snapshot; a newer commit or failed state write preserves it.
+timeline request. The app retries pending work before its next network read and runs the Live
+Activity and Watch stages the next time it executes for any reason. Each installed stage returns a
+typed complete/retryable outcome. The marker clears only after all installed stages complete and a
+transaction proves the event's publisher and relay sequence are still current; an app crash after
+commit, newer commit, stage failure, process cancellation, or failed state write preserves it.
 The widget never starts a Live Activity or opens a Watch session.
 
 `WatchReceiptDriver` consumes typed `WatchEraseReceipt`s from `WatchLink` and calls `ConfirmWatchErase`. On launch and Watch-session activation, the app resends a saved pending clear before offering a newer Watch payload. A pairing completed while erasure is pending can refresh the iPhone cache, but its Watch delivery waits for the receipt. The Pairing & Sync screen distinguishes interrupted local cleanup from local Forget Mac completion and pending or confirmed cache erasure on a responding Watch. It does not claim to erase another paired Watch.
@@ -112,14 +114,18 @@ ticker, and manual-refresh driver.
 - **Keychain group.** The access group comes from the entitlement-expanded
   `ResetRadarKeychainAccessGroup` Info.plist value. An unexpanded or foreign value fails closed
   rather than falling back to the default group.
+- **Preferences.** Release app and widget roots open the same App Group `UserDefaults` suite;
+  absence is an installation failure, not permission to use `.standard`. Unsigned Development
+  fallback uses a separate debug suite. Both processes inject that store into the same Application
+  contracts.
 - **Transactions.** `BackgroundTaskReaderStore` wraps each `ReaderStore` transaction in a
   `UIApplication` background task. Reads and the network work between a claim and its commit run
   outside it.
 - **Launch.** Activation first removes staged secrets left by a crash. It retries Forget Mac
   cleanup only when that cleanup is marked pending, because an unmarked retry would treat an
-  intact pairing as an unfinished forget. It then resumes a pending activation, reloads, runs the
-  foreground ingest, and starts the ticker. Overlapping activations share one run, so a launch
-  sends at most one activation request.
+  intact pairing as an unfinished forget. It then resumes a pending activation, reconciles durable
+  post-commit work before network access, reloads, runs the foreground ingest, and starts the
+  ticker. Overlapping activations share one run, so a launch sends at most one activation request.
 - **Leaving the foreground.** The ticker stops at its next sleep. A visible Refresh wait ends at a
   sleep boundary through the manual-refresh clock. An in-flight relay read always completes,
   because cancelling it would be recorded as an offline relay with backoff. The saved request
@@ -153,9 +159,15 @@ ticker, and manual-refresh driver.
 **Background task:**
 
 - **Registration.** One identifier is registered at launch and listed under `BGTaskSchedulerPermittedIdentifiers`.
-- **Requests.** Exactly one request stays pending. It is resubmitted when the app moves to the background and at the end of every run, with the earliest begin date the policy computes; that date pulls toward just after the next reset.
-- **Expiry.** The expiration handler cancels the ingest.
-- **Completion.** The task is always completed, with success only when ingest finished without a transport failure.
+- **Requests.** Exactly one request stays pending. Submitting the same identifier replaces the
+  queued request without a cancel/submit gap. It is resubmitted when the app moves to the
+  background and before the current task completes, with the earliest begin date the policy
+  computes; that date pulls toward just after the next reset.
+- **Expiry.** The expiration handler cancels the ingest and releases only its matching lease. It
+  does not turn system expiration into relay offline status or backoff, and a late response cannot
+  commit.
+- **Completion.** The task is completed exactly once after replacement submission, with success
+  only when useful ingest work finished without a transport failure or cancellation.
 - **Assumption.** The design assumes the system may never run the task.
 
 ## Scenes and navigation
@@ -170,7 +182,13 @@ ticker, and manual-refresh driver.
 - **Pairing.** The pairing scanner uses the camera, with a manual paste fallback, and calls `AcceptPairing`. It shows `awaitingActivation` while the saved pairing's confirmation is retried; an expired or revoked registration returns to setup and requires a fresh package.
 - **Reader visibility.** Home and Account Details use `VisibleSnapshot` through `LoadHome` and `LoadUsageDetails`; pairing and cleanup state comes from `LoadPairingStatus`. The app cannot infer Mac account configuration before its first authenticated publication. An empty reader therefore shows pairing, activation, or first-publication guidance as appropriate, without inventing account rows. A preflight snapshot remains hidden until activation. A later relay failure preserves visible committed rows with their actual freshness and transport status.
 - **Selection.** iPad persists only an `AccountID` for its local Home selection. On each committed snapshot, it keeps that ID if present, otherwise selects the first account in `LoadHome` order; an empty list clears the selection. A ring carries an optional initial window focus into the same Account Details destination, without changing the selected account identity.
-- **Live Activities.** Start Live Activity appears only where ActivityKit reports activities as enabled, which excludes iPad.
+- **Live Activities.** Start Live Activity appears for an eligible, non-running standard five-hour
+  window and Stop Live Activity for that exact running window, only where ActivityKit reports
+  activities as enabled, which excludes iPad. Start requires a fresh reading with a future reset
+  no later than `startedAt + 8 hours`; otherwise the action explains why it is unavailable. An
+  out-of-horizon update ends a running activity immediately. Among simultaneous activities, the
+  soonest reset receives highest Dynamic Island relevance, with stable global account number as
+  the tie-breaker.
 
 ## Widget extension
 
@@ -184,10 +202,12 @@ intent is distinct from the read-only usage App Intent below. For each timeline 
 2. reads the exact selected window through `LoadUsageDetails` or an equivalent committed-cache
    query for small/Lock Screen widgets, or `LoadHome` for the medium widget. A missing additional
    window is unavailable and resumes only if the exact `WindowID` returns; and
-3. emits an entry now and at known presentation changes, always including a known reset or
-   invalidation boundary. It avoids dense entries when possible, then requests the next reload at
-   the earlier of the next change instant and fifteen minutes from now. This is an earliest
-   request, not a guarantee that WidgetKit renders or runs exactly on time.
+3. emits an entry now and at known presentation changes, always including a known stale, reset, or
+   invalidation boundary. It avoids dense entries when possible, then requests the next timeline
+   at the earlier of 30 minutes and any change that cannot already be represented by timeline
+   entries. An unpaired or local-cleanup-blocked reader uses `.never` and relies on the app's later
+   reload request. Every date is an earliest request, not a guarantee that WidgetKit renders or
+   runs exactly on time.
 
 Countdowns use dynamic dates, so they move between entries.
 
@@ -195,11 +215,12 @@ Countdowns use dynamic dates, so they move between entries.
 
 ## App Intent
 
-The read-only intent takes one all-window `WindowSelection`. It returns percentage used when
-current, the absolute reset time when available, source, observation time, and presentation state.
-It reads only the committed cache through `LoadUsageDetails` or an equivalent query and never triggers a
-relay or provider refresh. A missing additional `WindowID` stays unavailable until that exact ID
-returns; the intent never selects a different provider window.
+The read-only intent takes one all-window `WindowSelection`. It returns identifying account alias,
+product, and window context plus percentage used when current, the absolute reset time when
+available, source, observation time, and presentation state. It reads only the committed cache
+through `LoadWindowSelection` and never triggers a relay or provider refresh. A missing additional
+`WindowID` stays unavailable until that exact ID returns; the entity query reconstructs that saved
+selection as unavailable and never selects a different provider window.
 
 ## Configuration
 
@@ -221,8 +242,10 @@ returns; the intent never selects a different provider window.
   offline and unverifiable envelopes, unexpected `304`, locked secrets, and an independent store
   instance's lease; Forget Mac erasure, pending Watch clear, retryable cleanup, and late results;
   iPad selection; and Home, Codex account, and Claude Code Refresh, including the 45-second wait
-  and leaving the foreground. The widget process, background task, App Intent, timelines, and
-  Watch receipt handling are tested with their drivers.
+  and leaving the foreground; shared App Group preferences; every-commit reconciliation;
+  background expiration without false offline state; replacement submission; widget selection and
+  timelines; read-only App Intent output; notification controls; and Start/Stop Live Activity.
+  Watch receipt handling is tested with its driver.
 - **`ResetRadarUITests`:** the Main Toolbar, natural alias ordering, unavailable and waiting rings,
   row and ring navigation, every Account Details window, setup and sync states, Refresh results,
   Settings routes, Forget Mac, cleanup retry, Watch-erasure status, iPad split selection, and

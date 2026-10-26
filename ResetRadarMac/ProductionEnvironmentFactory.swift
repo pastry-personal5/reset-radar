@@ -2,6 +2,7 @@ import Foundation
 import ResetRadarApplication
 import ResetRadarDomain
 import ResetRadarProviderAdapters
+import ResetRadarScheduling
 import ResetRadarStorage
 import ResetRadarTransport
 
@@ -110,6 +111,11 @@ enum ProductionEnvironmentFactory {
             })
         let sourceRuntime = SourceRuntime(
             sources: selected.sources, ingest: { try await collector.ingest($0) },
+            notificationHook: MacResetNotificationHook(
+                reminders: ReconcileResetNotifications(
+                    visible: VisibleSnapshot(snapshots: core.snapshots),
+                    preferences: DefaultsPreferenceStore(defaults: .standard),
+                    scheduler: SystemNotificationScheduler(), gate: nil, clock: core.clock)),
             didCollect: { result in
                 await homeUpdates.didCollect(result.snapshot)
                 await publication.collected(result)
@@ -216,10 +222,17 @@ enum ProductionEnvironmentFactory {
         let signatureCheck = SigningCheck(reader: SystemSignatureReader())
         let aliases = UpdateAccountAlias(
             catalogStore: core.catalog, snapshots: core.snapshots, clock: core.clock)
+        let notificationPreferences = DefaultsPreferenceStore(defaults: .standard)
+        let notificationScheduler = SystemNotificationScheduler()
+        let notificationReminders = ReconcileResetNotifications(
+            visible: VisibleSnapshot(snapshots: core.snapshots),
+            preferences: notificationPreferences,
+            scheduler: notificationScheduler, gate: nil, clock: core.clock)
         let homeModel = HomeViewModel(
             catalog: core.catalog, snapshots: core.snapshots, aliases: aliases,
             publication: runtime.publication, updates: homeUpdates,
-            publisher: core.publisher,
+            publisher: core.publisher, preferences: notificationPreferences,
+            scheduler: notificationScheduler, reminders: notificationReminders,
             refreshSources: { await runtime.sources.refreshAccounts(accountID: $0) })
         let sourceModel = SourceSetupViewModel(
             selections: selections, configure: configure, catalog: core.catalog,

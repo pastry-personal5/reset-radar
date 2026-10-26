@@ -70,6 +70,17 @@ import Testing
         #expect(codexFiveHour.window == .fiveHour)
     }
 
+    @Test func windowSelectionCanonicalIdentityRoundTripsAndHasAStableDigestVector() {
+        let selection = WindowSelection.standard(codexFiveHour)
+        #expect(WindowSelection(versionedID: selection.versionedID) == selection)
+        #expect(
+            selection.stableDigest
+                == "1d1f6dc9daf07562267fcd0e2382bf9b3b424fc6d334336fb52d1aa597850c7d")
+        #expect(
+            StableSHA256.digest(Data("abc".utf8)).map { String(format: "%02x", $0) }.joined()
+                == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+    }
+
     @Test func closedIdentityThrowsOnUnknownValue() {
         #expect(throws: DecodingError.self) {
             try WireCoding.decoder().decode([ProductID].self, from: Data("[\"gemini\"]".utf8))

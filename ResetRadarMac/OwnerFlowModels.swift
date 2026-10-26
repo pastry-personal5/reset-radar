@@ -2,6 +2,7 @@ import Foundation
 import ResetRadarApplication
 import ResetRadarDomain
 import ResetRadarProviderAdapters
+import ResetRadarScheduling
 import ResetRadarStorage
 
 enum MacSetupStep: Equatable {
@@ -21,6 +22,7 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var pairedReaderCount = 0
     @Published private(set) var isRefreshing = false
     @Published private(set) var loadFailed = false
+    @Published private(set) var notificationAuthorization = NotificationAuthorization.notDetermined
 
     private let catalog: any AccountCatalogStore
     private let snapshots: any LocalSnapshotCommitting
@@ -29,11 +31,18 @@ final class HomeViewModel: ObservableObject {
     private let updates: HomeSnapshotUpdates?
     private let publisher: (any PublisherStore)?
     private let refreshSources: @Sendable (AccountID?) async -> [AccountRefreshResult]
+    private let preferences: any PreferenceStore
+    private let scheduler: any NotificationScheduler
+    private let reminders: ReconcileResetNotifications
+    private let setNotificationOptIn: SetNotificationOptIn
 
     init(
         catalog: any AccountCatalogStore, snapshots: any LocalSnapshotCommitting,
         aliases: UpdateAccountAlias, publication: PublicationDriver,
         updates: HomeSnapshotUpdates? = nil, publisher: (any PublisherStore)? = nil,
+        preferences: any PreferenceStore = DefaultsPreferenceStore(defaults: .standard),
+        scheduler: any NotificationScheduler = SystemNotificationScheduler(),
+        reminders: ReconcileResetNotifications? = nil,
         refreshSources: @escaping @Sendable (AccountID?) async -> [AccountRefreshResult] =
             noAccountRefresh
     ) {
@@ -43,6 +52,16 @@ final class HomeViewModel: ObservableObject {
         self.publication = publication
         self.updates = updates
         self.publisher = publisher
+        self.preferences = preferences
+        self.scheduler = scheduler
+        let reconciliation =
+            reminders
+            ?? ReconcileResetNotifications(
+                visible: VisibleSnapshot(snapshots: snapshots), preferences: preferences,
+                scheduler: scheduler, gate: nil, clock: SystemAppClock())
+        self.reminders = reconciliation
+        setNotificationOptIn = SetNotificationOptIn(
+            preferences: preferences, scheduler: scheduler, reconcile: reconciliation)
         self.refreshSources = refreshSources
     }
 
@@ -64,6 +83,7 @@ final class HomeViewModel: ObservableObject {
                 relayLifecycle = state.lifecycle
                 pairedReaderCount = state.devices.count
             }
+            notificationAuthorization = await scheduler.authorization()
             loadFailed = false
             message = nil
         } catch {
@@ -128,6 +148,7 @@ final class HomeViewModel: ObservableObject {
             let update = try await aliases.update(accountID: accountID, input: input)
             if let updates { await updates.aliasDidChange() } else { await load() }
             if let snapshot = update.snapshot {
+                _ = await reminders.run(onIOS: false)
                 await publication.collected(
                     CollectResult(snapshot: snapshot, change: update.change))
             }
@@ -135,6 +156,21 @@ final class HomeViewModel: ObservableObject {
         } catch {
             message = "The alias must be unique, visible text no longer than 32 bytes."
         }
+    }
+
+    func notificationOptIn(_ selection: WindowSelection) async -> Bool? {
+        await preferences.notificationOptIn(selection)
+    }
+
+    func setNotificationOptIn(_ selection: WindowSelection, enabled: Bool) async -> OptInOutcome {
+        let outcome = await setNotificationOptIn.set(selection, enabled: enabled)
+        notificationAuthorization = await scheduler.authorization()
+        return outcome
+    }
+
+    func reconcileNotifications() async {
+        _ = await reminders.run(onIOS: false)
+        notificationAuthorization = await scheduler.authorization()
     }
 }
 

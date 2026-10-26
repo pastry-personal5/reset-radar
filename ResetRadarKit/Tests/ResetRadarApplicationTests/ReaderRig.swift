@@ -14,7 +14,10 @@ final class RecordingStep: AfterCommitStep, @unchecked Sendable {
         self.log = log
     }
 
-    func afterCommit(_ event: CommitEvent) async { log.append(name) }
+    func afterCommitOutcome(_ event: CommitEvent) async -> AfterCommitOutcome {
+        log.append(name)
+        return .complete
+    }
 }
 
 let readerContentKey = SecretValue(bytes(32, 0x44))

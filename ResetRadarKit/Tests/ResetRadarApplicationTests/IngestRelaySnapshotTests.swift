@@ -5,6 +5,8 @@ import Testing
 
 @testable import ResetRadarApplication
 
+// This suite verifies the complete ingest state machine and intentionally shares one rig.
+// swiftlint:disable:next type_body_length
 @Suite struct IngestRelaySnapshotTests {
     let rig = ReaderRig()
 
@@ -50,6 +52,24 @@ import Testing
         #expect(rig.store.state.etag == committed.etag)
         #expect(rig.store.state.transportStatus == committed.transportStatus)
         #expect(rig.store.state.committedSequence == 5)
+    }
+
+    @Test func cancellationReleasesOnlyItsLeaseWithoutRecordingAFailure() async {
+        rig.relay.queueGet(rig.envelope(sequence: 5))
+        rig.relay.holdNext(.getSnapshot)
+        let initial = rig.store.state
+        let task = Task { await rig.makeIngest().run(trigger: .backgroundTask, inAppProcess: true) }
+        await rig.relay.waitForCalls(.getSnapshot)
+
+        task.cancel()
+        rig.relay.release(.getSnapshot)
+
+        #expect(await task.value == .skipped)
+        #expect(rig.store.state.lease == nil)
+        #expect(rig.store.state.transportStatus == initial.transportStatus)
+        #expect(rig.store.state.failureCount == initial.failureCount)
+        #expect(rig.store.state.backoffUntil == initial.backoffUntil)
+        #expect(rig.store.state.etag == initial.etag)
     }
 
     @Test func aLeaseOneSecondFromExpiryIsStillHeld() async {
@@ -278,6 +298,15 @@ import Testing
         #expect(!rig.store.state.needsAppReconcile)
         await rig.pipeline().reconcilePending()
         #expect(rig.log.all.count == 4)
+    }
+
+    @Test func aFailedMarkerClearLeavesDurableCatchUpAfterAnAppCommit() async {
+        rig.relay.queueGet(rig.envelope(sequence: 5))
+        rig.store.failNextTransactions(1, afterSuccesses: 2)
+
+        #expect(await rig.makeIngest().run(trigger: .manual, inAppProcess: true) == .committed)
+        #expect(rig.store.state.committedSequence == 5)
+        #expect(rig.store.state.needsAppReconcile)
     }
 
     @Test func aStatusChangeWithoutACommitStillReloadsWidgetsAndTheWatch() async {

@@ -42,6 +42,11 @@
                 random: CryptoSecretGenerator(), clock: SystemReaderClock(),
                 diagnostics: LogDiagnosticsSink(locations: locations),
                 system: LiveReaderSystemStatus(), selection: selection,
+                preferences: DefaultsPreferenceStore(
+                    defaults: UserDefaults(suiteName: "ResetRadarSynthetic.preferences")
+                        ?? .standard),
+                notificationGate: FileNotificationReconcileGate(
+                    locations: locations, clock: SystemReaderClock()),
                 hasWatchStage: UIDevice.current.userInterfaceIdiom == .phone)
         }
 
