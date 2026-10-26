@@ -203,7 +203,23 @@ are recorded in [owner decisions](owner-decisions.md#p1-m14-decisions):
 - [ ] The owner-run install procedure records package contents and installed entitlements,
   paired-reader behavior on physical iPhone/iPad, and one seven-day Sideloadly re-sign preserving
   the app's pairing and committed sequence. Widget/notification and Watch preservation remain
-  separately evidenced in M15/M16.
+  separately evidenced in M15/M16. Agent-side evidence on 2026-10-26: the Personal Team Release
+  archive and `debugging` IPA export succeeded; all four bundles were present, the iOS app and
+  widget carried matching App Group and Keychain entitlements, and the exported app signature
+  verified with host Keychain access. **Open:** Sideloadly and physical-device evidence.
+  Sideloadly 0.71.1's Apple ID Sideload mode reports mandatory bundle-ID changes for this free
+  account. On 2026-10-27 its Normal Install mode completed at 100%, and CoreDevice found the main
+  app on the reference iPhone under the unchanged identifier. Launch, pairing, extension, and
+  automatic seven-day re-sign evidence remain unresolved. The first launch displayed Untrusted
+  Developer; after owner trust, Reset Radar launched successfully on 2026-10-27.
+- [x] The owner-run installation instructions match the current Xcode Apple Accounts interface,
+  do not require a Team ID from a screen that does not show one, and distinguish a verified
+  Personal Team IPA export from an unverified export or packaging route. Evidence: the revised
+  [installation procedure](../research/personal-use-sideloading.md#p1-m14-reader-installation-procedure)
+  and the owner-run signing and installation result. Xcode 27.1's CLI `debugging` export passed
+  on 2026-10-26; Sideloadly Normal Install placed the unchanged main app on the reference iPhone,
+  and owner trust allowed it to launch on 2026-10-27. Pairing and renewal remain open under the
+  broader physical-device checklist.
 - [ ] Affected user-facing, setup, phase, and architecture docs match the implementation; M14
   is marked `Done` only after the checklist has direct evidence. Agent-side evidence on
   2026-10-26: [UI](../architecture/ui.md#screen-models) and

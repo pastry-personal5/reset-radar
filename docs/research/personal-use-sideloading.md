@@ -4,7 +4,7 @@ Status: Active
 
 Research for installing Reset Radar on the owner's iPhone and paired Apple Watch with a free Apple account. The owner chose personal use and sideloading; this document selects Sideloadly as the primary iPhone path and records the constraints the product must preserve.
 
-Sources were checked on 2026-10-19. No Apple account credentials were entered, no tool was installed, and no app was signed during this research because the repository does not yet contain an Xcode project or IPA.
+Sources were rechecked on 2026-10-26. Xcode 27.1 exported a signed IPA with the expected four app and extension bundles; physical-device installation and Sideloadly re-signing remain pending. Xcode 27.1 was observed with **Xcode → Settings → Apple Accounts → Personal Team**; that team detail pane does not display a Team ID.
 
 ## Owner decision
 
@@ -74,43 +74,121 @@ The owner runs this procedure with synthetic data until the manual-refresh valid
 Never put an Apple ID, app-specific password, provisioning profile, pairing package, QR image,
 Keychain entry, relay token, or usage reading in a command transcript or repository evidence.
 
-1. Copy `Config/Build/Local.xcconfig.template` to the untracked `Local.xcconfig`, enter the owner's
-   Personal Team, run `Scripts/generate-project.sh`, and archive the `ResetRadar` scheme. The
-   archive uses Release; Development builds are unsigned and only for the simulator. Signing with
-   the same team that Sideloadly later uses keeps the `ResetRadarKeychainAccessGroup` Info.plist
-   value equal to the installed Keychain entitlement. Confirm the main app identifier remains
-   `com.unidentifiedstealthstartup.ResetRadar`; do not allow Sideloadly to rename the bundle or
-   remove its extensions.
-2. Export an IPA from Xcode's Organizer. Before signing, inspect the archive/IPA contents and
-   record only whether it contains `ResetRadar.app`, its WidgetKit plug-in, and the embedded Watch
-   app. Do not archive the actual file or its signing material as evidence.
-3. In Sideloadly, select the owner’s free Personal Team, retain app extensions, disable tweaks and
-   name/icon mutation, and install by USB to the reference device. Complete the device’s normal
-   developer trust and Developer Mode prompts, then launch Reset Radar after its first unlock.
-4. In the installed app, verify the Home setup state, scan or manually paste a newly created
+1. In Xcode 27.1, use **Xcode → Settings → Apple Accounts** and select **Personal Team**. Do not
+   search that pane for a Team ID; it does not show one. Connect the iPhone by USB, unlock it, trust
+   the Mac, and check that it runs iOS 26.1 or newer. Finder may list an iPhone over Wi-Fi, so a
+   Finder sidebar entry alone does not prove USB detection; confirm the iPhone appears in Xcode's
+   device destination and later in Sideloadly's **iDevice** selector. Xcode shows no provisioned
+   device until the owner completes device setup. Keep credentials and device identifiers out of
+   evidence.
+2. In the generated `ResetRadar.xcodeproj`, select **ResetRadar** under Targets, then open
+   **Signing & Capabilities → Release**. The generated project's Release signing initially has
+   **Automatically manage signing** off, **Team: None**, and no provisioning profile. Enable
+   automatic signing and select the owner's Personal Team. The selection creates a managed
+   profile and makes the team's 10-character identifier available in the generated project's
+   Release signing setting. Copy that identifier into `DEVELOPMENT_TEAM` in the untracked
+   `Config/Build/Local.xcconfig` (copied from `Local.xcconfig.template`), and add
+   `CODE_SIGN_STYLE = Automatic` there. Regenerate with `Scripts/generate-project.sh`, then verify
+   that the iOS app, iOS widget, Watch app, and Watch widget all resolve to the same team with
+   automatic Release signing. The generated project is not the durable place to store this
+   choice. The `ResetRadar` scheme archives in Release; Development is unsigned and only for
+   simulators. Confirm the main bundle identifier remains
+   `com.unidentifiedstealthstartup.ResetRadar` and the signed app's
+   `ResetRadarKeychainAccessGroup` equals its Keychain entitlement.
+3. Archive the `ResetRadar` scheme for a generic iOS device, then export the signed archive with
+   Xcode 27.1's `debugging` method and automatic signing using the commands below. This CLI
+   export succeeded with the owner's free Personal Team even though Apple's older Personal Team
+   guidance warns that Organizer's Export control can be unavailable. Inspect the IPA for
+   `ResetRadar.app`, its WidgetKit plug-in, the embedded Watch app, and its widget. Verify the
+   signed app and widget bundle IDs, App Group and Keychain entitlements, and matching
+   `ResetRadarKeychainAccessGroup` Info.plist value before Sideloadly signs again. Do not strip
+   extensions, change bundle identifiers, or weaken entitlements. Record only sanitized
+   pass/fail observations, not the IPA or signing material, in repository evidence.
+4. In Sideloadly 0.71.1, **Apple ID Sideload** has **Use automatic bundle ID** on and says a free
+   Apple Account cannot disable bundle-ID changes. That mode would violate Reset Radar's fixed
+   identity, so do not use it for this IPA. Instead, select **Sideloadly Settings → Signing Mode →
+   Normal Install** to install the already signed IPA without re-signing. Under **Advanced
+   Options**, turn **Use automatic bundle ID** off, confirm **Dropping 0 of 1 plug-ins**, leave
+   custom name, icon, entitlements, and tweak injection unset, and leave AutoRefresh off. Select
+   the iPhone explicitly under **iDevice**; if only **Apple Silicon** appears, do not start
+   installation to the Mac. On 2026-10-27 this mode completed at 100%, and CoreDevice found the
+   main app under its unchanged bundle identifier on the owner's iOS 27.0.1 iPhone. Launch,
+   extension registration, pairing, and renewal still need device evidence. This does not prove
+   that Sideloadly can automatically re-sign the app while preserving its identity. After device pairing makes the
+   control available, turn on **Settings → Privacy & Security → Developer Mode** on the iPhone,
+   restart it, and confirm with its passcode. If launching Reset Radar shows **Untrusted
+   Developer**, open **Settings → General → VPN & Device Management**, select the owner's
+   development identity under Developer App, and follow the Trust or **Allow & Restart** prompt.
+   Keep the iPhone online for certificate verification, then launch Reset Radar after its first
+   unlock. On 2026-10-27 the first launch showed Untrusted Developer; after the owner completed
+   the device trust flow, Reset Radar launched successfully.
+5. In the installed app, verify the Home setup state, scan or manually paste a newly created
    pairing package, compare the exact confirmation code with the Mac, and wait for activation and
    one authenticated publication. Lock and unlock the device, relaunch the app, and verify the
    committed sequence and cached rows persist without a Keychain prompt.
-5. Inspect the installed app and widget entitlements on the owner-controlled machine. Record only
+6. Inspect the installed app and widget entitlements on the owner-controlled machine. Record only
    the presence of the expected App Group and matching Keychain access group; redact the Team ID.
    If Sideloadly changed either identifier, the app reports that it can't open its data, or
    pairing reports that it could not be saved, stop and return the signing result to the owner;
    do not weaken the explicit group.
    Repeat pairing/cache persistence on the reference iPad. A cellular read is recorded separately
    because M9 did not establish that runtime behavior.
-6. Enable Sideloadly’s refresh path and, after seven days, verify the installed reader still
-   launches with the same pairing and committed sequence. If its bundle identity changes or data
-   disappears, stop and return the distribution decision to the owner; do not accept a destructive
-   re-pair as equivalent evidence.
+7. A seven-day renewal path remains open. Do not enable Sideloadly's automatic **Apple ID
+   Sideload** re-signing for Reset Radar while it requires bundle-ID changes with this free
+   account. Before the profile expires, a new Xcode `debugging` export and another **Normal
+   Install** may be tested as a manual renewal path; verify the same bundle identity, pairing,
+   committed sequence, widget configuration, and Watch state. If automatic re-signing cannot
+   preserve those values, return the distribution decision to the owner rather than accepting a
+   destructive re-pair as equivalent evidence.
 
 The app contains status-only notification and Live Activity surfaces in M14. Widget, notification,
 Live Activity, and Watch delivery preservation are M15/M16 evidence and must not be claimed here.
+
+### Verified Xcode 27.1 IPA export
+
+Run from the repository root after step 2. The temporary directory holds signing material; keep
+the archive, IPA, and Xcode logs out of the repository and out of shared evidence.
+
+```sh
+install_workdir=$(mktemp -d /private/tmp/reset-radar-install.XXXXXX)
+xcodebuild archive \
+  -project ResetRadar.xcodeproj -scheme ResetRadar -configuration Release \
+  -destination 'generic/platform=iOS' \
+  -archivePath "$install_workdir/ResetRadar.xcarchive" -allowProvisioningUpdates
+cat > "$install_workdir/ExportOptions.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>method</key><string>debugging</string>
+  <key>signingStyle</key><string>automatic</string>
+  <key>stripSwiftSymbols</key><false/>
+</dict></plist>
+PLIST
+xcodebuild -exportArchive \
+  -archivePath "$install_workdir/ResetRadar.xcarchive" \
+  -exportPath "$install_workdir/export" \
+  -exportOptionsPlist "$install_workdir/ExportOptions.plist" \
+  -allowProvisioningUpdates
+```
+
+The result is `"$install_workdir/export/ResetRadar.ipa"`. On 2026-10-26 the archive and IPA
+contained the main app, iOS widget, Watch app, and Watch widget; their bundle IDs matched the
+project, the iOS app and widget carried the expected App Group and Keychain entitlements, and
+the app's Info.plist Keychain group matched its signature. The extracted app's signature passed
+`codesign --verify --deep --strict` with normal host Keychain access. A restricted sandbox gave
+`CSSMERR_TP_NOT_TRUSTED`, so an isolated trust error needs a host-context recheck before treating
+it as an invalid bundle.
 
 ## Security and privacy
 
 - Download Sideloadly only from its official site. Do not use repackaged downloads or online signing services.
 - Sideloadly requires an Apple ID for signing and offers saved credentials. Treat the workstation account and its stored credential material as sensitive; do not put credentials, passwords, signing certificates, or provisioning profiles in the repository or logs.
-- Prefer an Apple app-specific password where the signing flow supports it, and keep two-factor authentication enabled.
+- Sideloadly's current FAQ says an app-specific password works only with a paid Apple Developer
+  account and anisette disabled. The **Normal Install** path does not need Apple Account entry in
+  Sideloadly because Xcode already signed the IPA. If a future approved refresh path uses **Apple
+  ID Sideload**, the owner enters the password and any two-factor code directly in Sideloadly;
+  never put either in chat, logs, or the repository. Keep two-factor authentication enabled and
+  review Sideloadly's saved-credentials choice before enabling automatic refresh.
 - Do not use Sideloadly's tweak injection or IPA mutation features for Reset Radar.
 - LiveContainer warns that all guest data is accessible to the host build and that guest containers are not isolated from each other. If it is ever evaluated, use only the official open-source build and never place vendor credentials in a guest app.
 
@@ -124,22 +202,33 @@ Live Activity, and Watch delivery preservation are M15/M16 evidence and must not
 
 ## Open validation items
 
-- Can Sideloadly 0.71.0 sign and preserve the Reset Radar WidgetKit extension with the owner's current Personal Team on iOS 26+?
+- Can Sideloadly 0.71.1 **Normal Install** preserve the already signed main app, WidgetKit
+  extension, and embedded Watch app on iOS 27.0.1?
 - Can the same Personal Team and Sideloadly workflow preserve, install, and refresh the embedded watch app on the owner's paired Apple Watch?
 - Does the resulting app-group entitlement match in the main app and widget after Sideloadly signs the IPA?
 - Does automatic Wi-Fi refresh preserve the app container, widget selection, scheduled local notifications, shared defaults, watch installation, and watch state?
 - How many of the owner's existing free-provisioned app and App ID slots are already occupied?
+- Can any Sideloadly automatic re-sign path preserve the exported IPA's identifiers, extensions,
+  App Group, and Keychain entitlements for this free Personal Team? Its current Apple ID Sideload
+  option says automatic bundle-ID changes cannot be disabled for a free account.
 
-These are physical-device checks. They cannot be answered by public documentation or by the current docs-only repository.
+These checks need owner-run signing and physical-device evidence; public documentation and simulator tests do not establish the result.
 
 ## Sources
 
-Checked 2026-10-19:
+Checked 2026-10-19 and rechecked 2026-10-26:
 
 - [Apple developer account overview](https://developer.apple.com/help/account/basics/about-your-developer-account): Personal Team App ID, device, app, and seven-day profile limits; paid-program feature boundary.
 - [Apple supported iOS capabilities](https://developer.apple.com/help/account/reference/supported-capabilities-ios): capability availability by membership, including App Groups for free Apple Developer accounts.
 - [Apple configuring App Groups](https://developer.apple.com/documentation/xcode/configuring-app-groups): sharing data between an app and extension.
 - [Mobile-network synchronization](mobile-network-synchronization.md): app-owned iCloud capability boundary and user-selected iCloud Drive folder candidate.
 - [Sideloadly](https://sideloadly.io/): free-account support, seven-day validity, automatic refresh, Wi-Fi pairing, and extension controls.
+- [Sideloadly FAQ](https://sideloadly.io/faq): free-account app-specific password limit, same-account refresh, and overwrite behavior.
+- [Sideloadly trust guidance](https://sideloadly.io/faq): VPN & Device Management path for Untrusted Developer.
+- [Apple manually installed app trust](https://support.apple.com/en-gb/118254): current iOS Trust/Allow & Restart and online verification behavior; written for enterprise apps, so the exact Personal Team prompt is confirmed on the owner device.
+- [Current Xcode account help](https://help.apple.com/xcode/mac/current/en.lproj/devaf282080a.html): Personal Team account setup and on-device testing.
+- [Current Xcode device help](https://help.apple.com/xcode/mac/current/en.lproj/dev5a825a1ca.html): connect, unlock, trust, and automatic signing for a physical device.
+- [Apple Developer Mode](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device): pairing prerequisite, settings path, restart, and confirmation.
+- [Apple's archived Personal Team export note](https://developer.apple.com/library/archive/qa/qa1915/): Organizer export may be unavailable for a free Personal Team; verify current Xcode behavior on the owner machine.
 - [LiveContainer README](https://github.com/LiveContainer/LiveContainer): runtime model, entitlement, extension, notification, and isolation limitations.
 - [LiveContainer installation guide](https://livecontainer.github.io/docs/installation): supported installation routes and explicit statement that Sideloadly is not supported for installing LiveContainer.

@@ -70,7 +70,7 @@ The relay has no separate linter or formatter; adding one is a dependency decisi
 
 ## Personal-device installation
 
-The first version uses a free Apple account and Sideloadly rather than App Store or TestFlight distribution. Physical validation uses the reference devices in [Platform targets](architecture.md#platform-targets). The signing constraints, required physical-device checks, and future repeatable installation workflow are tracked in [personal-use-sideloading.md](research/personal-use-sideloading.md). P1-M3 created the Xcode targets; the repeatable IPA workflow is still to be written.
+The first version uses a free Apple account and Sideloadly rather than App Store or TestFlight distribution. Physical validation uses the reference devices in [Platform targets](architecture.md#platform-targets). Follow the [owner-run installation procedure](research/personal-use-sideloading.md#p1-m14-reader-installation-procedure) for current Xcode Apple Accounts navigation, the verified Personal Team IPA export commands, and device checks. Sideloadly Normal Install placed the app on the reference iPhone and it launched after owner trust on 2026-10-27; pairing, extension behavior, and a seven-day renewal path still need device evidence.
 
 ## Commit messages
 
