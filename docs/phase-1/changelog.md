@@ -6,6 +6,62 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-27 — Codex — Re-reviewed the P1-M16 Watch plan against the current integrated reader and
+  scheduling work. M9, M14, and M15 exit gates are excluded from M16 entry and closure; their
+  unfinished evidence remains with those milestones. The revised sequence requires latest-bundle
+  Watch payloads, serialized usage and clear delivery, retryable send and receipt failures, a
+  bounded empty refresh reply, complication-budget reservation, and exact Watch erase and
+  installation-confirmation tests. M16 remains `Planned`; no Watch implementation or device
+  behavior is claimed by this planning review. The current documented `make gate` passed after
+  Xcode cache and CoreSimulator access was granted; the Watch simulator run remains an M16
+  implementation task. Changed-document links and `git diff --check` also passed.
+
+- 2026-10-27 — Codex — Added the user-facing Sideloadly guide for Reset Radar's signed-IPA
+  **Normal Install** flow. The guide links the existing Personal Team build procedure, uses a
+  privacy-safe version of the owner's example with the Apple Account, device details, and desktop
+  background redacted, and warns against the free-account **Apple ID Sideload** bundle-ID change.
+  It records the successful initial iPhone install separately from the still-open renewal,
+  extension, iPad, and Watch evidence; no new physical-device behavior is claimed.
+
+- 2026-10-27 — Codex — Reviewed and repaired the in-progress P1-M15 implementation against all
+  twelve plan findings. The review added exact and bounded additional-window identity, complete
+  notification metadata and quiet provisional behavior, explicit retryable post-commit stages,
+  publisher/sequence-checked catch-up, background-expiration tests, exact-selection widget reads,
+  foreground presentation policy, reactive Mac authorization, and fresh/horizon/invalidation
+  Live Activity behavior. It also closed cache and timeline defects that could expose preflight
+  data or leave medium widgets stale. The new M15 validation record distinguishes focused
+  automated results from still-open ActivityKit, notification, widget, 24-hour background, and
+  re-sign device evidence. The post-review contribution gate now passes formatting, strict lint,
+  import boundaries, the arm64 Release architecture check, Mac tests, concurrent iPhone/iPad app
+  and UI tests, relay tests, TypeScript checking, and the Wrangler dry run. M15 is `Active`; no
+  physical-device behavior or background cadence is claimed.
+
+- 2026-10-27 — Owner/Codex — The owner made every Mac build Apple-silicon-only. All Mac targets
+  and configurations now resolve `ARCHS` to `arm64` and exclude `x86_64`; Intel Macs are not
+  supported. The complete gate makes an isolated unsigned Release build and uses `lipo` to reject
+  any non-arm64 Mach-O executable in the app bundle. This architecture-only check does not replace
+  the existing Personal Team signing check on normal Release scheme builds. The focused check
+  passed for the app, helper, and Mac test target in Development and Release and for both Release
+  executables; `git diff --check` passed. The final M15 gate remains open: the concurrent M15
+  worktree currently has unrelated formatting, strict-lint, and missing-app-delegate compile
+  failures, while import boundaries and the relay checks pass.
+
+- 2026-10-27 — Owner/Codex — Reviewed the post-M14 P1-M15 plan against the implemented reader,
+  active architecture, and current Apple scheduling contracts. The review now requires
+  every-commit durable reconciliation, revision-checked completion, typed retryable stages,
+  cancellation without false relay failure, exact all-window selection, owned-notification
+  read-back, shared App Group preferences, replace-in-place background requests, and a cache-only
+  exact-selection query for widgets and App Intents. The owner chose default notification sound
+  and foreground banners with quiet provisional delivery, a 30-minute routine widget request,
+  fresh-only Live Activity starts, an eight-hour activity horizon with immediate policy end beyond
+  it, and soonest-reset Dynamic Island relevance with stable account-number ties. The owner also
+  approved linking the existing local Scheduling product to the Mac target and direct local
+  Domain/Application dependencies for Scheduling tests. M15 remains
+  `Planned`; no implementation, framework delivery, background cadence, or device evidence is
+  claimed. The delegated complete contribution gate passed project generation, formatting,
+  strict lint, import boundaries, Mac/iPhone/iPad tests, 28 relay tests, TypeScript checks, and
+  Wrangler dry-run; all changed Markdown links and `git diff --check` passed.
+
 - 2026-10-27 — Owner/Codex — The owner successfully exercised physical QR pairing on the
   reference iPhone after the signed Sideloadly Normal Install and trust flow. No pairing package,
   confirmation code, token, or usage data was retained. M14's QR-pairing checklist item is
