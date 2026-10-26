@@ -33,7 +33,9 @@ accounts and reports each account's result separately; a Claude Code Refresh rea
 only. When the relay can't be reached, the last valid readings stay visible beside a Sync Problem.
 Settings → Pairing & Sync offers Forget Mac, which erases this device's pairing and cached usage
 but does not revoke it on the Mac. The reader is installed with Sideloadly using the owner-run
-[installation procedure](docs/research/personal-use-sideloading.md#p1-m14-reader-installation-procedure).
+[sideloading user guide](docs/user-guide-for-sideloading.md). Maintainers can use the detailed
+[installation procedure](docs/research/personal-use-sideloading.md#p1-m14-reader-installation-procedure)
+for package inspection and physical-device evidence.
 The initial signed iPhone installation and QR-pairing flow have been exercised; the procedure
 also tracks the remaining device and renewal checks.
 

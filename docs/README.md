@@ -25,6 +25,7 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [architecture/ios-app.md](architecture/ios-app.md) | iOS composition root: iPhone/iPad app, widget extension, App Intent, refresh drivers, and process model. Active. |
 | [architecture/mac-app.md](architecture/mac-app.md) | Mac composition root: collector runtime, App Nap and wake handling, signing and Keychain, owner flows, and lifecycle. Active. |
 | [mac-installation-and-recovery.md](mac-installation-and-recovery.md) | Owner installation, Gatekeeper, manual update, ordered uninstall, helper restoration, and six recovery paths for the Mac collector. Active. |
+| [user-guide-for-sideloading.md](user-guide-for-sideloading.md) | Build the signed IPA and install Reset Radar on an iPhone or iPad with Sideloadly Normal Install, including privacy, trust, renewal, and troubleshooting guidance. Active. |
 | [architecture/watch-app.md](architecture/watch-app.md) | Watch composition root: payload commit, refresh requests, background delivery, and complication. Active. |
 | [architecture/repository-layout.md](architecture/repository-layout.md) | Planned repository directory structure: Xcode project, package, targets, shared configuration, fixtures, and relay. Active. |
 | [roadmap.md](roadmap.md) | All phases with status; the sole authority for the active phase. |

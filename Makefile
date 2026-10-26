@@ -1,4 +1,4 @@
-.PHONY: help generate run run-mac iphone ipad watch format format-check lint imports test-mac test-ios test-ipad test-ios-ipad test-apple relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
+.PHONY: help generate run run-mac iphone ipad watch ipa format format-check lint imports mac-arch-check test-mac test-ios test-ipad test-ios-ipad test-apple relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
 
 help:
 	@printf '%s\n' \
@@ -7,10 +7,12 @@ help:
 		'iphone         Build the iPhone app for the reference simulator' \
 		'ipad           Build the iPad app for the reference simulator' \
 		'watch          Build the Watch app for the reference simulator' \
+		'ipa            Create .build/ipa/ResetRadar.ipa if it is absent' \
 		'format         Format maintained Swift sources in place' \
 		'format-check   Check Swift formatting' \
 		'lint           Run strict SwiftLint' \
 		'imports        Check Swift module import boundaries' \
+		'mac-arch-check Verify Release Mac binaries are arm64-only' \
 		'test-mac       Run macOS tests' \
 		'test-ios       Run iPhone 17 Pro Max iOS 26.1 tests' \
 		'test-ipad      Run iPad Air 11-inch (M2) iOS 26.1 tests' \
@@ -37,6 +39,7 @@ run-mac: generate
 IPHONE_DESTINATION := platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1
 IPAD_DESTINATION := platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1
 WATCH_DESTINATION := platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)
+IPA_PACKAGE := .build/ipa/ResetRadar.ipa
 
 iphone: generate
 	@xcodebuild -quiet build -scheme ResetRadar -configuration Development \
@@ -49,6 +52,39 @@ ipad: generate
 watch: generate
 	@xcodebuild -quiet build -scheme ResetRadarWatch -configuration Development \
 		-destination '$(WATCH_DESTINATION)'
+
+# The package is signed with the owner's local Personal Team configuration.  It intentionally
+# preserves an existing IPA so a repeat `make ipa` cannot replace a package awaiting installation.
+ipa: generate
+	@set -eu; \
+	package_path='$(IPA_PACKAGE)'; \
+	if [ -e "$$package_path" ]; then \
+		printf '%s\n' "IPA already exists: $$package_path"; \
+	else \
+		workdir=$$(mktemp -d /private/tmp/reset-radar-ipa.XXXXXX); \
+		trap 'rm -rf "$$workdir"' EXIT; \
+		export_options="$$workdir/ExportOptions.plist"; \
+		printf '%s\n' \
+			'<?xml version="1.0" encoding="UTF-8"?>' \
+			'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+			'<plist version="1.0"><dict>' \
+			'<key>method</key><string>debugging</string>' \
+			'<key>signingStyle</key><string>automatic</string>' \
+			'<key>stripSwiftSymbols</key><false/>' \
+			'</dict></plist>' > "$$export_options"; \
+		xcodebuild -quiet archive \
+			-project ResetRadar.xcodeproj -scheme ResetRadar -configuration Release \
+			-destination 'generic/platform=iOS' \
+			-archivePath "$$workdir/ResetRadar.xcarchive" -allowProvisioningUpdates; \
+		xcodebuild -quiet -exportArchive \
+			-archivePath "$$workdir/ResetRadar.xcarchive" \
+			-exportPath "$$workdir/export" \
+			-exportOptionsPlist "$$export_options" \
+			-allowProvisioningUpdates; \
+		mkdir -p "$$(dirname "$$package_path")"; \
+		mv "$$workdir/export/ResetRadar.ipa" "$$package_path"; \
+		printf '%s\n' "Created IPA: $$package_path"; \
+	fi
 
 format:
 	swift-format format --in-place --recursive $$(tr '\n' ' ' < Scripts/swift-roots.txt)

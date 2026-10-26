@@ -72,7 +72,21 @@ The relay has no separate linter or formatter; adding one is a dependency decisi
 
 ## Personal-device installation
 
-The first version uses a free Apple account and Sideloadly rather than App Store or TestFlight distribution. Physical validation uses the reference devices in [Platform targets](architecture.md#platform-targets). Follow the [owner-run installation procedure](research/personal-use-sideloading.md#p1-m14-reader-installation-procedure) for current Xcode Apple Accounts navigation, the verified Personal Team IPA export commands, and device checks. Sideloadly Normal Install placed the app on the reference iPhone, it launched after owner trust, and physical QR pairing succeeded on 2026-10-27. Extension behavior, first-unlock and cache-persistence checks, the reference iPad run, and a seven-day renewal path still need device evidence.
+The first version uses a free Apple account and Sideloadly rather than App Store or TestFlight
+distribution. Follow the [sideloading user guide](user-guide-for-sideloading.md) for routine
+installation. Physical validation uses the reference devices in
+[Platform targets](architecture.md#platform-targets); maintainers should follow the detailed
+[owner-run installation procedure](research/personal-use-sideloading.md#p1-m14-reader-installation-procedure)
+for package inspection, current Xcode Apple Accounts navigation, and sanitized evidence.
+Sideloadly Normal Install placed the app on the reference iPhone, it launched after owner trust,
+and physical QR pairing succeeded on 2026-10-27. Extension behavior, first-unlock and
+cache-persistence checks, the reference iPad run, and a seven-day renewal path still need device
+evidence.
+
+After configuring Release signing in the untracked `Config/Build/Local.xcconfig` as that procedure
+requires, run `make ipa` from the repository root. It creates the signed package at
+`.build/ipa/ResetRadar.ipa`; if that file already exists, the target preserves it. Remove or move
+that specific package before running the target again when a fresh export is required.
 
 ## Commit messages
 

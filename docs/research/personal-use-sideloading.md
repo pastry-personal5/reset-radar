@@ -72,6 +72,10 @@ Until those checks pass, sideloading is a selected distribution strategy, not a 
 
 ## P1-M14 reader installation procedure
 
+For routine installation, use the shorter
+[Sideloadly user guide](../user-guide-for-sideloading.md). This procedure retains the maintainer
+steps, package inspection, and evidence boundaries used to validate the distribution path.
+
 The owner runs this procedure with synthetic data until the manual-refresh validation is accepted.
 Never put an Apple ID, app-specific password, provisioning profile, pairing package, QR image,
 Keychain entry, relay token, or usage reading in a command transcript or repository evidence.
