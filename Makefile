@@ -1,4 +1,4 @@
-.PHONY: help generate run run-mac format format-check lint imports test-mac relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
+.PHONY: help generate run run-mac format format-check lint imports test-mac test-ios test-ipad test-ios-ipad test-apple relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
 
 help:
 	@printf '%s\n' \
@@ -9,12 +9,16 @@ help:
 		'lint           Run strict SwiftLint' \
 		'imports        Check Swift module import boundaries' \
 		'test-mac       Run macOS tests' \
+		'test-ios       Run iPhone 17 Pro Max iOS 26.1 tests' \
+		'test-ipad      Run iPad Air 11-inch (M2) iOS 26.1 tests' \
+		'test-ios-ipad  Build once and run the iPhone and iPad tests concurrently' \
 		'relay-install  Install the relay dependencies from its lockfile' \
 		'relay-test     Run relay tests' \
 		'relay-typecheck Run relay TypeScript checks' \
 		'relay-dry-run  Validate the relay deployment without contacting Cloudflare' \
 		'relay-ci       Run all relay checks' \
-		'test           Run the macOS and relay tests concurrently' \
+		'test-apple     Run the macOS tests, then the iPhone and iPad tests' \
+		'test           Run the Apple tests beside the relay tests' \
 		'gate           Run the complete contribution-guide gate'
 
 generate:
@@ -42,6 +46,21 @@ imports:
 test-mac:
 	@xcodebuild -quiet test -scheme ResetRadarMac -destination 'platform=macOS'
 
+IPHONE_DESTINATION := platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1
+IPAD_DESTINATION := platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1
+
+test-ios:
+	@xcodebuild -quiet test -scheme ResetRadar -destination '$(IPHONE_DESTINATION)'
+
+test-ipad:
+	@xcodebuild -quiet test -scheme ResetRadar -destination '$(IPAD_DESTINATION)'
+
+# One invocation builds once and tests both simulators concurrently, so the run takes about as
+# long as the slower destination rather than the sum of both.
+test-ios-ipad:
+	@xcodebuild -quiet test -scheme ResetRadar \
+		-destination '$(IPHONE_DESTINATION)' -destination '$(IPAD_DESTINATION)'
+
 relay-install:
 	npm --prefix relay ci
 
@@ -56,7 +75,12 @@ relay-dry-run:
 
 relay-ci: relay-install relay-test relay-typecheck relay-dry-run
 
-test:
-	+@$(MAKE) --no-print-directory -j2 test-mac relay-test
+# The Mac and iOS runs share one build database, so they run in sequence beside the relay tests.
+test-apple:
+	@$(MAKE) --no-print-directory test-mac
+	@$(MAKE) --no-print-directory test-ios-ipad
 
-gate: generate format-check lint imports test-mac relay-ci
+test:
+	+@$(MAKE) --no-print-directory -j2 test-apple relay-test
+
+gate: generate format-check lint imports test-mac test-ios-ipad relay-ci

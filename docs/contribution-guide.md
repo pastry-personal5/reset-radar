@@ -6,8 +6,18 @@ How to set up `reset-radar`, validate a change, write commit messages, and open 
 
 The documented local checks are also available as named targets in the root
 `Makefile`; run `make help` to list them and `make gate` for the complete gate. `make test`
-overlaps the independent macOS and relay test suites while each suite retains its native bounded
-test scheduling.
+runs the macOS suite and then the iPhone and iPad suites, because they share one Xcode build
+database, beside the independent relay suite. The iPhone and iPad suites run in one `xcodebuild`
+invocation (`make test-ios-ipad`), which builds once and tests both simulators concurrently;
+`make test-ios` and `make test-ipad` run a single destination. Each suite retains its native
+bounded test scheduling.
+
+The iOS UI tests launch the Development app with `-ResetRadarSyntheticScenario <name>`, which uses
+an isolated temporary store, in-memory secrets, and an in-process synthetic relay. Development
+builds are unsigned, so a simulator run has no App Group entitlement and uses its own Debug
+storage instead. UI tests wait with `appears(timeout:)` or `waitUntil(timeout:_:)` from
+`ResetRadarUITests/ReaderUITestSupport.swift`, not `waitForExistence(timeout:)` or
+`XCTNSPredicateExpectation`, because XCTest checks those only about once a second.
 
 Run `make run-mac` to generate, build, and open the Development Mac collector with its normal
 live-source mode. Use Xcode to supply launch arguments such as `--synthetic` for fixture work.
@@ -29,6 +39,8 @@ redacted events and retain at most eight UTC days. Do not copy the logs into the
 ```sh
 Scripts/generate-project.sh                                                                # generate the ignored Xcode project
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'                       # run the tests
+xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1' \
+  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'                 # both iOS destinations concurrently
 swift-format format --in-place --recursive <maintained roots in Scripts/swift-roots.txt>   # format
 Scripts/lint-swift-format.sh                                                               # check formatting
 swiftlint --strict                                                                         # lint
@@ -47,7 +59,9 @@ Scripts/lint-swift-format.sh
 swiftlint --strict
 Scripts/check-imports.sh
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
-# iOS, iPad, and Watch test runs are suspended until P1-M14 and P1-M16; see docs/phase-1/changelog.md
+xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1' \
+  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'
+# The Watch run remains suspended until P1-M16; see docs/phase-1/changelog.md.
 npm --prefix relay ci
 npm --prefix relay test && npm --prefix relay run typecheck && npm --prefix relay run deploy:dry-run
 ```
