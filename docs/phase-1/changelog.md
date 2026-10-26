@@ -6,6 +6,35 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-26 — Owner/Codex — Reviewed and strengthened the P1-M15 plan a second time. The owner
+  chose all valid provider windows for per-device reset notifications, small and Lock Screen
+  widgets, and the read-only App Intent; the Lock Screen widget uses the rectangular family only,
+  and the medium widget remains standard-window-only. A missing additional window cancels its
+  request and makes its widget or intent result unavailable;
+  the saved choice resumes only if its exact `WindowID` returns. A stale five-hour Live Activity
+  remains visibly stale until its known reset, with dismissal on the next app execution or the
+  system's lifetime limit. The plan and active system docs now define standard-versus-concrete
+  `WindowSelection`, standard opt-in migration, copy replacement after alias/label changes,
+  dynamic Live Activity alias, system-budgeted WidgetKit reloads, and launch-time background-task
+  registration. The phase dependency and risk table no longer imply that M9 exit blocks M14/M15;
+  M9 remains a separate evidence gate. M15 stays `Planned` pending M14 handoff and implementation.
+
+- 2026-10-26 — Codex — Created and reviewed the P1-M15 Scheduling plan on
+  `plan/p1-m15-scheduling` from committed `e1abe5d`, leaving the uncommitted M14 main checkout
+  untouched. M14's finished app/widget handoff remains the implementation dependency; per the
+  owner's instruction, M9 exit is not an M15 prerequisite. The plan sequences the required
+  ActivityKit device spike, Scheduling and Mac notification adapters, app/widget reconciliation,
+  background refresh, widgets, read-only App Intent, and physical-device evidence. Review found
+  a provisional-authorization contract mismatch, a pending-reconciliation flag that can clear
+  after retryable work, missing display data in Scheduling port payloads, a widget query limited
+  to standard Home slots, and notification ownership that needs explicit cancellation tests. At
+  this initial review, an owner scope choice remained open because approved UX offers
+  notifications for each account window while the current model supports only
+  the two standard windows. The delegated committed-branch `make gate` passed project generation,
+  formatting, strict lint, imports, Mac tests, 28 relay tests, TypeScript, and Wrangler dry run;
+  changed Markdown links and `git diff --check` passed. That gate still suspends iOS runs pending
+  M14. M15 remains `Planned`; no scheduling implementation or device validation is claimed.
+
 - 2026-10-26 — Claude Code — Finished the agent-side P1-M14 checks against the overview
   checklist. New reader tests cover a camera that cannot scan, per-account Refresh refusals, a
   mismatched result followed by a delayed match, a sleeping Mac, and Account Row reading order.

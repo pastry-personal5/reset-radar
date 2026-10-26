@@ -88,7 +88,12 @@ iOS may terminate a process that is suspended while it holds a lock on a file in
 3. reconciles Live Activities; and
 4. forwards the payload to the Watch.
 
-When the widget process commits, it reconciles opted-in reset notifications before completing the timeline request and sets `needsAppReconcile`. The app retries unfinished notification work and runs the Live Activity and Watch stages the next time it executes for any reason. The widget never starts a Live Activity or opens a Watch session.
+When the widget process commits, it reconciles opted-in reset notifications before completing the
+timeline request and sets `needsAppReconcile`. The app retries unfinished notification work and
+runs the Live Activity and Watch stages the next time it executes for any reason. An app-side
+reconciliation failure also keeps durable work pending. The marker clears only after all required
+stages succeed for the still-current snapshot; a newer commit or failed state write preserves it.
+The widget never starts a Live Activity or opens a Watch session.
 
 `WatchReceiptDriver` consumes typed `WatchEraseReceipt`s from `WatchLink` and calls `ConfirmWatchErase`. On launch and Watch-session activation, the app resends a saved pending clear before offering a newer Watch payload. A pairing completed while erasure is pending can refresh the iPhone cache, but its Watch delivery waits for the receipt. The Pairing & Sync screen distinguishes interrupted local cleanup from local Forget Mac completion and pending or confirmed cache erasure on a responding Watch. It does not claim to erase another paired Watch.
 
@@ -136,7 +141,7 @@ ticker, and manual-refresh driver.
 | Refresh action | The user pulls to refresh or taps Refresh | Home Refresh ingests the relay, posts one `allCodex` request, and waits for its encrypted per-account result. A Codex Account Details action follows the same flow for that account ID. A Claude Code Account Details action calls `IngestRelaySnapshot(.manual)` only. |
 | `BackgroundRefreshDriver` | `BGAppRefreshTask` | `IngestRelaySnapshot(.backgroundTask)`, then the pipeline |
 | `WatchRequestDriver` | A Watch refresh request wakes the app | `IngestRelaySnapshot(.watchRequest)`, then a `ForwardToWatch` reply |
-| `AllowanceTimelineProvider` | WidgetKit asks for a timeline | `IngestRelaySnapshot(.widgetReload)`, then `LoadHome` |
+| `AllowanceTimelineProvider` | WidgetKit asks for a timeline | `IngestRelaySnapshot(.widgetReload)`, then the exact-window `LoadUsageDetails` or medium-widget `LoadHome` query |
 | `SystemChangeDriver` | Time-zone or significant clock change | `ReconcileResetNotifications`, then a screen reload |
 
 `ReaderRefreshPolicy` decides whether each call actually fetches; see [Policies](application.md#policies).
@@ -169,13 +174,20 @@ ticker, and manual-refresh driver.
 
 ## Widget extension
 
-**Timelines.** `AllowanceTimelineProvider` serves the small and Lock Screen widgets, configured by
-an account-window intent, and the medium widget, configured for one account and both standard
-windows. For each timeline it:
+**Timelines.** `AllowanceTimelineProvider` serves the `systemSmall` Home Screen and
+`accessoryRectangular` Lock Screen widgets, configured by an all-window `WindowSelection` intent,
+and the `systemMedium` Home Screen widget, configured for one account and both standard windows.
+The widget configuration intent and its dynamic window picker read only the committed cache. The
+intent is distinct from the read-only usage App Intent below. For each timeline it:
 
 1. runs `IngestRelaySnapshot(.widgetReload)` with the client's 10-second request timeout, reconciles opted-in notifications after a commit within the extension's remaining execution time, and continues with the committed cache if the call is skipped or fails;
-2. calls `LoadHome`, and emits an entry now plus one at each presentation-state change instant the read model reports; and
-3. requests the next reload at the earlier of the next change instant and fifteen minutes from now.
+2. reads the exact selected window through `LoadUsageDetails` or an equivalent committed-cache
+   query for small/Lock Screen widgets, or `LoadHome` for the medium widget. A missing additional
+   window is unavailable and resumes only if the exact `WindowID` returns; and
+3. emits an entry now and at known presentation changes, always including a known reset or
+   invalidation boundary. It avoids dense entries when possible, then requests the next reload at
+   the earlier of the next change instant and fifteen minutes from now. This is an earliest
+   request, not a guarantee that WidgetKit renders or runs exactly on time.
 
 Countdowns use dynamic dates, so they move between entries.
 
@@ -183,9 +195,11 @@ Countdowns use dynamic dates, so they move between entries.
 
 ## App Intent
 
-The read-only intent takes one account-window selection. It returns percentage used when current,
-the absolute reset time when available, source, observation time, and presentation state. It reads
-only the committed cache through `LoadHome` and never triggers a relay or provider refresh.
+The read-only intent takes one all-window `WindowSelection`. It returns percentage used when
+current, the absolute reset time when available, source, observation time, and presentation state.
+It reads only the committed cache through `LoadUsageDetails` or an equivalent query and never triggers a
+relay or provider refresh. A missing additional `WindowID` stays unavailable until that exact ID
+returns; the intent never selects a different provider window.
 
 ## Configuration
 

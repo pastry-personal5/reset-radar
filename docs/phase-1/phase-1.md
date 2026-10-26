@@ -35,14 +35,15 @@ This file is the overall plan. Each milestone gets its own overview file when it
 | P1-M11 Claude Code adapter | M5, M10 Checkpoint A | ProviderAdapters | signed-in status-line calibration |
 | P1-M12 Mac collector app | M6, M7, M10 and M11 code-complete | Mac root | Keychain checks, eight-day re-read, timer drift |
 | P1-M13 Mac UI | M12 | UI, Mac root | none |
-| P1-M14 iOS core app | M6, M7, M9, M13 | iOS root | Sideloadly seven-day re-sign |
+| P1-M14 iOS core app | M6, M7, M13 | iOS root | Sideloadly seven-day re-sign |
 | P1-M15 Scheduling | M14 | Scheduling, widgets | widget, Live Activity, and background-timing checks on device |
 | P1-M16 Watch | M14, M15 | WatchSync, Watch root | WatchConnectivity on a paired watch |
 
 M6, M7 and M8 can proceed in parallel after M5. The expanded M10 account-refresh scope starts
 after M7 and M8 and can run in parallel with M9. M11 preparation may proceed independently, but
 its production work waits for M10 Checkpoint A's shared account and configuration contracts. Real
-data first flows end to end when M9 and M12 have both passed.
+data first flows end to end when the Mac publisher and reader app are ready; M9's separate
+synthetic-data gate does not block real relay use under the 2026-10-25 owner decision.
 
 ## Time-gated work
 
@@ -57,7 +58,7 @@ Start these as early as their milestone allows so elapsed time does not block th
 
 | Risk | Response |
 |---|---|
-| The relay fails a synthetic-data criterion or exceeds Workers Free. | Record the failure and return the synchronization decision to the owner; P1-M14 onward does not start. |
+| The relay fails a synthetic-data criterion or exceeds Workers Free. | Record the failure and return the synchronization decision to the owner. Do not represent M9 as passed or assume its unproven properties; M14 and M15 implementation may proceed under the owner's M9-gate waiver. |
 | Provider output shape changes or a current-data window is rejected. | Treat the source as unavailable, not as a guessed value; return to the owner. |
 | The Mac Keychain prompts after a rebuild or a lock. | Return the storage decision to the owner. |
 | Free-account signing limits (seven-day expiry, 10 App IDs per week). | Keep bundle identifiers stable; use Sideloadly refresh and record each re-sign. |
@@ -149,6 +150,8 @@ Plan: [overview](milestone-14-ios-core-app-overview.md), [sequence](milestone-14
 ### P1-M15: Scheduling
 Status: Planned
 Goal: Reset notifications (including the Mac `NotificationDriver` moved from P1-M12), background refresh, widgets, and Live Activities, with their shared-state validation.
+Plan: [overview](milestone-15-scheduling-overview.md), [sequence](milestone-15-scheduling-sequence.md), [Scheduling](../architecture/scheduling.md)
+Notes: M9 exit is not an M15 prerequisite under the owner's 2026-10-26 instruction; M14's app and widget handoff remains the implementation dependency. The owner's all-window and stale Live Activity choices are in [owner decisions](owner-decisions.md#time-zone-and-scheduling-semantics).
 
 ### P1-M16: Watch
 Status: Planned

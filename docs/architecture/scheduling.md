@@ -52,19 +52,22 @@ flowchart TB
 
 ## Reset notifications
 
-- **Identifier.** Each request's identifier is derived from its `AccountWindow`, so scheduling the
-  same account window again replaces the earlier request instead of adding one.
+- **Identifier.** Each request's identifier is derived from its `WindowSelection`, so scheduling
+  the same standard or additional window again replaces the earlier request instead of adding
+  one. A changed provider scope gives an additional window a different identity.
 - **Trigger.** Non-repeating `UNCalendarNotificationTrigger` whose date components carry an explicit UTC time zone, so the absolute fire instant stays fixed when the device's time zone changes.
 - **Copy.** Names the displayed alias, product, and window and says it has reset. It never embeds a
-  formatted local time or a percentage.
-- **Authorization.** The scheduler reports `notDetermined`, `denied`, `authorized`, or `provisional`, and requests authorization only when a use case asks.
+  formatted local time or a percentage. A changed alias or window label replaces pending copy
+  even when the fire instant is unchanged; Application supplies these display fields.
+- **Authorization.** The scheduler reports `notDetermined`, `denied`, `authorized`, or `provisional`, and requests authorization only when a use case asks. Provisional authorization delivers quietly and is displayed as provisional.
 - **Scope.** On iOS, the app requests authorization when the owner enables an account window; the widget extension may only reconcile already opted-in requests after a cache commit. Apple's [`UNUserNotificationCenter` documentation](https://developer.apple.com/documentation/usernotifications/unusernotificationcenter) includes app extensions; the widget-specific behavior remains a physical-device spike. On macOS the same scheduler runs in the Mac app process. The Watch has no scheduler; it shows forwarded iPhone notifications.
 
 ## Reset Live Activity
 
-`ResetActivityAttributes` holds the static `AccountWindow`, `WindowID`, and displayed alias. Its
-`ContentState` holds percentage used, `observedAt`, `resetsAt`, the account source state, and the
-precision for rounding.
+`ResetActivityAttributes` holds the static `AccountWindow` and `WindowID`. Its `ContentState`
+holds the displayed alias, percentage used, `observedAt`, `resetsAt`, the account source state,
+and the precision for rounding. The alias is dynamic so a local rename updates a running
+activity without starting a replacement; [Apple's ActivityAttributes guidance](https://developer.apple.com/documentation/activitykit/activityattributes) separates static attributes from dynamic content.
 
 `ActivityKitController` does the following:
 
@@ -80,8 +83,11 @@ The Lock Screen and Dynamic Island views live in the [iOS widget extension](ios-
 
 `ResetRadarSchedulingTests` covers:
 
-- request identifiers, UTC trigger components across time-zone changes, and copy that never contains a formatted time or a percentage;
-- authorization-state mapping; and
-- activity content and attribute encoding.
+- stable standard and bounded additional-window request identifiers, UTC trigger components across
+  time-zone changes, alias/label copy replacement, and copy that contains no formatted time or
+  percentage;
+- authorization-state mapping, including quiet provisional authorization and no extension prompt;
+  and
+- activity content and attribute encoding, including a dynamic alias update.
 
 Real delivery, the eight-hour activity limit, and stale display are proven on devices; see [Platform behavior](../architecture.md#platform-behavior-to-be-proven-on-real-runtimes).

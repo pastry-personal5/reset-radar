@@ -36,11 +36,16 @@ Status: Active. Approved by the owner in [Phase 1 owner decisions](phase-1/owner
   Claude Code response.
 - Provider reset instants are stored as absolute instants and displayed in the OS's current local
   time zone. A user may opt into one local reset notification per account window on each iPhone,
-  iPad, or Mac; the same reset can therefore alert on more than one device.
+  iPad, or Mac, including additional valid provider windows; the same reset can therefore alert
+  on more than one device. A temporarily missing additional window cancels its pending request;
+  its opt-in resumes only if that exact window returns.
 - The iOS app runs natively on iPhone and iPad with the same Account List, Account Details,
   Settings, and widgets. iPad uses a split list/detail Home and has no Live Activities or paired
   Apple Watch.
-- The app shows configurable Home Screen and Lock Screen widgets, includes user-started Live Activities for eligible five-hour windows, and offers a read-only App Intent. Weekly windows are not Live Activities.
+- The app shows configurable small Home Screen and rectangular Lock Screen widgets and a read-only
+  App Intent for any valid provider window; the medium widget shows one account's two standard
+  windows. It includes user-started Live Activities for eligible five-hour windows. A stale Live Activity
+  remains visibly stale until its known reset; weekly windows are not Live Activities.
 - The first version includes an Apple Watch app with an N-by-two account/window ring matrix,
   stable pastel account palettes, account-scoped details, and one configurable account-window
   complication. It receives normalized snapshots through the paired iPhone and does not connect

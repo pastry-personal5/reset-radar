@@ -191,25 +191,31 @@ On iPhone, Pairing & Sync reports interrupted local Forget Mac cleanup separatel
 
 On Mac, QR scanning is the default pairing transfer. Manual Copy requires a separate tap and warns that the package contains a long-lived content key and may reach other nearby devices through Universal Clipboard. The app conditionally clears its own unchanged clipboard value after pairing, expiry, or view closure, but explains that a copied package cannot be recalled from another device. Relay & Pairing also states that locking the login Keychain after the collector has started does not stop its running publisher; quitting the app stops it.
 
-On iPhone, iPad, and Mac, each account window has an off-by-default reset-notification control
-that applies only to that device. A notification is scheduled only while that window has a known
-future Reset Time. Notification copy identifies the account by its displayed alias. Enabling the
-first control on a device triggers that device's system authorization request. On iPhone,
+On iPhone, iPad, and Mac, each valid provider-reported account window, including an additional
+Account Details limit, has an off-by-default reset-notification control that applies only to that
+device. A notification is scheduled only while that window has a known future Reset Time.
+Notification copy identifies the account by its displayed alias. Enabling the first control on a
+device triggers that device's system authorization request. On iPhone,
 eligible five-hour windows also offer Start Live Activity; activities never start automatically
 and visibly identify the alias. Watch Account Details has neither control; the Watch shows the
 iPhone's forwarded notifications.
 
 ## Widgets and Live Activities
 
-On iPhone and iPad, small Home Screen and Lock Screen widgets show one user-configured account
-window. The medium Home Screen widget shows both standard windows for one user-configured account.
+On iPhone and iPad, small Home Screen and rectangular Lock Screen widgets show one user-configured
+valid provider window, including an additional Account Details limit. Circular and inline Lock
+Screen widget families are not part of this version. The read-only App Intent accepts
+the same all-window selection. The medium Home Screen widget shows both standard windows for one
+user-configured account. A temporarily missing additional window becomes unavailable and resumes
+only if the same exact window ID returns; a changed ID never silently takes its place.
 Widgets visibly identify the middle-truncated alias, include freshness, and render only from the
 committed local cache. When the system reloads a widget, it may first refresh that cache from the
 relay if the last successful refresh is more than five minutes old.
 
 A Reset Live Activity, available on iPhone only, shows one eligible five-hour account window. It
 starts only from a foreground Account Details action, receives local opportunistic updates,
-displays stale state honestly, and ends at reset, observation invalidation, or removal of its
+displays stale state honestly until its known reset even if the reading ages, and ends on the next
+app execution after reset, observation invalidation for another reason, or removal of its
 account. Weekly windows never start Live Activities. A widget or complication whose account was
 removed becomes unavailable until the owner chooses another account; it never silently retargets.
 

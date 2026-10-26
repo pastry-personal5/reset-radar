@@ -91,7 +91,8 @@ The Application ports that Storage implements are transactional. `ReaderStore`, 
 - endpoint, publisher ID, and pairing floor;
 - highest accepted sequence and ETag;
 - last attempt, last success, and last contact times;
-- transport status, backoff instant, and `needsAppReconcile`;
+- transport status, backoff instant, and `needsAppReconcile`, which remains set for widget commits
+  or unfinished app-side reconciliation until all required stages succeed for the current snapshot;
 - a pairing staging marker and `awaitingActivation` state with the relay-assigned registration deadline, so a crash or lost activation response can be recovered without claiming a completed pairing;
 - a pending manual-refresh request ID and deadline, so the app can display an interrupted wait accurately without replaying its POST;
 - a random iPhone installation ID and a monotonically increasing Watch delivery revision, retained across Forget Mac and re-pairing.
@@ -101,11 +102,18 @@ The Application ports that Storage implements are transactional. `ReaderStore`, 
 
 `claimFetch(_:)` runs the use case's decision closure against the current `ReaderBundle` and records a unique claim ID, bounded in-flight lease, and the attempt in one locked replacement. A competing process observes the lease and reports `inProgress`; a crash leaves no permanent fetch lock. `commitResult` applies a result only while its claim ID still owns the lease, then writes reader state and snapshot in one replacement, including the accepted sequence and matching ETag. A widget-process commit also sets `needsAppReconcile` in that replacement. Pairing writes a staging marker before Keychain mutation; after both Keychain writes succeed, one bundle replacement commits the pairing metadata and any preflight snapshot as `awaitingActivation`. Startup recovery removes orphaned Keychain items when staging never reached that commit. Activation success clears the marker in a separate replacement; a lost response leaves retryable pending state. Forget Mac clears the prior ETag, accepted sequence, and in-flight claim, erases the iPhone snapshot, and persists `forgetCleanupPending` plus the Watch clear and pending marker in one replacement before any Watch send. A late result whose claim was removed cannot restore the snapshot, ETag, or transport status. `forgetCleanupPending` blocks pairing and fetch until Keychain and local-surface cleanup succeeds. A new pairing installs its own sequence floor without clearing `watchErasePending`. A matching Watch-erasure receipt removes that marker and records confirmation in one replacement; until then, the saved clear is the only Watch payload allowed. The installation ID and Watch delivery revision survive Forget Mac. A network request never runs while the lock is held. The caller holds a background-execution assertion for each locked section; see the [iOS app process model](ios-app.md#process-model).
 
-**`FileNotificationReconcileGate`** uses a separate cross-process lock and a bounded claim for iOS reset-notification work. The use case reads the latest committed snapshot after claiming the gate. An interrupted claim leaves the `needsAppReconcile` flag set, so the app can repeat the idempotent schedule/cancel pass. No relay request occurs while the gate is held.
+**`FileNotificationReconcileGate`** uses a separate cross-process lock and a bounded claim for iOS reset-notification work. The use case reads the latest committed snapshot after claiming the gate. An interrupted claim or failed pass leaves `needsAppReconcile` set, so the app can repeat the idempotent schedule/cancel pass. No relay request occurs while the gate is held.
 
 **`FilePublisherStore`** holds the Mac relay state: endpoint, publisher ID, paired-device names and dates, pending registrations, recently handled manual-refresh IDs and their encrypted result expiry, lifecycle state (`active`, `setupPending`, or `destroyPending`), and the sequence. `nextSequence()` atomically writes the incremented value before returning it, so a crash or retry can skip a number but never reuse one. A transaction cannot lower the allocated sequence or accepted sequence for the same publisher; a new publisher may start at zero after relay destruction or setup. Recently handled IDs keep a relay polling retry from starting another Codex read after a publication failure or process restart. A non-active lifecycle state prevents publication after a crash or relaunch.
 
-**`DefaultsPreferenceStore`** wraps App Group or target-local `UserDefaults` with typed keys. Notification opt-in is stored per `AccountWindow` and per device, and is never synchronized. Device-local Account Details selection and widget configuration use stable `AccountID` values; removal makes a dependent surface unavailable rather than silently retargeting it.
+**`DefaultsPreferenceStore`** wraps App Group or target-local `UserDefaults` with typed keys.
+Notification opt-in is stored per `WindowSelection` and per device, never synchronized. Existing
+standard `AccountWindow` keys migrate without losing the owner's choice; additional-window keys
+encode the exact `WindowID`. A missing additional window keeps its choice but has no pending
+notification, and an exact-ID return resumes it. Device-local Account Details selection uses a
+stable `AccountID`; small and Lock Screen widget configuration uses the exact `WindowSelection`,
+while the medium widget uses one `AccountID`. Removal makes a dependent surface unavailable
+rather than silently retargeting it.
 
 **`LogDiagnosticsSink`** forwards `DiagnosticEvent`s to unified logging with privacy markers, and keeps a bounded ring-buffer file for the confirmed diagnostics export. Because events carry no free-form strings (see [Domain](domain.md#records)), the sink cannot log a token, path, or payload.
 The Mac composition root supplies a build-specific OSLog subsystem and a typed-event callback
@@ -139,6 +147,8 @@ On macOS, before the first write in a newer schema, the store copies the previou
 - `claimFetch` under contention;
 - in-flight lease expiry, late-result rejection, ETag invalidation after cache loss, and atomic reader-state/snapshot commit;
 - two-process notification reconciliation after a widget-only reset change and interrupted reconciliation recovery;
+- migration of existing standard notification choices and exact-ID storage for additional-window
+  choices without retargeting after a provider-scope change;
 - sequence persistence before return;
 - pending relay setup/destroy state surviving relaunch and preventing publication;
 - a manual-refresh result surviving a relaunch without repeating the Codex read, and a reader wait interrupted without reposting;

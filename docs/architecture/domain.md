@@ -29,6 +29,7 @@ flowchart TB
     SourceKind
     AccountID
     AccountWindow
+    WindowSelection
     WindowID
     AccountScope
     PublisherID
@@ -101,8 +102,9 @@ its diagnostic.
 | `SourceKind` | `codexAppServer` or `claudeCodeStatusLine`. |
 | `AccountID` | Random opaque 128-bit Reset Radar identifier for one configured row. It survives profile replacement and provider sign-in changes until confirmed removal. |
 | `AccountMetadata` | Account ID, product, global positive account number, and optional alias. The catalog permits at most two Codex rows and one Claude Code row. |
-| `AccountWindow` | Account ID plus the standard `fiveHour` or `weekly` discriminator. The stable key for Home rings, widget and complication configuration, App Intent parameters, notification opt-in, and Live Activities. |
+| `AccountWindow` | Account ID plus the standard `fiveHour` or `weekly` discriminator. The stable key for Home rings, medium widget windows, Watch complication configuration, and five-hour Live Activities. |
 | `WindowID` | Composite of Account ID, product, provider account scope when available, provider limit ID, and duration discriminator; never an array position. It identifies one concrete provider window and changes when the provider scope changes. |
+| `WindowSelection` | One standard `AccountWindow` or one additional concrete `WindowID`. Per-device notification opt-in, small and Lock Screen widget configuration, and the read-only App Intent use it. A missing additional ID is unavailable, and the saved choice resumes only if the exact ID returns; it never falls back to a sibling window. |
 | `AccountScope` | Codex only: an opaque 128-bit value. How it is derived is defined in [Transport](transport.md#account-scope); the domain only compares it. Claude Code exposes no account identifier, so its windows carry no scope. |
 | `PublisherID` | Random 256-bit identifier for one Mac/relay relationship. |
 | `ReaderID` | Random opaque identifier for one paired iPhone or iPad. |
@@ -227,6 +229,8 @@ Claude Code. Both were confirmed by owner-present source calibration on 2026-10-
 - `0`, fractional, `100`, NaN, infinite, and out-of-range percentages, each rejected per window;
 - unknown enum values and unknown mandatory schema versions;
 - account-window resolution, including the ambiguous case of two default windows with the same duration;
+- `WindowSelection` identity for standard and additional windows, exact-ID return, and a changed
+  provider scope that never retargets an additional selection;
 - the presentation-state precedence at each threshold crossing, including a retained Home window after its last reset, the next-change instant, and clock skew;
 - manual-refresh result validation, per-reader retention cap, expiry, and wrong-reader matching;
 - Mac liveness; and

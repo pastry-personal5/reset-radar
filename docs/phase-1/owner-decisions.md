@@ -3,8 +3,9 @@
 Status: Active
 
 This record captures the owner's decisions after reviewing the P1-M1 research results, subsequent
-architecture choices, and the 2026-10-24 P1-M10 account-model revision. These decisions constrain
-Phase 1 work; validation gates listed here remain mandatory and are not implied to have passed.
+architecture choices, the 2026-10-24 P1-M10 account-model revision, and the 2026-10-26 M15
+scheduling review. These decisions constrain Phase 1 work; validation gates listed here remain
+mandatory and are not implied to have passed.
 
 ## Product and security boundaries
 
@@ -42,6 +43,21 @@ On 2026-10-20 the owner requested an optional independent iPhone/iPad source, pr
 - When the OS time zone changes, re-render reset dates locally without changing the stored instant.
 - Maintain at most one pending reset notification for each configured account window. Replace or
   cancel it when the provider reset changes, disappears, expires, or the account is removed.
+
+On 2026-10-26 the owner confirmed that per-window reset notifications on iPhone, iPad, and Mac
+cover every valid provider-reported window, including additional Account Details limits. Small
+Home Screen and Lock Screen widgets and the read-only App Intent likewise allow any valid window;
+the Lock Screen widget uses only the rectangular accessory family, and the medium Home Screen
+widget keeps the two standard windows for one account. A saved choice for
+an additional window follows its exact `WindowID`: if it disappears, its notification is canceled
+and its widget and App Intent result are unavailable; if the same ID returns, the choice resumes.
+A changed ID never inherits the choice. A five-hour Live Activity whose reading becomes stale
+before its known reset keeps showing the stale state until that reset unless the owner removes it
+or its observation becomes invalid for another reason. It ends when the app next executes at or
+after the reset; ActivityKit's eight-hour active-lifetime limit is the fallback when the app
+does not run. Background execution is not guaranteed. These choices resolve the M15 all-window
+and stale-lifecycle questions without changing the standard Home rings, medium widget, Watch
+complication, or Live Activity eligibility.
 
 ## Synchronization and freshness
 

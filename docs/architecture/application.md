@@ -209,13 +209,19 @@ When the run is in the app process, a `committed` outcome triggers the after-com
 - `ReconcileResetNotifications` and `ReconcileLiveActivities` run; and
 - `ForwardToWatch` updates the Watch.
 
-A commit made in the widget process attempts reset-notification reconciliation using the already granted, per-account-window opt-in state. The extension never requests notification authorization. The atomic `needsAppReconcile` flag makes the app retry notification reconciliation and update Live Activities and the Watch on its next run even if the extension expires mid-reconciliation.
+A commit made in the widget process attempts reset-notification reconciliation using the already
+granted, per-window opt-in state. The extension never requests notification authorization. The
+atomic `needsAppReconcile` flag makes the app retry notification reconciliation and update Live
+Activities and the Watch on its next run even if the extension expires mid-reconciliation. An
+app-side stage failure also sets or retains the flag; only completion of all required stages for
+the still-current snapshot clears it. A failed marker write or a newer snapshot never counts as
+completed reconciliation.
 
 **`RequestMacRefresh`** is called only by a user-started Refresh that includes Codex. It first performs an ordinary conditional relay read, then posts a random request ID using the reader's read token. It writes a pending-request marker before the POST, so a relaunch resumes the wait without posting again. It polls conditional snapshot reads through the shared fetch claim every five seconds for at most 45 seconds and reports Mac completion only after a newer, authenticated snapshot contains a matching `ManualRefreshResult` for its `ReaderID` and request ID. An unchanged `304`, an unrelated publication, or a locally fresh cache does not complete the request. A `sourceUnavailable` result is reported separately from a successful Codex read. If the Mac is asleep, the request is rate-limited, the relay fails, or the wait expires, it returns the latest valid cache and a specific pending/unavailable outcome. It does not retry the POST automatically or ask the Mac to read Claude Code. A manual Refresh scoped only to Claude Code performs the ordinary relay read without posting a request. An optional `MacRefreshProgress` callback reports `relayContacted` after the ordinary read and `waitingForMac(deadline:)` once the relay accepted the request or a matching marker resumed, so presentation can show relay contact and an accepted request without claiming Mac completion.
 
 **`AcceptPairing`** decodes and previews a `PairingPackage`, requires confirmation, then performs one authenticated preflight read. It validates a returned envelope or accepts an authenticated first-publish `404`; the read itself does not activate the token. It writes a recoverable local staging marker, saves the Keychain secrets, then atomically commits the pairing metadata, validated preflight snapshot if present, and `awaitingActivation` state. It sends `POST /v1/readers/activate` only after that local commit. An activation response lost to the network leaves the saved state pending and is retried idempotently on app launch or foreground activation, even after the displayed deadline: the relay may have activated before its response was lost. While awaiting activation, the preflight snapshot is not presented as a completed pairing, and every fetch trigger, a manual refresh included, is suppressed until activation succeeds; a manual tap reports `pairingPending`. A Keychain or local commit failure removes staged secrets without sending activation; only an authenticated `401` after expiry or revocation clears the pending pairing and asks for re-pairing. A crash during staging is reconciled before the next pairing or fetch. A reader with an existing pairing must use `ForgetMac` before accepting another package, so a new publisher cannot inherit the old cache, ETag, or sequence floor.
 
-**`ForgetMac`** atomically removes the committed iPhone snapshot and pairing-specific reader state, invalidates any in-flight fetch claim, and preserves its installation ID while advancing its Watch delivery revision. That transaction sets `forgetCleanupPending` and, if this installation has sent data to a Watch, persists a cleared `WatchPayload` and `watchErasePending` before Keychain deletion or Watch delivery. It then deletes Keychain items and cancels local notifications and Live Activities; only after those steps succeed does it clear `forgetCleanupPending` and report local forgetting complete. A failure retains the marker, hides old usage, blocks a new pairing and relay fetch, and offers retry on launch. A late response from the old claim cannot restore the forgotten snapshot or its ETag. The iPad has no Watch stage. The iPhone UI reports Watch erasure as pending until a matching receipt arrives. The user may pair a new Mac after local cleanup while Watch erasure is pending, but no new usage payload may replace the queued clear or reach the Watch before its receipt. An unreachable or lost Watch cannot be remotely erased by this app; the owner can erase Reset Radar data directly in the Watch app when it is available.
+**`ForgetMac`** atomically removes the committed iPhone snapshot and pairing-specific reader state, invalidates any in-flight fetch claim, and preserves its installation ID while advancing its Watch delivery revision. That transaction sets `forgetCleanupPending` and, if this installation has sent data to a Watch, persists a cleared `WatchPayload` and `watchErasePending` before Keychain deletion or Watch delivery. It then deletes Keychain items and cancels only Reset Radar-owned local notifications and Live Activities. Since pending-notification removal is asynchronous, cleanup checks that no owned request remains before clearing `forgetCleanupPending` and reporting local forgetting complete. A failure retains the marker, hides old usage, blocks a new pairing and relay fetch, and offers retry on launch. A late response from the old claim cannot restore the forgotten snapshot or its ETag. The iPad has no Watch stage. The iPhone UI reports Watch erasure as pending until a matching receipt arrives. The user may pair a new Mac after local cleanup while Watch erasure is pending, but no new usage payload may replace the queued clear or reach the Watch before its receipt. An unreachable or lost Watch cannot be remotely erased by this app; the owner can erase Reset Radar data directly in the Watch app when it is available.
 
 **`ForwardToWatch`** builds a `WatchPayload` and sends it as the application context after every commit or transport-status change. It removes transient `ManualRefreshResult`s from the Watch copy of the snapshot; the Watch needs usage state, not other readers' opaque request IDs. It advances and persists one delivery revision per distinct payload; both Watch channels and any reply for that payload carry the same revision. It also uses a complication transfer when `ComplicationBudgetPolicy` allows. While `watchErasePending` exists, it sends or resends only that saved clear, including in a reply to a Watch refresh request; later usage waits for acknowledgement.
 
@@ -244,14 +250,24 @@ After a commit it asks `SurfaceReloader` to reload the complication.
 
 **`ReconcileResetNotifications`** runs after every commit, and when the time zone or clock changes while the app runs. On iOS it takes `NotificationReconcileGate` before reading the latest committed snapshot and applying pending-request changes, so an app and widget cannot schedule different reset instants out of order. A claim interrupted by extension expiry remains retryable. The Mac has only one scheduler process and does not need this gate.
 
-- For each opted-in `AccountWindow` with a future `resetsAt`, it keeps exactly one request, with an
-  identifier derived from the account-window selection.
-- A newer reset replaces the request. A missing, expired, incompatible, or account-replaced window cancels it.
+- For each opted-in `WindowSelection` resolving to a valid provider-reported window with a future
+  `resetsAt`, it keeps exactly one request, with an identifier derived from that selection. A
+  standard selection resolves by `AccountWindow`; an additional selection resolves only by its
+  exact `WindowID`.
+- A newer reset or changed alias/window label replaces the request, even if the fire instant
+  stays the same. A missing, expired, incompatible, or account-replaced window cancels it. A
+  temporarily missing additional window
+  keeps its saved opt-in but has no pending request; only an exact-ID return resumes it.
 - Requests carry an absolute instant, scheduled so a local time-zone change does not move it.
 - Copy names the displayed account alias, product, and window and says it has reset. It never
   embeds a formatted local time or a replenished percentage.
 
-**`SetNotificationOptIn`** records the per-device choice. The first enable requests authorization, and a denied state stays visible with a route to system settings. Because the Mac and an iPhone schedule independently, the same reset may alert on both.
+**`SetNotificationOptIn`** records the per-device choice for any valid window. Existing standard
+`AccountWindow` choices survive migration to `WindowSelection`; additional choices bind to the
+concrete `WindowID`. The first enable requests authorization, and a denied state stays visible
+with a route to system settings. A provisional grant schedules quiet notifications and remains
+visibly provisional. Because the Mac and an iPhone schedule independently, the same reset may
+alert on both.
 
 ### Reset Live Activity (iPhone)
 
@@ -260,6 +276,9 @@ task, and keeps at most one activity per five-hour account window. Activities st
 foreground Account Details action, through the same use case.
 
 - **Update.** It updates content from the committed snapshot. Each update sets `staleDate` to the earlier of the observation's current-data expiry and `resetsAt`.
+- **Stale.** Current-data expiry marks the existing activity stale but does not end it while its
+  reset remains in the future. The view uses ActivityKit's `isStale` state and a timer that stops
+  at zero; a later app execution ends the activity after reset.
 - **End.** It ends an activity with immediate dismissal when any of these holds:
   - its reset has passed;
   - its `AccountWindow` now resolves to a different `WindowID`;
