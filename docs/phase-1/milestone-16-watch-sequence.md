@@ -1,0 +1,43 @@
+# P1-M16: Watch sequence
+
+Status: Planned
+
+Implementation order and acceptance evidence for the [M16 overview](milestone-16-watch-overview.md). The [Watch app](../architecture/watch-app.md), [WatchSync](../architecture/watch-sync.md), [Application](../architecture/application.md), and [Watch UX](../ux-gui.md#apple-watch-app) define behavior; this sequence identifies the code and device handoffs.
+
+## 1. Establish the implementation baseline
+
+Bring the completed M14 and M15 changes into the M16 branch through reviewed commits or merges. Record their revisions, clean worktree state, test destinations, and a passing baseline gate. Verify the actual iPhone `ReaderStore` transaction, post-commit pipeline, widget-origin catch-up, Forget Mac pending-clear state, Watch-related UI fields, App Group entitlements, and Watch target embedding. Confirm that the implementation still follows the transactional `WatchCacheStore` contract.
+
+M9's exit is waived for this work. Keep its remote outcome and evidence separate; do not infer Watch delivery or signing behavior from a relay smoke test.
+
+## 2. Implement and test WatchSync
+
+Define one bounded property-list codec for versioned `WatchPayload` and `WatchEraseReceipt`, with explicit message kinds and rejection of malformed, oversized, unexpected-key, or unknown-version inputs. Assert that the typed payload and receipt contain no relay or provider secret fields. Keep the codec's envelope limited to the approved typed value. Build an injected `WCSession` boundary so activation, paired/app-installed state, reachability, remaining complication transfers, delegate callbacks, queued receipt delivery, and message-reply completion can be tested without a paired device.
+
+Implement the iPhone `WatchLink` and Watch `PhoneLink` ports, using application context for the latest committed payload, budgeted `transferCurrentComplicationUserInfo` for the same payload, `sendMessage` with reply for active Watch refresh, and queued `transferUserInfo` for a receipt. Extend the iPhone port to expose the activated, paired, installed, complication-enabled, and remaining-system-transfer state needed by the existing budget policy; do not let a complication budget failure suppress application context. Surface both inbound payload channels as one typed stream and receipts as a separate iPhone stream. Keep inactive-platform implementations inert. Test duplicate callbacks, cancellation, activation changes, unreachable fallback, and reply completion under failure and timeout. [Apple's session contract](https://developer.apple.com/documentation/watchconnectivity/wcsession) requires activation and distinguishes background transfers from reachable live messages.
+
+## 3. Wire the iPhone delivery and erasure path
+
+Construct the `WatchLink` once in the iPhone app environment and activate the session at launch. After an app commit or transport-status change, run `ForwardToWatch`; after a widget-only commit, use the durable `needsAppReconcile` catch-up on the next app execution. Preserve the existing payload filter that removes transient manual-result identifiers. On launch and session activation, resend a saved pending clear before any newer usage. Route typed receipts to `ConfirmWatchErase`, then send the current newly paired snapshot only after a matching receipt clears the marker.
+
+For a Watch refresh request, hold a bounded iPhone background assertion, run `IngestRelaySnapshot(.watchRequest)` subject to `ReaderRefreshPolicy`, and complete the WatchConnectivity reply once with the latest permitted committed payload even if the fetch is skipped, offline, or fails; return a typed empty reply if no payload is permitted. While erasure is pending, every reply contains the saved clear. Never start a manual Mac-assisted Codex refresh from this path. Bound the work to leave time for a reply before WatchConnectivity times out; a late ingest may update ordinary application context after the reply. Verify revision durability before any send, replay after relaunch, stale or foreign receipts, and a late old relay result after Forget Mac.
+
+## 4. Compose the Watch app and its local controls
+
+Create one Watch environment with `FileWatchCacheStore`, a read facade, `PhoneLink`, `CommitWatchPayload`, `RequestPhoneRefresh`, `EraseWatchData`, and a complication reloader. Route both payload channels through the same commit use case. Keep the WatchConnectivity background task alive until all pending content is drained and commit/reload work has finished, then complete it exactly once. On activation show the local cache immediately and request iPhone refresh only when reachable.
+
+Build owner-confirmed Erase Watch Data and Reset Watch Pairing flows. Persist an empty cache, tombstone, and erase hold before requesting a complication reload; accept a newer clear and queue its receipt while held, but reject usage until explicit owner reset. For a changed installation, show a preview tied to the exact held payload and require confirmation before replacing the cache. Make storage and receipt-queue failures visible for retry. A `SurfaceReloader` call only requests a reload; verify the rendered frame on device and never claim that call proves erasure. Test interrupted writes, equal-revision conflicts, reordered channels, duplicate clear receipt, and relaunch with a hold.
+
+## 5. Build Watch presentation and complication
+
+Use the committed Watch cache with `LoadHome` and Account Details read models. Replace the scaffold with the N-by-two five-hour/weekly ring matrix in stable Account List order, compact details, alias in details and accessibility, and appearance-aware #1 lavender, #2 mint, #3 peach palettes tied to stable global account numbers. Render percentage used, source, reset, freshness, offline, unavailable, and reset-awaiting-refresh states without inventing a zero or relying on color alone. Keep notification and Live Activity controls absent.
+
+Replace the placeholder Watch widget with an account-window configurable complication for standard Home windows. Resolve exact saved identity from the Watch cache; a removed account/window stays unavailable. Emit a current entry and the Domain-derived presentation change instants, and request the next reload at the earlier known change or fifteen minutes; treat actual execution as system controlled. Use dynamic dates where appropriate, test delayed reload and original `observedAt` ageing, and reload after a durable commit or local erase. Inspect compact and larger families for readable state and alias treatment.
+
+## 6. Validate on devices, review security, and close
+
+Run focused WatchSync, Application, Storage, UI, app, and complication tests while implementing. Restore the Watch `xcodebuild test` destination in the documented complete gate and run it with the M14-restored iPhone and iPad destinations. Inspect the generated project, embedded watch app and extension, App Group entitlements, and import boundaries.
+
+Prepare a synthetic-data physical-device runbook. On the reference iPhone and paired Apple Watch, record signed IPA contents and initial installation, first launch, foreground and background application context, complication transfer under its budget, Watch refresh waking the iPhone and completing its reply, offline cache ageing, changed installation confirmation, local erase hold, and Forget Mac while offline followed by clear, durable receipt, and eventual complication reload. Confirm the Watch app and complication can read their own Watch App Group after signing. Record OS/build versions, commands, timings, and redacted outcomes; do not retain package secrets or account identifiers. Start the full seven-day Sideloadly refresh observation at this installation and track its preservation result as a Phase 1 exit item after M16 closes. Any failed platform assumption returns to the owner before changing the approved distribution or security model.
+
+Build a row-by-row runtime security review against [Failure behavior](../architecture.md#failure-behavior) and the trust-boundary table in the [static review](../research/spike-results.md#static-architecture-review--2026-10-20). Give each row its owning module, implemented path, evidence link, and status: proved, owner-accepted residual, or open with a named next check. Close Watch-owned rows with direct evidence; leave M9 and other unfinished rows explicitly open for Phase 1. Do not edit the archived P1-M2 record. Run the final complete [contribution-guide gate](../contribution-guide.md#required-validation) with `test_runner`, inspect `git diff --stat`, the full diff, `git diff --check`, and local Markdown links, then update affected docs and the phase status only to the level supported by evidence.

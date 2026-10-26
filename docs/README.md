@@ -60,6 +60,8 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [phase-1/milestone-14-ios-core-app-sequence.md](phase-1/milestone-14-ios-core-app-sequence.md) | P1-M14 composition, pairing, refresh, UI, test, and device-validation order. Active. |
 | [phase-1/milestone-15-scheduling-overview.md](phase-1/milestone-15-scheduling-overview.md) | P1-M15 scheduling scope, M14 handoff, review findings, and completion checklist. Planned. |
 | [phase-1/milestone-15-scheduling-sequence.md](phase-1/milestone-15-scheduling-sequence.md) | P1-M15 Scheduling, Mac notifications, background refresh, widgets, ActivityKit, and device-validation order. Planned. |
+| [phase-1/milestone-16-watch-overview.md](phase-1/milestone-16-watch-overview.md) | P1-M16 Watch scope, handoff review, physical-device evidence, and completion checklist. Planned. |
+| [phase-1/milestone-16-watch-sequence.md](phase-1/milestone-16-watch-sequence.md) | P1-M16 WatchSync, iPhone and Watch wiring, complication, signing, and validation order. Planned. |
 | [research/cloudflare-relay-spike-runbook.md](research/cloudflare-relay-spike-runbook.md) | Active owner-run P1-M9 deployment, smoke, 30-minute sample, fault, release, and teardown procedure. |
 | [phase-1/owner-decisions.md](phase-1/owner-decisions.md) | Owner-approved P1-M1 product, security, scheduling, synchronization, and distribution decisions that constrain P1-M2. |
 | [research/initial-research-on-feasibility.md](research/initial-research-on-feasibility.md) | P1-M1 feasibility study: service limits, reset-time sources, iOS capabilities, prior art, and owner-approved scope. Active. |

@@ -21,6 +21,8 @@ This decision removes App Store submission and store-listing work from the first
 
 Use Sideloadly to sign and install a conventional Reset Radar IPA, keeping its widget and embedded watch app targets. Configure its refresh daemon and Wi-Fi refresh so the seven-day free provisioning profiles can be renewed while the Mac and iPhone can reach one another. Physical-device validation must prove that the resulting Personal Team signing installs and refreshes the watch app on the paired Apple Watch; the public research does not establish that workflow by itself.
 
+The first signed install and paired Watch checks belong to P1-M16. Per the owner's 2026-10-26 decision, the full seven-day preservation observation is a Phase 1 exit criterion that may finish after M16 closes; the installation strategy is not validated for the first usable version until that observation passes.
+
 Do not run Reset Radar inside LiveContainer. LiveContainer's own documentation says guest app entitlements are not applied to the host and guest app extensions cannot be registered with iOS. Reset Radar's Home Screen and Lock Screen widgets are WidgetKit app extensions, so they would not exist as normal system surfaces in that runtime. LiveContainer also documents special handling for local notifications and no remote push notifications; Reset Radar should not add those compatibility variables when conventional installation is available.
 
 ## Comparison

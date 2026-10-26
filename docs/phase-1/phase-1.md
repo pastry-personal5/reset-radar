@@ -12,6 +12,7 @@ This file is the overall plan. Each milestone gets its own overview file when it
 - The software architecture is documented and every related "Undecided" item in [AGENTS.md](../../AGENTS.md) is resolved or consciously deferred.
 - An Xcode project targeting iOS and iPadOS 26.1+, watchOS 26.6+, and macOS 26.7.1+ builds with the `ResetRadar`, `ResetRadarMac`, and `ResetRadarWatch` schemes, and the full gate passes with empty-but-real app, watch app, and test targets.
 - The Mac collector, relay, and both provider adapters work end to end on synthetic and real data; the iOS, iPad, and Watch apps, widgets, and Live Activities display it. Open work in [P1-M2 open work](../archive/p1-m2-open-work.md) is verified by its owning milestones.
+- The owner records one full seven-day Sideloadly refresh cycle after the initial free-signed iPhone and Watch installation, including preservation of the Watch app, complication configuration, and Watch cache. This elapsed-time check may finish after P1-M16 is `Done`; Phase 1 remains open until it is recorded.
 
 ## Approach
 
@@ -35,9 +36,9 @@ This file is the overall plan. Each milestone gets its own overview file when it
 | P1-M11 Claude Code adapter | M5, M10 Checkpoint A | ProviderAdapters | signed-in status-line calibration |
 | P1-M12 Mac collector app | M6, M7, M10 and M11 code-complete | Mac root | Keychain checks, eight-day re-read, timer drift |
 | P1-M13 Mac UI | M12 | UI, Mac root | none |
-| P1-M14 iOS core app | M6, M7, M13 | iOS root | Sideloadly seven-day re-sign |
+| P1-M14 iOS core app | M6, M7, M13 | iOS root | initial free-signed iPhone/iPad install; begin seven-day refresh observation |
 | P1-M15 Scheduling | M14 | Scheduling, widgets | widget, Live Activity, and background-timing checks on device |
-| P1-M16 Watch | M14, M15 | WatchSync, Watch root | WatchConnectivity on a paired watch |
+| P1-M16 Watch | M14, M15 | WatchSync, Watch root | initial free-signed install and WatchConnectivity on reference paired devices; seven-day refresh at Phase 1 exit |
 
 M6, M7 and M8 can proceed in parallel after M5. The expanded M10 account-refresh scope starts
 after M7 and M8 and can run in parallel with M9. M11 preparation may proceed independently, but
@@ -52,13 +53,13 @@ Start these as early as their milestone allows so elapsed time does not block th
 - Relay 30-minute latency and capacity sample, begun in P1-M9, with checked-in 24-hour Free-limit accounting.
 - Mac Keychain re-read eight days after signing, begun at the first signed build in P1-M12.
 - Mac timer drift and iOS background-task intervals over 24 hours, begun in P1-M12 and P1-M15.
-- Sideloadly seven-day refresh, begun at the first installable iOS build in P1-M14.
+- Sideloadly seven-day refresh, begun for iOS at the first installable build in P1-M14 and for the paired Watch at its first free-signed install in P1-M16. The full Watch preservation observation is a Phase 1 exit item after M16 may close.
 
 ## Risks
 
 | Risk | Response |
 |---|---|
-| The relay fails a synthetic-data criterion or exceeds Workers Free. | Record the failure and return the synchronization decision to the owner. Do not represent M9 as passed or assume its unproven properties; M14 and M15 implementation may proceed under the owner's M9-gate waiver. |
+| The relay fails a synthetic-data criterion or exceeds Workers Free. | Record the failure and return the synchronization decision to the owner. M14 through M16 may proceed under the owner's M9-gate waiver without claiming the failed criterion passed. |
 | Provider output shape changes or a current-data window is rejected. | Treat the source as unavailable, not as a guessed value; return to the owner. |
 | The Mac Keychain prompts after a rebuild or a lock. | Return the storage decision to the owner. |
 | Free-account signing limits (seven-day expiry, 10 App IDs per week). | Keep bundle identifiers stable; use Sideloadly refresh and record each re-sign. |
@@ -155,4 +156,6 @@ Notes: M9 exit is not an M15 prerequisite under the owner's 2026-10-26 instructi
 
 ### P1-M16: Watch
 Status: Planned
-Goal: WatchSync, Watch app grid, complication, offline and stale display, and Forget Mac erasure; re-enables the Watch test run and closes the runtime security review table.
+Goal: WatchSync, Watch app grid, complication, offline and stale display, and Forget Mac erasure; re-enables the Watch test run and closes Watch-owned runtime security rows.
+Plan: [overview](milestone-16-watch-overview.md), [sequence](milestone-16-watch-sequence.md), [Watch app](../architecture/watch-app.md), [WatchSync](../architecture/watch-sync.md)
+Notes: M14 and M15 remain implementation dependencies. M9 exit is not an M16 prerequisite under the owner's waiver; M9's open remote evidence remains separate. The full seven-day Sideloadly refresh observation remains a Phase 1 exit criterion after M16 closes.

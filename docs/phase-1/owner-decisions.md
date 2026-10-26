@@ -24,6 +24,7 @@ On 2026-10-20 the owner requested an optional independent iPhone/iPad source, pr
 - The Mac collector and pairing flow must ship with the first usable version. A reset-only iOS increment does not count as the first release.
 - Include Live Activities for eligible short windows such as a five-hour window. Weekly windows remain app and widget content. Activation, update, expiration, and stale-state behavior require an ActivityKit spike before implementation is frozen.
 - Include an Apple Watch app in the first version. It receives the normalized, credential-free model through its paired iPhone, shows reset times, latest usage, source, and freshness, and does not connect directly to provider services or hold provider credentials.
+- For P1-M16, validate initial free-signed Watch installation and WatchConnectivity on the reference iPhone and paired Watch. The owner placed the full seven-day Sideloadly refresh observation after M16 closure, as a Phase 1 exit criterion; it still must prove preservation before Phase 1 is marked done. This 2026-10-26 scheduling choice does not approve another distribution method or make an early re-sign equivalent to a full cycle.
 - Use an account-scoped Home model. iPhone has a vertically scrolling Account List with one compact
   row and two standard Allowance Rings per account. iPad and Mac use split Account List/Account
   Details layouts. Watch uses an N-by-two ring matrix with aliases available in accessibility and

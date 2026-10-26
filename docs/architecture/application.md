@@ -229,7 +229,7 @@ completed reconciliation.
 
 ### Watch (watchOS)
 
-**`CommitWatchPayload`** validates a payload and commits it through `SnapshotStore` with these ordering rules:
+**`CommitWatchPayload`** validates a payload and commits it through `WatchCacheStore.transact` with these ordering rules:
 
 - a higher delivery revision from the same iPhone installation replaces the cache or updates transport fields; a clear at that revision erases the cache;
 - an equal revision is idempotent only when its payload is identical; conflicting content is rejected;
