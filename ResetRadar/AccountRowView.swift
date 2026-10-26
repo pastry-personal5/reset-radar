@@ -7,6 +7,9 @@ import SwiftUI
 /// Account Details arrow. Accessibility sizes reflow it without changing the logical order.
 struct AccountRowView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// Grows with the ring captions so Percentage Used stays legible inside the ring, capped so
+    /// two rings and the arrow still share one line at accessibility sizes.
+    @ScaledMetric(relativeTo: .caption2) private var scaledRingDiameter: CGFloat = 54
     let row: AccountRow
     let selected: Bool
     let refreshLine: String?
@@ -78,7 +81,7 @@ struct AccountRowView: View {
                 } label: {
                     AllowanceRing(
                         display: display, caption: ReaderVocabulary.windowCaption(window),
-                        diameter: 54)
+                        diameter: min(scaledRingDiameter, 96))
                 }
                 .buttonStyle(.plain)
                 .frame(minWidth: 44, minHeight: 44)
@@ -90,6 +93,8 @@ struct AccountRowView: View {
                 .accessibilityIdentifier("ring.\(row.account.number).\(window.rawValue)")
             }
         }
+        // A narrow column truncates the alias instead of overlapping the rings.
+        .fixedSize()
     }
 
     private var detailsButton: some View {

@@ -54,6 +54,8 @@ struct HomeView: View {
                 splitFocus = route.focus
                 environment.select(route.accountID)
             }
+            // Wide enough for an alias, both rings, and the arrow on one Account Row.
+            .navigationSplitViewColumnWidth(min: 320, ideal: 360, max: 420)
         } detail: {
             NavigationStack {
                 if let selected = environment.selectedAccountID.flatMap({
