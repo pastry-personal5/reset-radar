@@ -120,6 +120,21 @@ The owner made these decisions on 2026-10-19 while reviewing the [software archi
 
   The same models are the simulator destinations. See [Platform targets](../architecture.md#platform-targets).
 
+## P1-M14 decisions
+
+The owner made these decisions on 2026-10-26 while P1-M14 was being completed:
+
+- **M9 entry waiver.** P1-M14 may proceed and close without P1-M9 being `Done`. P1-M9 stays
+  `Active` with its own open items. The waiver does not turn M9's cellular waiver into iOS
+  cellular evidence, and it does not replace the owner-run manual-refresh evidence that this
+  file requires.
+- **Screen-model placement.** `ResetRadarUI` holds value-type presentation derivations and shared
+  components. Each composition root holds its observable screen state. See
+  [UI screen models](../architecture/ui.md#screen-models).
+- **Development storage.** Unsigned Development builds without an App Group entitlement fall back
+  to the app's own Application Support directory with the `Debug` flavor. Release still fails
+  closed. See [iOS composition](../architecture/ios-app.md#composition).
+
 ## Evidence still required
 
 The interview resolves the owner choices, but not these validation tasks:

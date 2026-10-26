@@ -24,7 +24,7 @@ Rules:
 
 ```mermaid
 flowchart TB
-  subgraph Screens["Screen models (@MainActor, @Observable)"]
+  subgraph Screens["Screen models (@MainActor, in each composition root)"]
     HomeModel
     AccountDetailsModel
     SetupBannerModel
@@ -66,6 +66,15 @@ flowchart TB
 ```
 
 ## Screen models
+
+**Placement.** The owner approved this split on 2026-10-26. `ResetRadarUI` holds the value-type
+presentation derivations and the shared components: `AllowanceDisplay`, `WindowSection`,
+`ReaderSetupStep`, `RefreshActivity` and `RefreshFeedback`, `PairingSyncText`,
+`AccountSelection`, and `ReaderVocabulary`. Each composition root holds the observable
+(`@MainActor` `ObservableObject`) screen state, which also drives that root's scene and use cases.
+The iOS app uses `ReaderEnvironment` for Home, Account Details, Pairing & Sync, and Refresh. The
+Mac app uses its environment and owner-flow view models. The model names below describe
+responsibilities, not types in this module.
 
 **Home and Account Details.** `HomeModel` reads `LoadHome`; `AccountDetailsModel` selects one
 account from `LoadUsageDetails` by stable `AccountID`. They load when they appear and reload when
@@ -115,13 +124,14 @@ Widget, Live Activity, and complication views reuse `AllowanceRing`, `StateBadge
 | macOS | Main Sidebar content and the menu-bar summary. |
 | watchOS | N-by-two ring matrix with stable pastel account palettes and compact Account Details, with no notification or Live Activity controls. |
 
-Variants live in platform-conditional files; screen models are shared.
+Variants live in platform-conditional files. The value-type presentation derivations are shared;
+each platform's observable screen state lives in its composition root.
 
 ## Tests
 
 `ResetRadarUIComponentTests` (named to avoid the app's `ResetRadarUITests` UI-test bundle) covers:
 
-- screen-model state for every presentation and transport state;
+- presentation derivations for every presentation and transport state;
 - pairing and Watch-erasure state, including an unreachable Watch and a confirmed cache receipt;
 - stable #1 lavender, #2 mint, and #3 peach Watch Account Palette mapping across account order and
   supported appearances, including foreground contrast;

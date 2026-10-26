@@ -100,7 +100,10 @@ ticker, and manual-refresh driver.
 
 - **Storage root.** Release requires the shared App Group container and fails closed with an
   installation error when it is missing. Development uses the `Debug` storage flavor and the debug
-  Keychain service, so it never reads an installed app's data.
+  Keychain service, so it never reads an installed app's data. Development builds are unsigned,
+  so on a simulator they have no App Group entitlement. They then fall back to the app's own
+  Application Support directory, still with the `Debug` flavor. Release never falls back. The
+  owner approved this fallback on 2026-10-26.
 - **Keychain group.** The access group comes from the entitlement-expanded
   `ResetRadarKeychainAccessGroup` Info.plist value. An unexpanded or foreign value fails closed
   rather than falling back to the default group.

@@ -13,10 +13,11 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
   two rings, and the iOS Account Details bitmap had flattened edges; the app now uses the intact
   M13 Mac asset. The in-ring percentage also did not grow at accessibility sizes. An unsigned
   Release build confirmed the app embeds its widget and the Watch app with its complication. M14
-  stays `Active`. Its entry criterion is still unmet and the two owner questions are still open.
-  The physical-device checks, the deployed manual-refresh evidence, and the seven-day re-sign
-  remain owner-run, so M14 can close no earlier than seven days after the owner's first
-  Sideloadly install.
+  stays `Active`. The owner then waived M14's M9 entry dependency, kept the screen-state split,
+  and kept the Development storage fallback. These are recorded in owner decisions and adopted
+  in the UI and iOS architecture docs. The physical-device checks, a real QR scan, the deployed
+  manual-refresh evidence, and the seven-day re-sign remain owner-run. M14 can close no earlier
+  than seven days after the owner's first Sideloadly install.
 
 - 2026-10-26 — Claude Code — Measured slow iOS runs: compilation was not the cause (incremental
   iOS builds take about 4 s; an empty-DerivedData build about 107 s, with the shared packages

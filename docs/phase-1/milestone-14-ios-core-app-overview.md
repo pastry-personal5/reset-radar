@@ -31,9 +31,10 @@ Recorded on 2026-10-26, when the owner directed completion of M14:
   simulators.
 - **Dependencies.** M6, M7, and M13 are `Done`. M9 is `Active`: its compatible
   promotion-and-rollback item and its dated verdict are open. M10 is `Active`, and its
-  account-aware contracts are present. **The entry criterion is unmet.** The owner's instruction
-  started the agent-side work, but it is not recorded as an M9 waiver. The 2026-10-25 owner
-  decision lets real usage reach the relay before M9 closes.
+  account-aware contracts are present. The entry criterion was unmet when work started. The
+  owner waived the M9 dependency for M14 on 2026-10-26
+  ([M9 entry waiver](owner-decisions.md#p1-m14-decisions)); M9 stays `Active`. The 2026-10-25
+  owner decision lets real usage reach the relay before M9 closes.
 - **Baseline.** Project generation and the iPhone build passed. The iPhone test run failed: the
   unsigned Development app had no App Group on the simulator and crashed at launch, and three
   Mac-only Keychain tests ran on iOS. The full gate was not green before implementation.
@@ -41,21 +42,17 @@ Recorded on 2026-10-26, when the owner directed completion of M14:
   evidence. A physical cellular read stays a separate, optional owner observation in the
   [installation procedure](../research/personal-use-sideloading.md#p1-m14-reader-installation-procedure).
 
-## Open owner questions
+## Owner decisions
 
-Implementation choices awaiting owner review. Neither is adopted in a binding architecture
-document.
+On 2026-10-26 the owner resolved both implementation questions and the entry gap. The decisions
+are recorded in [owner decisions](owner-decisions.md#p1-m14-decisions):
 
-1. **Screen-model placement.** [UI](../architecture/ui.md#screen-models) places observable screen
-   models in `ResetRadarUI`. The reader keeps value-type derivations there (`AllowanceDisplay`,
-   `WindowSection`, `ReaderSetupStep`, `RefreshFeedback`, `PairingSyncText`, and
-   `AccountSelection`). Its published screen state lives in the app's `ReaderEnvironment`, which
-   is also the scene, ticker, and manual-refresh driver. The Mac app keeps its screen models in
-   the Mac target too. Keep this split, or move the observable state into `ResetRadarUI`?
-2. **Unsigned Development storage.** Development builds are unsigned, so the simulator has no App
-   Group entitlement. `ReaderComposition` falls back to the app's own Application Support
-   directory with the `Debug` flavor, in Development only; Release still fails closed. Keep this
-   fallback, or sign Development builds?
+1. **Screen-model placement.** Keep the split. `ResetRadarUI` holds the value-type presentation
+   derivations, and the app's `ReaderEnvironment` holds the observable screen state. Adopted in
+   [UI screen models](../architecture/ui.md#screen-models).
+2. **Unsigned Development storage.** Keep the Development-only Application Support fallback;
+   Release still fails closed. Adopted in [iOS composition](../architecture/ios-app.md#composition).
+3. **M9 entry.** M14 proceeds and may close under an owner waiver while M9 stays `Active`.
 
 ## In scope
 
@@ -121,9 +118,9 @@ document.
   on 2026-10-26; the M14 entry gate and scaffold status remain explicit.
 - [x] Entry criteria and baseline are recorded; M9 limitations are carried into M14's device
   evidence without being described as passing cellular behavior. Evidence: the
-  [entry and baseline record](#entry-and-baseline-record) states the entry criterion as unmet and
-  not waived, and the installation procedure records a cellular read separately. No simulator
-  result here is cellular evidence.
+  [entry and baseline record](#entry-and-baseline-record) states that the entry criterion was
+  unmet and that the owner waived it on 2026-10-26. The installation procedure records a cellular
+  read separately, and no simulator result here is cellular evidence.
 - [ ] The iOS composition uses the shared App Group and explicit Keychain access group; physical
   first-unlock, locked-device, and Development/Release isolation checks have dated evidence.
   Agent-side evidence on 2026-10-26: `ReaderCompositionTests` show that Release requires the App
@@ -166,13 +163,15 @@ document.
   Activation and first-publication guidance never infer Mac account setup from an empty local
   snapshot. Simulator UI tests exercise both reference destinations and large text sizes.
   Evidence on 2026-10-26: `ReaderHomeUITests` and `ReaderSettingsUITests` pass on both reference
-  simulators. They include the accessibility-XXXL row and an Account Row read in alias, five-hour,
-  weekly, then Account Details order at default and accessibility sizes. Screenshot inspection of
-  the synthetic paired Home at default and accessibility-XXXL sizes found three defects, now
-  fixed. The iPad sidebar overlapped the two rings, so it now has room for a full row and its
-  rings never compress. The Account Details bitmap had flattened edges, so the iOS app now uses
-  the intact M13 Mac asset. The in-ring percentage stayed small at accessibility sizes, so the
-  row's rings now grow with Dynamic Type, up to 96 pt.
+  simulators. They include the accessibility-XXXL row and check that an Account Row's
+  accessibility elements, which VoiceOver follows by default, run alias, five-hour ring, weekly
+  ring, then Account Details at default and accessibility sizes. This is an element-order check,
+  not a VoiceOver session. Screenshot inspection of the synthetic paired Home on both simulators,
+  at default and accessibility-XXXL sizes, found three defects, now fixed. The iPad sidebar
+  overlapped the two rings; it now has room for a full row, and no ring button is narrower than
+  its circle. The Account Details bitmap had flattened edges, so the iOS app now uses the intact
+  M13 Mac asset. The in-ring percentage stayed small at accessibility sizes, so the row's rings
+  now grow with Dynamic Type, up to 96 pt.
 - [x] Forget Mac completes local erasure or exposes retryable cleanup, never resurrects an old
   cache, and distinguishes pending from acknowledged Watch erasure. M16's delivery dependency is
   recorded without treating an unreachable Watch as cleared. Evidence on 2026-10-26:
@@ -185,7 +184,7 @@ document.
   gate; project generation, formatting, strict lint, imports, Mac tests, both iOS destinations,
   and relay checks pass from the final worktree. Evidence on 2026-10-26: the
   [contribution guide](../contribution-guide.md#required-validation) and `Makefile` run both
-  destinations in `make test-ios-ipad`. `make gate` passed in 2 min 4 s from this worktree, with
+  destinations in `make test-ios-ipad`. `make gate` passed in 2 min 0 s from this worktree, with
   0 SwiftLint violations, every iPhone and iPad test case passing, 28 relay tests passing, and a
   clean relay typecheck and deployment dry run.
 - [x] iOS simulator test time is measured and reduced without dropping coverage or changing the
@@ -206,4 +205,7 @@ document.
   the app's pairing and committed sequence. Widget/notification and Watch preservation remain
   separately evidenced in M15/M16.
 - [ ] Affected user-facing, setup, phase, and architecture docs match the implementation; M14
-  is marked `Done` only after the checklist has direct evidence.
+  is marked `Done` only after the checklist has direct evidence. Agent-side evidence on
+  2026-10-26: [UI](../architecture/ui.md#screen-models) and
+  [iOS composition](../architecture/ios-app.md#composition) adopt the owner's decisions and match
+  the code. **Open:** the closing doc update after the owner-run evidence above.
