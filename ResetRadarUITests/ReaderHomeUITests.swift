@@ -29,6 +29,13 @@ final class ReaderHomeUITests: XCTestCase {
         XCTAssertFalse(app.element("accountRow.1").exists)
         app.element("setupBanner.action").tap()
         XCTAssertTrue(app.navigationBars["Pairing & Sync"].appears(timeout: 5))
+        // The simulator has no data scanner, so scanning reports itself unavailable and the
+        // manual paste below stays usable.
+        app.buttons["Scan Pairing QR Code"].tap()
+        let message = app.element("pairing.message")
+        XCTAssertTrue(message.appears(timeout: 5))
+        XCTAssertEqual(
+            message.label, "Camera scanning is unavailable. Paste the Pairing Package instead.")
         let field = app.element("pairing.package")
         field.tap()
         field.typeText("not-a-package")
@@ -54,7 +61,7 @@ final class ReaderHomeUITests: XCTestCase {
     /// One launch covers the paired Home rows, then Account Details, then Home Refresh. Refresh
     /// runs last because it publishes a new snapshot.
     @MainActor
-    func testPairedRowsUseNaturalOrderOpenEveryValidWindowAndRefreshReportsEachAccount() {
+    func testPairedRowsUseNaturalOrderOpenEveryValidWindowAndRefreshReportsEachAccount() throws {
         let app = launchReader("paired")
         let second = app.element("accountRow.2")
         let personal = app.element("accountRow.3")
@@ -73,6 +80,7 @@ final class ReaderHomeUITests: XCTestCase {
         XCTAssertTrue(app.element("ring.3.weekly").label.hasSuffix("Waiting for Update"))
         XCTAssertTrue(app.element("ring.3.fiveHour").label.contains("33.5% used"))
         XCTAssertEqual(app.element("accountDetails.1").label, "Account Details")
+        try assertRowReadingOrder(app, number: 1, alias: "Work")
 
         XCTAssertTrue(app.element("accountDetails.1").appears(timeout: 10))
         app.element("accountDetails.1").tap()
@@ -118,7 +126,7 @@ final class ReaderHomeUITests: XCTestCase {
     }
 
     @MainActor
-    func testLargeAccessibilityTextKeepsTheToolbarAndRowControls() {
+    func testLargeAccessibilityTextKeepsTheToolbarAndRowControls() throws {
         let app = launchReader(
             "paired",
             arguments: [
@@ -133,6 +141,8 @@ final class ReaderHomeUITests: XCTestCase {
         }
         XCTAssertTrue(app.element("ring.2.fiveHour").exists)
         XCTAssertTrue(app.element("accountDetails.2").isHittable)
+        // The accessibility layout stacks the rings below the alias without reordering them.
+        try assertRowReadingOrder(app, number: 2, alias: "Account #2")
     }
 
     @MainActor

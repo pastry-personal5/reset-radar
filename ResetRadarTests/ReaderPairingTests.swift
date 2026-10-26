@@ -24,6 +24,20 @@ import Testing
         #expect(try await harness.state.pairing == nil)
     }
 
+    @Test func anUnavailableCameraLeavesManualPasteUsable() async throws {
+        let environment = harness.environment()
+        await environment.reload()
+        environment.reportCameraUnavailable()
+        #expect(
+            environment.pairingMessage
+                == "Camera scanning is unavailable. Paste the Pairing Package instead.")
+        let package = try harness.package()
+        environment.previewPairing(package)
+        #expect(
+            environment.pairingStep == .confirm(code: harness.codec.confirmationCode(for: package)))
+        #expect(environment.pairingMessage == nil)
+    }
+
     @Test func anInvalidPackageShowsNoCode() async {
         let environment = harness.environment()
         environment.previewPairing("not a pairing package")

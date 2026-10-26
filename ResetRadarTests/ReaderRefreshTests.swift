@@ -86,6 +86,71 @@ import Testing
         #expect(harness.relay.calls(.postRefreshRequest).count == 1)
     }
 
+    @Test(arguments: [
+        (RelayOutcome.requestRateLimited, "Refresh is rate limited. Try again shortly."),
+        (.requestAlreadyCompleted, "The Collector Mac already completed this request."),
+        (.offline, "The relay could not be reached. The last valid reading stays visible."),
+        (.unauthorized, "Refresh failed. " + ReaderVocabulary.transport(.authorizationRequired)),
+    ])
+    func aRefusedRequestReportsItsOutcomeForEachCodexAccountWithoutReposting(
+        refusal: RelayOutcome, expected: String
+    ) async throws {
+        let environment = try await pairedEnvironment()
+        harness.relay.queuePost(refusal)
+        await environment.refreshHome()
+        #expect(line(environment, codexA, .codex) == expected)
+        #expect(line(environment, codexB, .codex) == expected)
+        #expect(environment.home.accounts.count == 3)
+        #expect(harness.relay.calls(.postRefreshRequest).count == 1)
+        #expect(try await harness.state.pendingManualRequest == nil)
+        #expect(try await harness.state.committedSequence == 5)
+    }
+
+    @Test func aMismatchedResultKeepsWaitingAndADelayedMatchingResultCompletes() async throws {
+        let environment = try await pairedEnvironment()
+        let task = Task { await environment.refreshHome() }
+        await harness.clock.waitForSleepers()
+        let (id, target) = try #require(harness.posted())
+        let deadline = harness.clock.now.addingTimeInterval(45)
+        let other = try harness.result(
+            identifier(RequestID.self, 0x77), target: target, [(codexA, .codexRead)])
+        try harness.relay.queueGet(harness.envelope(sequence: 6, results: [other]))
+        harness.clock.advance(by: 5)
+        await harness.clock.waitForSleepers()
+        #expect(try await harness.state.committedSequence == 6)
+        #expect(environment.refresh?.phase == .waitingForMac(deadline: deadline))
+
+        // Two polls find nothing new before the Mac's result is published.
+        for _ in 0..<2 {
+            harness.clock.advance(by: 5)
+            await harness.clock.waitForSleepers()
+        }
+        let result = try harness.result(
+            id, target: target, [(codexA, .codexRead), (codexB, .codexRead)])
+        try harness.relay.queueGet(harness.envelope(sequence: 7, results: [result]))
+        harness.clock.advance(by: 5)
+        await task.value
+        #expect(environment.refresh?.phase == .finished(.completed(result.accountResults)))
+        #expect(line(environment, codexB, .codex) == "The Collector Mac read this account.")
+        #expect(harness.relay.calls(.postRefreshRequest).count == 1)
+        #expect(try await harness.state.committedSequence == 7)
+    }
+
+    @Test func aSleepingMacEndsTheWaitAsPossiblyAsleepAndKeepsTheRows() async throws {
+        let environment = try await pairedEnvironment()
+        // The Mac last published an hour ago, beyond three five-minute heartbeats.
+        harness.clock.advance(by: 3_600)
+        let task = Task { await environment.refreshHome() }
+        await drive(harness.clock) { environment.refresh?.isRunning == false }
+        await task.value
+        #expect(environment.refresh?.phase == .finished(.macAsleepOrPending))
+        #expect(
+            line(environment, codexA, .codex)
+                == "The Collector Mac may be asleep. The last valid reading stays visible.")
+        #expect(environment.home.accounts.count == 3)
+        #expect(harness.relay.calls(.postRefreshRequest).count == 1)
+    }
+
     @Test func leavingTheForegroundEndsTheWaitWithoutRepostingOrAFalseOfflineStatus() async throws {
         let environment = try await pairedEnvironment()
         let first = Task { await environment.refreshHome() }

@@ -29,6 +29,32 @@ extension XCUIElement {
     func appears(timeout: TimeInterval) -> Bool {
         waitUntil(timeout: timeout) { exists }
     }
+
+    /// This element and its descendants in accessibility order, which VoiceOver follows, named
+    /// by identifier or, without one, by label. One snapshot keeps it to a single query.
+    func accessibilityOrder() throws -> [String] {
+        func names(_ element: any XCUIElementSnapshot) -> [String] {
+            [element.identifier.isEmpty ? element.label : element.identifier]
+                + element.children.flatMap(names)
+        }
+        return try names(snapshot())
+    }
+}
+
+/// Asserts that VoiceOver reads an Account Row's alias, then its five-hour and weekly rings,
+/// then its Account Details action.
+@MainActor
+func assertRowReadingOrder(
+    _ app: XCUIApplication, number: Int, alias: String,
+    file: StaticString = #filePath, line: UInt = #line
+) throws {
+    let order = try app.element("accountRow.\(number)").accessibilityOrder()
+    let expected = [
+        alias, "ring.\(number).fiveHour", "ring.\(number).weekly", "accountDetails.\(number)",
+    ]
+    let positions = expected.compactMap { order.firstIndex(of: $0) }
+    XCTAssertEqual(positions.count, expected.count, "\(order)", file: file, line: line)
+    XCTAssertEqual(positions, positions.sorted(), "\(order)", file: file, line: line)
 }
 
 extension XCUIApplication {
