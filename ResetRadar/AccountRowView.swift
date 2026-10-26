@@ -81,10 +81,12 @@ struct AccountRowView: View {
                 } label: {
                     AllowanceRing(
                         display: display, caption: ReaderVocabulary.windowCaption(window),
-                        diameter: min(scaledRingDiameter, 96))
+                        diameter: ringDiameter)
                 }
                 .buttonStyle(.plain)
-                .frame(minWidth: 44, minHeight: 44)
+                // Never narrower than the drawn circle, so a tight column truncates the alias
+                // or scales the captions instead of overlapping the rings.
+                .frame(minWidth: max(44, ringDiameter), minHeight: 44)
                 .accessibilityLabel(
                     display.accessibilityLabel(
                         account: row.account, window: ReaderVocabulary.windowName(window))
@@ -93,9 +95,9 @@ struct AccountRowView: View {
                 .accessibilityIdentifier("ring.\(row.account.number).\(window.rawValue)")
             }
         }
-        // A narrow column truncates the alias instead of overlapping the rings.
-        .fixedSize()
     }
+
+    private var ringDiameter: CGFloat { min(scaledRingDiameter, 96) }
 
     private var detailsButton: some View {
         Button {
