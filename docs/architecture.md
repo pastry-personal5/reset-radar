@@ -343,6 +343,7 @@ Each of these is exercised on the reference devices in [Platform targets](#platf
 - **Mac and installation:**
   - `SMAppService.mainApp` state;
   - Sideloadly installation on iPhone, iPad, and Watch.
+  - physical iPhone QR pairing;
 - **First-party tools:**
   - Codex app-server method and field shape, default-bucket identity, notification frequency, and child exit on standard-input close;
   - legitimate Codex JSON-RPC messages fitting the bounded frame, string, nesting, and window limits;

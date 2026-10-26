@@ -148,6 +148,10 @@ Goal: Pairing, relay reader, iPhone Account List, iPad split Account List and Ac
 Setup Banner, and Main Toolbar screens; re-enables the iPhone and iPad test runs in the gate.
 Plan: [overview](milestone-14-ios-core-app-overview.md), [sequence](milestone-14-ios-core-app-sequence.md)
 
+Notes: The initial signed iPhone installation, first launch after trust, and physical QR pairing
+succeeded on 2026-10-27. M14 remains Active pending its IPA target, remaining physical
+App Group/Keychain and cache checks, deployed-relay manual-refresh evidence, seven-day renewal,
+and closure documentation.
 ### P1-M15: Scheduling
 Status: Planned
 Goal: Reset notifications (including the Mac `NotificationDriver` moved from P1-M12), background refresh, widgets, and Live Activities, with their shared-state validation.

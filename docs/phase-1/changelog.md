@@ -6,6 +6,12 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-27 — Owner/Codex — The owner successfully exercised physical QR pairing on the
+  reference iPhone after the signed Sideloadly Normal Install and trust flow. No pairing package,
+  confirmation code, token, or usage data was retained. M14's QR-pairing checklist item is
+  complete; its extension, first-unlock and cache-persistence, iPad, deployed-relay
+  manual-refresh, and seven-day renewal evidence remains open, so M14 stays `Active`.
+
 - 2026-10-26 — Owner/Codex — Reviewed the M16 Watch draft against its committed use cases, WatchConnectivity contract, M14/M15 handoffs, and physical-device requirements. The owner selected the reference iPhone and paired Watch for tests and moved the full seven-day Sideloadly preservation check to Phase 1 exit, after M16 may close. M16 still requires initial free-signed installation and paired delivery. The runtime security table will close Watch-owned rows in M16 and carry named M9 and other open rows to Phase 1 closure.
 
 - 2026-10-26 — Codex — Drafted and reviewed the P1-M16 Watch overview and sequence in a separate worktree from committed `e1abe5d`. The plan makes the unmerged M14/M15 handoff explicit, removes M9 exit as a downstream prerequisite while keeping its remote evidence separate, identifies the existing Watch use cases and missing adapter/composition roots, and requires paired-device signing, erasure, complication, and security-table proof before completion. The Application design now names the transactional Watch cache used by its implementation. The delegated committed-baseline `make gate`, diff hygiene, and changed-doc link check passed; iPhone, iPad, and Watch runs remain suspended. No Watch implementation or physical-device validation is claimed.

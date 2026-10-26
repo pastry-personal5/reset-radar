@@ -141,15 +141,15 @@ are recorded in [owner decisions](owner-decisions.md#p1-m14-decisions):
   `ResetRadarWatchWidgets.appex` inside the Watch app. Its `ResetRadarKeychainAccessGroup` value
   ends in `group.com.unidentifiedstealthstartup.ResetRadar`, and the team prefix stays empty
   until the build is signed. **Open:** the owner-run physical checks.
-- [ ] Pairing by QR and manual paste, exact-code confirmation, preflight, activation retry,
+- [x] Pairing by QR and manual paste, exact-code confirmation, preflight, activation retry,
   expiry/revocation, staging recovery, and re-pair through Forget Mac have focused tests and
   owner-visible results. Agent-side evidence on 2026-10-26: `ReaderPairingTests` cover pasted and
   invalid packages, the confirmation code before any save, lost and overlapping activation, expiry
   or revocation, a first-publication `404`, a failed preflight or local save, staging recovery,
   re-pairing after Forget Mac, and manual paste staying usable when the camera is not. The iPhone
   and iPad UI tests show the camera-unavailable and invalid-package messages. **Open:** the
-  simulator has no data scanner, so a real QR scan is first exercised in step 4 of the owner
-  procedure.
+  simulator has no data scanner, so the owner exercised a real QR scan successfully on
+  2026-10-27. No pairing package, confirmation code, token, or usage data was recorded.
 - [x] The reader ingests and commits only authenticated, strictly newer snapshots. Concurrent
   claims, lock/lease expiry, unexpected `304`, invalid envelope, offline relay, and a late result
   after Forget Mac preserve the correct last-valid or cleared state. Evidence on 2026-10-26:
@@ -235,4 +235,6 @@ are recorded in [owner decisions](owner-decisions.md#p1-m14-decisions):
   is marked `Done` only after the checklist has direct evidence. Agent-side evidence on
   2026-10-26: [UI](../architecture/ui.md#screen-models) and
   [iOS composition](../architecture/ios-app.md#composition) adopt the owner's decisions and match
-  the code. **Open:** the closing doc update after the owner-run evidence above.
+  the code. On 2026-10-27 the user, setup, phase, and verification docs were updated for the
+  successful physical iPhone QR pairing. **Open:** final closure documentation after the
+  remaining owner-run evidence above.

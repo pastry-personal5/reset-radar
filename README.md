@@ -33,6 +33,8 @@ only. When the relay can't be reached, the last valid readings stay visible besi
 Settings → Pairing & Sync offers Forget Mac, which erases this device's pairing and cached usage
 but does not revoke it on the Mac. The reader is installed with Sideloadly using the owner-run
 [installation procedure](docs/research/personal-use-sideloading.md#p1-m14-reader-installation-procedure).
+The initial signed iPhone installation and QR-pairing flow have been exercised; the procedure
+also tracks the remaining device and renewal checks.
 
 The Mac app keeps a redacted troubleshooting history for up to eight days. Find its active folder
 in Settings → Diagnostics; Development uses `~/Library/Logs/ResetRadar.dev/` and Release uses

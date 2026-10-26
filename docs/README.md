@@ -56,7 +56,7 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [phase-1/milestone-12-mac-collector-sequence.md](phase-1/milestone-12-mac-collector-sequence.md) | P1-M12 signing tracer, synthetic loop, drivers, owner flows, and close-out order. Done. |
 | [phase-1/milestone-13-mac-ui-overview.md](phase-1/milestone-13-mac-ui-overview.md) | P1-M13 Mac UI scope and completion checklist. Done. |
 | [phase-1/milestone-13-mac-ui-architecture.md](phase-1/milestone-13-mac-ui-architecture.md) | P1-M13 Mac UI implementation sequence. Done. |
-| [phase-1/milestone-14-ios-core-app-overview.md](phase-1/milestone-14-ios-core-app-overview.md) | P1-M14 iPhone/iPad reader scope, entry criteria, handoffs, and completion checklist. Active; owner-run device evidence pending. |
+| [phase-1/milestone-14-ios-core-app-overview.md](phase-1/milestone-14-ios-core-app-overview.md) | P1-M14 iPhone/iPad reader scope, entry criteria, handoffs, and completion checklist. Active; physical iPhone QR pairing is verified, with remaining owner-run device evidence pending. |
 | [phase-1/milestone-14-ios-core-app-sequence.md](phase-1/milestone-14-ios-core-app-sequence.md) | P1-M14 composition, pairing, refresh, UI, test, and device-validation order. Active. |
 | [phase-1/milestone-15-scheduling-overview.md](phase-1/milestone-15-scheduling-overview.md) | P1-M15 scheduling scope, M14 handoff, review findings, and completion checklist. Planned. |
 | [phase-1/milestone-15-scheduling-sequence.md](phase-1/milestone-15-scheduling-sequence.md) | P1-M15 Scheduling, Mac notifications, background refresh, widgets, ActivityKit, and device-validation order. Planned. |

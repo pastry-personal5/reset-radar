@@ -4,7 +4,7 @@ Status: Active
 
 Research for installing Reset Radar on the owner's iPhone and paired Apple Watch with a free Apple account. The owner chose personal use and sideloading; this document selects Sideloadly as the primary iPhone path and records the constraints the product must preserve.
 
-Sources were rechecked on 2026-10-26. Xcode 27.1 exported a signed IPA with the expected four app and extension bundles; physical-device installation and Sideloadly re-signing remain pending. Xcode 27.1 was observed with **Xcode → Settings → Apple Accounts → Personal Team**; that team detail pane does not display a Team ID.
+Sources were rechecked on 2026-10-26. Xcode 27.1 exported a signed IPA with the expected four app and extension bundles. Sideloadly Normal Install, first launch after trust, and physical QR pairing succeeded on the reference iPhone on 2026-10-27; extension behavior, remaining first-unlock/cache checks, iPad validation, and Sideloadly re-signing remain pending. Xcode 27.1 was observed with **Xcode → Settings → Apple Accounts → Personal Team**; that team detail pane does not display a Team ID.
 
 ## Owner decision
 
@@ -115,7 +115,9 @@ Keychain entry, relay token, or usage reading in a command transcript or reposit
    the iPhone explicitly under **iDevice**; if only **Apple Silicon** appears, do not start
    installation to the Mac. On 2026-10-27 this mode completed at 100%, and CoreDevice found the
    main app under its unchanged bundle identifier on the owner's iOS 27.0.1 iPhone. Launch,
-   extension registration, pairing, and renewal still need device evidence. This does not prove
+   extension registration, and renewal still need device evidence. On 2026-10-27 the
+   owner successfully exercised QR pairing on the physical iPhone; no pairing material or usage
+   data was retained as repository evidence. This does not prove
    that Sideloadly can automatically re-sign the app while preserving its identity. After device pairing makes the
    control available, turn on **Settings → Privacy & Security → Developer Mode** on the iPhone,
    restart it, and confirm with its passcode. If launching Reset Radar shows **Untrusted
