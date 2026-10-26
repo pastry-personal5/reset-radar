@@ -51,6 +51,23 @@ These labels describe a Usage Reading. Transport and source explanations may add
 | Clear the Watch cache and stop later delivery | **Erase Watch Data** | `eraseWatchData` | Owner-confirmed Watch action. Do not claim that a previously rendered complication frame was erased immediately. |
 | Allow a Watch erased locally to receive data again | **Reset Watch Pairing** | `resetWatchPairing` | Separate from Erase Watch Data and from pairing an iPhone or iPad to the Collector Mac. |
 
+## Canonical iOS pairing, sync, and refresh feedback
+
+These terms name reader setup and delivery feedback. They do not describe a Usage Reading or
+authorize the phone to contact a product source directly.
+
+| Concept | Visible term | Code-facing name | Usage |
+|---|---|---|---|
+| Exact encoded secret-bearing transfer from the Collector Mac | **Pairing Package** | `pairingPackage` | A QR scan or owner-initiated manual paste supplies it. Never log it, read it automatically from the pasteboard, or show it again after confirmation. It transfers Reset Radar secrets, never provider credentials. |
+| Short code shown on both devices for one exact Pairing Package | **Pairing Confirmation Code** | `confirmationCode` | The owner compares it before confirming pairing. Do not call it a password, PIN, or verification code. |
+| Saved pairing whose relay activation confirmation is still being retried | **Confirming Pairing** | `awaitingActivation` | Explain that pairing is not complete, keep the preflight snapshot hidden, and offer no usage or Refresh result. An authenticated expiry or revocation returns to setup with a fresh Pairing Package. |
+| Activated pairing before the first authenticated Mac publication | **Waiting for Mac Data** | `awaitingFirstPublish` | Use this distinct empty-Home state; it does not mean the Mac has no configured accounts. |
+| Settings area for reader relationship, delivery, activation, and local Forget Mac recovery | **Pairing & Sync** | `pairingStatus` | On iPhone, also reports Watch-erasure state honestly. On iPad, it contains no Watch state. |
+| Later relay-delivery failure while a committed snapshot remains visible | **Sync Problem** | `transportStatus` | Keep the Account List and each reading's actual freshness visible. Do not replace Last Updated with this status or imply that cached data is current. |
+| Feedback from a user-started Refresh | **Refresh Result** | `macRefreshOutcome` | State relay contact, accepted request, and matching Mac completion separately. A Claude Code-only Refresh reports its ordinary relay read and never claims a source was forced to respond. |
+| Incomplete device-local cleanup after Forget Mac | **Local Cleanup Pending** | `cleanupPending` | Old usage stays hidden, a new pairing remains blocked, and the owner can retry cleanup. This is separate from Watch erasure. |
+| iPhone's known delivery state for a requested Watch cache clear | **Watch Erasure Status** | `watchErase` | Say **pending** until a matching receipt is accepted and **confirmed** only for the responding Watch cache. Never claim a previously rendered complication frame or another paired Watch was erased. |
+
 ## Canonical components
 
 | Component | Visible term | Code-facing name | Usage |

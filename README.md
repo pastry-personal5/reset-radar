@@ -6,7 +6,7 @@ Reset Radar monitors Codex and Claude Code allowance usage across your Mac, iPho
 
 The Collector Mac reads coding-allowance data from Codex and Claude Code without copying provider credentials. Reset Radar shares encrypted, timestamped readings with the owner's iPhone, iPad, and Apple Watch, where it shows Percentage Used, Reset Times, and data state in apps, widgets, Reset Live Activities, and an Allowance Complication.
 
-The project is in its Foundation phase. The Mac collector, local package, and Cloudflare relay are implemented; mobile apps are still in progress. It is designed for personal sideloading with a free Apple account, not App Store or TestFlight distribution. The Mac main window and Settings share a Global Messages pane for collector and setup status, including the reason publication stops safely. Mac Settings offers a Codex source table with login-shell executable discovery and a Claude Code connection card; review the selected `CODEX_HOME` in the [installation guide](docs/mac-installation-and-recovery.md#configure-sources).
+The project is in its Foundation phase. The Mac collector, local package, Cloudflare relay, and iPhone/iPad reader are implemented; widgets, reset reminders, Live Activities, and the Apple Watch app are still in progress. It is designed for personal sideloading with a free Apple account, not App Store or TestFlight distribution. The Mac main window and Settings share a Global Messages pane for collector and setup status, including the reason publication stops safely. Mac Settings offers a Codex source table with login-shell executable discovery and a Claude Code connection card; review the selected `CODEX_HOME` in the [installation guide](docs/mac-installation-and-recovery.md#configure-sources).
 Mac Settings groups each section's controls into titled cards above Global Messages.
 The Mac Home account list and selected details refresh as the collector commits new readings;
 alias edits from Home or Sources update both open views.
@@ -21,6 +21,16 @@ pauses and Settings explains how to recover. Home's Main Sidebar and Account Det
 information, and account-specific Refresh. A setup banner points to the next source, relay, or
 pairing action while keeping configured accounts visible.
 Local Mac readings do not require relay setup; the relay publishes them to other devices.
+
+On iPhone and iPad, Reset Radar pairs with the Collector Mac by scanning its QR code or pasting
+its Pairing Package, after you compare the Pairing Confirmation Code on both devices. Home lists
+each account the Mac publishes with its five-hour and weekly rings; Account Details shows every
+window with its reset time, freshness, and source. Refresh on Home asks the Mac to read all Codex
+accounts and reports each account's result separately; a Claude Code Refresh reads the relay
+only. When the relay can't be reached, the last valid readings stay visible beside a Sync Problem.
+Settings → Pairing & Sync offers Forget Mac, which erases this device's pairing and cached usage
+but does not revoke it on the Mac. The reader is installed with Sideloadly using the owner-run
+[installation procedure](docs/research/personal-use-sideloading.md#p1-m14-reader-installation-procedure).
 
 The Mac app keeps a redacted troubleshooting history for up to eight days. Find its active folder
 in Settings → Diagnostics; Development uses `~/Library/Logs/ResetRadar.dev/` and Release uses

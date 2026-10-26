@@ -30,8 +30,8 @@ flowchart TB
       ForegroundTicker["ForegroundTicker (60 s)"]
       BackgroundRefreshDriver["BackgroundRefreshDriver (BGTaskScheduler)"]
       WatchRequestDriver["WatchRequestDriver"]
-    WatchReceiptDriver["WatchReceiptDriver"]
-    ManualRefreshDriver["ManualRefreshDriver"]
+      WatchReceiptDriver["WatchReceiptDriver"]
+      ManualRefreshDriver["ManualRefreshDriver"]
       SystemChangeDriver["SystemChangeDriver (time zone, clock)"]
       CommitPipeline["CommitPipeline"]
     end
@@ -45,7 +45,7 @@ flowchart TB
     LiveActivityViews["Reset Live Activity views"]
   end
   subgraph Inner["Inner layers"]
-    UseCases["Use cases: IngestRelaySnapshot, AcceptPairing, ForgetMac, ForwardToWatch, ReconcileResetNotifications, ReconcileLiveActivities, LoadHome, LoadAccountDetails"]
+    UseCases["Use cases: IngestRelaySnapshot, AcceptPairing, ForgetMac, RequestMacRefresh, ForwardToWatch, ReconcileResetNotifications, ReconcileLiveActivities, LoadHome, LoadUsageDetails, LoadPairingStatus"]
     UIModule["UI screen models and components"]
   end
   subgraph Shared["Shared between processes"]
@@ -92,6 +92,38 @@ When the widget process commits, it reconciles opted-in reset notifications befo
 
 `WatchReceiptDriver` consumes typed `WatchEraseReceipt`s from `WatchLink` and calls `ConfirmWatchErase`. On launch and Watch-session activation, the app resends a saved pending clear before offering a newer Watch payload. A pairing completed while erasure is pending can refresh the iPhone cache, but its Watch delivery waits for the receipt. The Pairing & Sync screen distinguishes interrupted local cleanup from local Forget Mac completion and pending or confirmed cache erasure on a responding Watch. It does not claim to erase another paired Watch.
 
+## Composition
+
+`ReaderComposition.live()` builds one `ReaderDependencies` value, and `ReaderEnvironment` turns it
+into the app's single object graph. The environment also acts as the scene driver, foreground
+ticker, and manual-refresh driver.
+
+- **Storage root.** Release requires the shared App Group container and fails closed with an
+  installation error when it is missing. Development uses the `Debug` storage flavor and the debug
+  Keychain service, so it never reads an installed app's data.
+- **Keychain group.** The access group comes from the entitlement-expanded
+  `ResetRadarKeychainAccessGroup` Info.plist value. An unexpanded or foreign value fails closed
+  rather than falling back to the default group.
+- **Transactions.** `BackgroundTaskReaderStore` wraps each `ReaderStore` transaction in a
+  `UIApplication` background task. Reads and the network work between a claim and its commit run
+  outside it.
+- **Launch.** Activation first removes staged secrets left by a crash. It retries Forget Mac
+  cleanup only when that cleanup is marked pending, because an unmarked retry would treat an
+  intact pairing as an unfinished forget. It then resumes a pending activation, reloads, runs the
+  foreground ingest, and starts the ticker. Overlapping activations share one run, so a launch
+  sends at most one activation request.
+- **Leaving the foreground.** The ticker stops at its next sleep. A visible Refresh wait ends at a
+  sleep boundary through the manual-refresh clock. An in-flight relay read always completes,
+  because cancelling it would be recorded as an offline relay with backoff. The saved request
+  marker stays, so a later Refresh within the deadline resumes the wait without posting again.
+- **Post-commit hand-off.** Until their drivers exist, the widget reloader, notification, and Live
+  Activity stages of the after-commit pipeline are inert. Without a `WatchLink`, a Forget Mac clear
+  stays pending; the app never reports a Watch as erased without its receipt.
+- **Test launches.** Development builds also recognize `-ResetRadarSyntheticScenario <name>`, which
+  selects an isolated temporary store, in-memory secrets, and an in-process relay that seals
+  synthetic snapshots with the real envelope cipher. A hosted unit-test launch builds no live graph.
+  Release builds contain neither mode.
+
 ## Refresh drivers
 
 | Driver | Event | Use-case call |
@@ -128,6 +160,8 @@ When the widget process commits, it reconciles opted-in reset notifications befo
   Settings.
 - **Setup Banner.** Derived from pairing and transport status.
 - **Pairing.** The pairing scanner uses the camera, with a manual paste fallback, and calls `AcceptPairing`. It shows `awaitingActivation` while the saved pairing's confirmation is retried; an expired or revoked registration returns to setup and requires a fresh package.
+- **Reader visibility.** Home and Account Details use `VisibleSnapshot` through `LoadHome` and `LoadUsageDetails`; pairing and cleanup state comes from `LoadPairingStatus`. The app cannot infer Mac account configuration before its first authenticated publication. An empty reader therefore shows pairing, activation, or first-publication guidance as appropriate, without inventing account rows. A preflight snapshot remains hidden until activation. A later relay failure preserves visible committed rows with their actual freshness and transport status.
+- **Selection.** iPad persists only an `AccountID` for its local Home selection. On each committed snapshot, it keeps that ID if present, otherwise selects the first account in `LoadHome` order; an empty list clears the selection. A ring carries an optional initial window focus into the same Account Details destination, without changing the selected account identity.
 - **Live Activities.** Start Live Activity appears only where ActivityKit reports activities as enabled, which excludes iPad.
 
 ## Widget extension
@@ -164,7 +198,16 @@ only the committed cache through `LoadHome` and never triggers a relay or provid
 
 ## Tests
 
-- **`ResetRadarTests`:** the App Group store and lock across the app and a simulated widget process; background-task submission and completion; widget-only notification reconciliation and expiry fallback; the `needsAppReconcile` pipeline; manual Codex refresh and cancellation, including a Claude Code-only action; the App Intent; timeline entries and reload dates; and Watch clear persistence, receipt handling, and resumed payload sending.
-- **`ResetRadarUITests`:** navigation, global account-number ordering, row/ring unavailable states,
-  Settings routes, and accessibility on the iPhone and iPad simulator destinations in
-  [Platform targets](../architecture.md#platform-targets).
+- **`ResetRadarTests`:** composition and fail-closed storage and Keychain resolution; transaction
+  background assertions; pairing preview, confirmation, preflight, lost and rejected activation,
+  local-save failure, staging recovery, and Forget-first re-pairing; strictly newer commits,
+  offline and unverifiable envelopes, unexpected `304`, locked secrets, and an independent store
+  instance's lease; Forget Mac erasure, pending Watch clear, retryable cleanup, and late results;
+  iPad selection; and Home, Codex account, and Claude Code Refresh, including the 45-second wait
+  and leaving the foreground. The widget process, background task, App Intent, timelines, and
+  Watch receipt handling are tested with their drivers.
+- **`ResetRadarUITests`:** the Main Toolbar, natural alias ordering, unavailable and waiting rings,
+  row and ring navigation, every Account Details window, setup and sync states, Refresh results,
+  Settings routes, Forget Mac, cleanup retry, Watch-erasure status, iPad split selection, and
+  accessibility text sizes. They run on both simulator destinations in
+  [Platform targets](../architecture.md#platform-targets), using the synthetic scenarios.

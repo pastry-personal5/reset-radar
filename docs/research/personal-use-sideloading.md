@@ -68,6 +68,44 @@ The project must produce and validate this workflow:
 
 Until those checks pass, sideloading is a selected distribution strategy, not a completed installation. Sideloadly itself is a developer workstation tool and is not an app dependency; it must not be bundled, linked, or copied into this Apache-2.0 repository.
 
+## P1-M14 reader installation procedure
+
+The owner runs this procedure with synthetic data until the manual-refresh validation is accepted.
+Never put an Apple ID, app-specific password, provisioning profile, pairing package, QR image,
+Keychain entry, relay token, or usage reading in a command transcript or repository evidence.
+
+1. Copy `Config/Build/Local.xcconfig.template` to the untracked `Local.xcconfig`, enter the owner's
+   Personal Team, run `Scripts/generate-project.sh`, and archive the `ResetRadar` scheme. The
+   archive uses Release; Development builds are unsigned and only for the simulator. Signing with
+   the same team that Sideloadly later uses keeps the `ResetRadarKeychainAccessGroup` Info.plist
+   value equal to the installed Keychain entitlement. Confirm the main app identifier remains
+   `com.unidentifiedstealthstartup.ResetRadar`; do not allow Sideloadly to rename the bundle or
+   remove its extensions.
+2. Export an IPA from Xcode's Organizer. Before signing, inspect the archive/IPA contents and
+   record only whether it contains `ResetRadar.app`, its WidgetKit plug-in, and the embedded Watch
+   app. Do not archive the actual file or its signing material as evidence.
+3. In Sideloadly, select the owner’s free Personal Team, retain app extensions, disable tweaks and
+   name/icon mutation, and install by USB to the reference device. Complete the device’s normal
+   developer trust and Developer Mode prompts, then launch Reset Radar after its first unlock.
+4. In the installed app, verify the Home setup state, scan or manually paste a newly created
+   pairing package, compare the exact confirmation code with the Mac, and wait for activation and
+   one authenticated publication. Lock and unlock the device, relaunch the app, and verify the
+   committed sequence and cached rows persist without a Keychain prompt.
+5. Inspect the installed app and widget entitlements on the owner-controlled machine. Record only
+   the presence of the expected App Group and matching Keychain access group; redact the Team ID.
+   If Sideloadly changed either identifier, the app reports that it can't open its data, or
+   pairing reports that it could not be saved, stop and return the signing result to the owner;
+   do not weaken the explicit group.
+   Repeat pairing/cache persistence on the reference iPad. A cellular read is recorded separately
+   because M9 did not establish that runtime behavior.
+6. Enable Sideloadly’s refresh path and, after seven days, verify the installed reader still
+   launches with the same pairing and committed sequence. If its bundle identity changes or data
+   disappears, stop and return the distribution decision to the owner; do not accept a destructive
+   re-pair as equivalent evidence.
+
+The app contains status-only notification and Live Activity surfaces in M14. Widget, notification,
+Live Activity, and Watch delivery preservation are M15/M16 evidence and must not be claimed here.
+
 ## Security and privacy
 
 - Download Sideloadly only from its official site. Do not use repackaged downloads or online signing services.

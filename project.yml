@@ -96,6 +96,7 @@ targets:
       path: .generated/ResetRadar/Info.plist
       properties:
         CFBundleDisplayName: Reset Radar
+        ResetRadarKeychainAccessGroup: $(AppIdentifierPrefix)group.com.unidentifiedstealthstartup.ResetRadar
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
@@ -283,6 +284,8 @@ targets:
     sources: [ResetRadarTests]
     dependencies:
       - target: ResetRadar
+      - package: ResetRadarKit
+        product: ResetRadarTestSupport
   ResetRadarUITests:
     type: bundle.ui-testing
     platform: iOS

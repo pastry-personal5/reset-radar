@@ -8,7 +8,7 @@ ResetRadarWatch: Domain Application Storage WatchSync UI
 ResetRadarWatchWidgets: Domain Application Storage UI
 ResetRadarMac: Domain Application Storage Transport ProviderAdapters UI
 ResetRadarStatusLine: Domain ProviderAdapters
-ResetRadarTests: Domain Application Storage Transport Scheduling WatchSync UI TestSupport
+ResetRadarTests: App Domain Application Storage Transport Scheduling WatchSync UI TestSupport
 ResetRadarUITests:
 ResetRadarMacTests: Mac Domain Application Storage Transport ProviderAdapters UI TestSupport
 ResetRadarWatchTests: Domain Application Storage WatchSync UI TestSupport

@@ -50,10 +50,28 @@ complete, the banner coexists with every configured row and offers the next usef
 never fabricates or hides an account row. A configured account remains present when its source is
 signed out, offline, incompatible, or otherwise unavailable.
 
+On iPhone and iPad, account configuration is known only from an authenticated Mac publication.
+Before activation finishes, a validated pairing preflight is hidden and Home explains that
+pairing is still being confirmed. After activation but before the first publication, Home says it
+is waiting for Mac data; it does not claim that the Mac has no configured accounts. Once a
+snapshot exists, a later relay error keeps its account rows visible with their actual freshness
+and a separate sync problem. Pairing & Sync reports the pending activation retry and directs the
+owner to a fresh package when registration is rejected. A denied camera permission leaves manual
+paste available; pairing text is never
+read from the pasteboard without the owner's action or shown again after confirmation.
+
 Home exposes Refresh for the whole Account List. It requests all configured Codex accounts as one
 manual-refresh target and performs the ordinary relay read for Claude Code; feedback stays
 account-specific so one failure does not conceal a sibling success. Account Details has the
 separate single-account Refresh described below.
+
+Refresh feedback distinguishes a successful relay contact from a completed Mac response. A
+request accepted by the relay is shown as waiting, not as new usage. A matching encrypted result
+can report success or source unavailability for each requested Codex account; an unrelated
+publication, timeout, rate limit, offline Mac, or cancelled foreground wait does not claim Mac
+completion. The last valid reading stays visible with its observation time. A Claude Code-only
+Refresh reports the ordinary relay-read result without suggesting that Claude Code was forced
+to produce a new reading.
 
 On iPad, Home is a two-column split view: the Account List remains in the leading column while
 the selected account's details appear in the trailing column. It restores the last device-local

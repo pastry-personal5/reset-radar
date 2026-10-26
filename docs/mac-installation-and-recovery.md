@@ -9,10 +9,10 @@ setup.
 
 ## What this guide can complete today
 
-The Mac collector, its source configuration, and relay publication are available now. The iPhone
-and iPad reader app is P1-M14 work, so a QR pairing offer can be created but cannot yet be
-completed by a Reset Radar reader. Do not treat an unscanned pairing code as an installation
-failure; wait to pair a reader until that app exists.
+The Mac collector, its source configuration, relay publication, and the P1-M14 iPhone/iPad reader
+are available now. Follow the reader’s owner-run [installation procedure](research/personal-use-sideloading.md#p1-m14-reader-installation-procedure)
+for Sideloadly and physical-device checks; an unscanned pairing code remains harmless until a
+reader is ready to accept it.
 
 The owner performs every Cloudflare login, deployment, secret entry, and billing check. Never
 send a signing team identifier, a token, a pairing package, a QR image, Keychain data, or a
@@ -133,9 +133,11 @@ requirements in [Cloudflare synchronization](research/cloudflare-synchronization
    publication remains paused; correct the Worker-secret or network problem and select
    **Activate Relay** again rather than preparing a different relay.
 
-6. Once P1-M14 supplies a reader app, use **Create QR Pairing Code**, scan it in that reader, and
-   wait for **Reader paired.** QR is the default. **Copy pairing package…** is a warned fallback:
-   treat the clipboard contents like a password and let Reset Radar clear it when safe.
+6. On an installed iPhone or iPad reader, open All → Settings → Pairing & Sync. On the Mac, use
+   **Create QR Pairing Code** and scan it there, compare the Pairing Confirmation Code on both
+   devices, confirm on the reader, and wait for **Reader paired.** QR is the default. **Copy
+   pairing package…** is a warned fallback for the reader's paste field: treat the clipboard
+   contents like a password and let Reset Radar clear it when safe.
 
 ## Verify the installed collector
 

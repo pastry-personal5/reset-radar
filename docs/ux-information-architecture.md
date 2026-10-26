@@ -35,6 +35,8 @@ Home contains no fabricated rows before pairing or account setup. A contextual *
 shares Home with the Account List and contains the next required setup or pairing action. It may
 appear above existing rows when only part of setup is incomplete. Configured rows remain in the
 list during signed-out, offline, incompatible, stale, and unavailable states.
+On iPhone and iPad, the first authenticated Mac publication establishes which accounts exist;
+pending activation and awaiting first publication have an empty list and distinct guidance.
 
 On iPad, Home is a split destination: the Account List remains in the leading column and Account
 Details occupies the trailing column. It restores the last device-local account selection when

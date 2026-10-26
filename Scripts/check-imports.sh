@@ -18,7 +18,11 @@ while IFS= read -r line; do
   while IFS= read -r imp; do
     [[ -z $imp ]] && continue
     spec=$(print -r -- "$imp" | sed -E 's/^[[:space:]]*(@[A-Za-z]+[[:space:]]+)*import[[:space:]]+((struct|class|enum|protocol|typealias|func|var|let)[[:space:]]+)?//; s/[[:space:]].*$//')
-    module=${${spec%%.*}#ResetRadar}
+    if [[ ${spec%%.*} == ResetRadar ]]; then
+      module=App
+    else
+      module=${${spec%%.*}#ResetRadar}
+    fi
     scoped=0; [[ $spec == *.* ]] && scoped=1
     if (( ${allowed[(Ie)$module]} )); then continue; fi
     if (( ${allowed[(Ie)$module(scoped)]} )); then
