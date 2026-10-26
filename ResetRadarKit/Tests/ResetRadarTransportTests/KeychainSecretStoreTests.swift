@@ -126,31 +126,24 @@ private func expectReadError(
     }
 }
 
-@Test func keychainStubVerifiesCacheMutationAndNoPrompt() async throws {
-    let backend = StubSecItemBackend()
-    let store = KeychainSecretStore(backend: backend, build: .debug)
-    let first = SecretValue(Data(repeating: 0x11, count: 32))
-    let replacement = SecretValue(Data(repeating: 0x22, count: 32))
-    try await store.write(.contentKey, value: first)
-    #expect(backend.usedAuthenticationContext)
-    #expect(try await store.read(.contentKey) == first)
-    #expect(try await store.read(.contentKey) == first)
-    #expect(backend.readCount == 1)
-    #expect(backend.usedAuthenticationContext)
-    try await store.write(.contentKey, value: replacement)
-    #expect(backend.usedAuthenticationContext)
-    #expect(try await store.read(.contentKey) == replacement)
-    #expect(backend.readCount == 2)
-    try await store.delete(.contentKey)
-    #expect(backend.usedAuthenticationContext)
-    try await store.delete(.contentKey)
-    await expectReadError(.notFound, from: store, name: .contentKey)
+/// The platform's production policy over a stub backend: the login Keychain on the Mac and the
+/// explicit shared access group on iOS.
+func makeStubKeychain(
+    _ backend: StubSecItemBackend = StubSecItemBackend(), build: KeychainSecretStore.Build = .debug
+) -> KeychainSecretStore {
+    #if os(iOS)
+        KeychainSecretStore(
+            backend: backend, build: build,
+            accessGroup: "TEAMID.group.com.unidentifiedstealthstartup.ResetRadar")
+    #else
+        KeychainSecretStore(backend: backend, build: build)
+    #endif
 }
 
 @Test func keychainStubVerifiesBuildIsolationAndLockedRead() async throws {
     let backend = StubSecItemBackend()
-    let debugStore = KeychainSecretStore(backend: backend, build: .debug)
-    let releaseStore = KeychainSecretStore(backend: backend, build: .release)
+    let debugStore = makeStubKeychain(backend, build: .debug)
+    let releaseStore = makeStubKeychain(backend, build: .release)
     let value = SecretValue(Data(repeating: 0x33, count: 32))
     try await debugStore.write(.writeToken, value: value)
     await expectReadError(.notFound, from: releaseStore, name: .writeToken)
@@ -158,35 +151,66 @@ private func expectReadError(
     await expectReadError(.interactionRequired, from: debugStore, name: .writeToken)
     backend.setReadStatus(nil)
     #expect(try await debugStore.read(.writeToken) == value)
-    backend.setReadStatus(errSecInteractionNotAllowed)
-    #expect(try await debugStore.read(.writeToken) == value)
-    await debugStore.invalidateCache()
-    await expectReadError(.interactionRequired, from: debugStore, name: .writeToken)
 }
 
-@Test func concurrentMacReadsShareCacheAndReplacementInvalidatesIt() async throws {
-    let backend = StubSecItemBackend()
-    let store = KeychainSecretStore(backend: backend, build: .debug)
-    let first = SecretValue(Data(repeating: 0x51, count: 32))
-    let replacement = SecretValue(Data(repeating: 0x52, count: 32))
-    try await store.write(.adminToken, value: first)
-    try await withThrowingTaskGroup(of: SecretValue.self) { group in
-        for _ in 0..<16 { group.addTask { try await store.read(.adminToken) } }
-        for try await value in group { #expect(value == first) }
+#if os(macOS)
+    @Test func keychainStubVerifiesCacheMutationAndNoPrompt() async throws {
+        let backend = StubSecItemBackend()
+        let store = KeychainSecretStore(backend: backend, build: .debug)
+        let first = SecretValue(Data(repeating: 0x11, count: 32))
+        let replacement = SecretValue(Data(repeating: 0x22, count: 32))
+        try await store.write(.contentKey, value: first)
+        #expect(backend.usedAuthenticationContext)
+        #expect(try await store.read(.contentKey) == first)
+        #expect(try await store.read(.contentKey) == first)
+        #expect(backend.readCount == 1)
+        #expect(backend.usedAuthenticationContext)
+        try await store.write(.contentKey, value: replacement)
+        #expect(backend.usedAuthenticationContext)
+        #expect(try await store.read(.contentKey) == replacement)
+        #expect(backend.readCount == 2)
+        try await store.delete(.contentKey)
+        #expect(backend.usedAuthenticationContext)
+        try await store.delete(.contentKey)
+        await expectReadError(.notFound, from: store, name: .contentKey)
     }
-    #expect(backend.readCount == 1)
-    let racingRead = Task { try await store.read(.adminToken) }
-    let replacementWrite = Task { try await store.write(.adminToken, value: replacement) }
-    _ = try await racingRead.value
-    try await replacementWrite.value
-    #expect(try await store.read(.adminToken) == replacement)
-    #expect(backend.readCount == 2)
-}
+
+    @Test func aCachedMacSecretSurvivesALockedKeychainUntilInvalidated() async throws {
+        let backend = StubSecItemBackend()
+        let store = KeychainSecretStore(backend: backend, build: .debug)
+        let value = SecretValue(Data(repeating: 0x33, count: 32))
+        try await store.write(.writeToken, value: value)
+        #expect(try await store.read(.writeToken) == value)
+        backend.setReadStatus(errSecInteractionNotAllowed)
+        #expect(try await store.read(.writeToken) == value)
+        await store.invalidateCache()
+        await expectReadError(.interactionRequired, from: store, name: .writeToken)
+    }
+
+    @Test func concurrentMacReadsShareCacheAndReplacementInvalidatesIt() async throws {
+        let backend = StubSecItemBackend()
+        let store = KeychainSecretStore(backend: backend, build: .debug)
+        let first = SecretValue(Data(repeating: 0x51, count: 32))
+        let replacement = SecretValue(Data(repeating: 0x52, count: 32))
+        try await store.write(.adminToken, value: first)
+        try await withThrowingTaskGroup(of: SecretValue.self) { group in
+            for _ in 0..<16 { group.addTask { try await store.read(.adminToken) } }
+            for try await value in group { #expect(value == first) }
+        }
+        #expect(backend.readCount == 1)
+        let racingRead = Task { try await store.read(.adminToken) }
+        let replacementWrite = Task { try await store.write(.adminToken, value: replacement) }
+        _ = try await racingRead.value
+        try await replacementWrite.value
+        #expect(try await store.read(.adminToken) == replacement)
+        #expect(backend.readCount == 2)
+    }
+#endif
 
 @Test func unexpectedSecItemStatusIsRedactedToAStatusClass() async {
     let backend = StubSecItemBackend()
     backend.setReadStatus(errSecParam)
-    let store = KeychainSecretStore(backend: backend, build: .debug)
+    let store = makeStubKeychain(backend)
     await expectReadError(
         .unexpected(statusClass: Int(errSecParam)), from: store, name: .contentKey)
 }

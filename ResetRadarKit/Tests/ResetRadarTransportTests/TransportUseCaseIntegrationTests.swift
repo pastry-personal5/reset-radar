@@ -115,7 +115,7 @@ private func sealedOutcome(
 
 @Test func setupAndDestructionUseStubbedKeychainWithRealTransportCrypto() async throws {
     let backend = StubSecItemBackend()
-    let secrets = KeychainSecretStore(backend: backend, build: .debug)
+    let secrets = makeStubKeychain(backend)
     let publisher = FakePublisherStore()
     let relay = FakeRelayGateway()
     let clock = FakeAppClock(start: Date(timeIntervalSince1970: 1_700_000_000))
@@ -200,7 +200,7 @@ private func sealedOutcome(
                 pairedAt: Date(timeIntervalSince1970: 1_700_000_000))
         ]
     }
-    let secrets = KeychainSecretStore(backend: StubSecItemBackend(), build: .debug)
+    let secrets = makeStubKeychain()
     try await secrets.write(.adminToken, value: SecretValue(Data(repeating: 0x33, count: 32)))
     try await secrets.write(
         .readerToken(readerID), value: SecretValue(Data(repeating: 0x89, count: 32)))
