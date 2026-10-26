@@ -17,6 +17,11 @@ public struct HomeReadModel: Sendable, Equatable {
     public let accounts: [AccountRow]
     /// The earliest ring change: when the UI must load again.
     public let nextChange: Date?
+
+    public init(accounts: [AccountRow], nextChange: Date?) {
+        self.accounts = accounts
+        self.nextChange = nextChange
+    }
 }
 
 public struct AccountRow: Sendable, Equatable {
@@ -43,6 +48,18 @@ public struct UsageDetailsReadModel: Sendable, Equatable {
     /// `nil` when there is no snapshot to judge.
     public let macLive: Bool?
     public let transport: TransportStatus
+    /// Last Synced: this device's last successful relay read, shown only with a visible snapshot.
+    public let lastSyncedAt: Date?
+
+    public init(
+        accounts: [AccountDetails], macLive: Bool?, transport: TransportStatus,
+        lastSyncedAt: Date? = nil
+    ) {
+        self.accounts = accounts
+        self.macLive = macLive
+        self.transport = transport
+        self.lastSyncedAt = lastSyncedAt
+    }
 }
 
 public enum AccountDisplayOrder {
@@ -74,6 +91,12 @@ public struct PairingStatusReadModel: Sendable, Equatable {
     public let cleanupPending: Bool
     /// `nil` on iPad, which has no Watch stage, and when no erasure was ever involved.
     public let watchErase: WatchEraseState?
+
+    public init(state: PairingState, cleanupPending: Bool, watchErase: WatchEraseState?) {
+        self.state = state
+        self.cleanupPending = cleanupPending
+        self.watchErase = watchErase
+    }
 }
 
 public struct DiagnosticsExport: Sendable, Equatable {

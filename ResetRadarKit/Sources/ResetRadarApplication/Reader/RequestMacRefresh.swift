@@ -26,13 +26,17 @@ public actor RequestMacRefresh {
         self.ingest = ingest
     }
 
+    /// `progress` reports relay contact and the start of the wait for the Mac, so neither is
+    /// mistaken for the Mac's completion.
     public func run(
-        scope: Set<ProductID>, codexTarget: ManualRefreshTarget = .allCodex
+        scope: Set<ProductID>, codexTarget: ManualRefreshTarget = .allCodex,
+        progress: @Sendable (MacRefreshProgress) async -> Void = { _ in }
     ) async -> MacRefreshOutcome {
         let first = await ingest.run(trigger: .manual, inAppProcess: true)
         // A failed read shows even for a Claude Code-only action, which never posts a request.
         if let early = await earlyOutcome(after: first) { return early }
         guard scope.contains(.codex) else { return .notRequested }
+        await progress(.relayContacted)
         guard let state = try? await reader.load(), let pairing = state.pairing else {
             return .failed(.notPaired)
         }
@@ -49,6 +53,7 @@ public actor RequestMacRefresh {
             case .failure(let outcome): return outcome
             }
         }
+        await progress(.waitingForMac(deadline: marker.deadline))
         return await wait(marker, pairing.readerID)
     }
 

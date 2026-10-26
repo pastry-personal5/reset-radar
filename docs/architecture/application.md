@@ -54,7 +54,7 @@ flowchart LR
     subgraph Shared["Shared"]
       ReconcileResetNotifications
       SetNotificationOptIn
-      Queries["LoadHome, LoadAccountDetails, LoadPairingStatus, ExportDiagnostics"]
+      Queries["LoadHome, LoadUsageDetails, LoadPairingStatus, ExportDiagnostics"]
     end
   end
   subgraph Policies["Policies"]
@@ -211,7 +211,7 @@ When the run is in the app process, a `committed` outcome triggers the after-com
 
 A commit made in the widget process attempts reset-notification reconciliation using the already granted, per-account-window opt-in state. The extension never requests notification authorization. The atomic `needsAppReconcile` flag makes the app retry notification reconciliation and update Live Activities and the Watch on its next run even if the extension expires mid-reconciliation.
 
-**`RequestMacRefresh`** is called only by a user-started Refresh that includes Codex. It first performs an ordinary conditional relay read, then posts a random request ID using the reader's read token. It writes a pending-request marker before the POST, so a relaunch resumes the wait without posting again. It polls conditional snapshot reads through the shared fetch claim every five seconds for at most 45 seconds and reports Mac completion only after a newer, authenticated snapshot contains a matching `ManualRefreshResult` for its `ReaderID` and request ID. An unchanged `304`, an unrelated publication, or a locally fresh cache does not complete the request. A `sourceUnavailable` result is reported separately from a successful Codex read. If the Mac is asleep, the request is rate-limited, the relay fails, or the wait expires, it returns the latest valid cache and a specific pending/unavailable outcome. It does not retry the POST automatically or ask the Mac to read Claude Code. A manual Refresh scoped only to Claude Code performs the ordinary relay read without posting a request.
+**`RequestMacRefresh`** is called only by a user-started Refresh that includes Codex. It first performs an ordinary conditional relay read, then posts a random request ID using the reader's read token. It writes a pending-request marker before the POST, so a relaunch resumes the wait without posting again. It polls conditional snapshot reads through the shared fetch claim every five seconds for at most 45 seconds and reports Mac completion only after a newer, authenticated snapshot contains a matching `ManualRefreshResult` for its `ReaderID` and request ID. An unchanged `304`, an unrelated publication, or a locally fresh cache does not complete the request. A `sourceUnavailable` result is reported separately from a successful Codex read. If the Mac is asleep, the request is rate-limited, the relay fails, or the wait expires, it returns the latest valid cache and a specific pending/unavailable outcome. It does not retry the POST automatically or ask the Mac to read Claude Code. A manual Refresh scoped only to Claude Code performs the ordinary relay read without posting a request. An optional `MacRefreshProgress` callback reports `relayContacted` after the ordinary read and `waitingForMac(deadline:)` once the relay accepted the request or a matching marker resumed, so presentation can show relay contact and an accepted request without claiming Mac completion.
 
 **`AcceptPairing`** decodes and previews a `PairingPackage`, requires confirmation, then performs one authenticated preflight read. It validates a returned envelope or accepts an authenticated first-publish `404`; the read itself does not activate the token. It writes a recoverable local staging marker, saves the Keychain secrets, then atomically commits the pairing metadata, validated preflight snapshot if present, and `awaitingActivation` state. It sends `POST /v1/readers/activate` only after that local commit. An activation response lost to the network leaves the saved state pending and is retried idempotently on app launch or foreground activation, even after the displayed deadline: the relay may have activated before its response was lost. While awaiting activation, the preflight snapshot is not presented as a completed pairing, and every fetch trigger, a manual refresh included, is suppressed until activation succeeds; a manual tap reports `pairingPending`. A Keychain or local commit failure removes staged secrets without sending activation; only an authenticated `401` after expiry or revocation clears the pending pairing and asks for re-pairing. A crash during staging is reconciled before the next pairing or fetch. A reader with an existing pairing must use `ForgetMac` before accepting another package, so a new publisher cannot inherit the old cache, ETag, or sequence floor.
 
@@ -276,8 +276,10 @@ foreground Account Details action, through the same use case.
   state, and five-hour/weekly ring models, plus the earliest `nextChange`. Presentation sorts rows
   with localized natural comparison and account-number ties. On iPhone and iPad, usage is hidden
   while no pairing exists, activation is pending, or Forget Mac cleanup is unfinished.
-- **`LoadAccountDetails`** produces one selected account's complete window list, source provenance,
-  Mac liveness, and transport status. Standard windows sort first; additional valid limits follow.
+- **`LoadUsageDetails`** produces the complete window list and source provenance for every visible
+  account, plus Mac liveness, transport status, and Last Synced: the reader's last successful
+  relay read, present only beside visible usage and absent on the Mac. Presentation selects an
+  account by stable ID. Standard windows sort first; additional valid limits follow.
 - **`LoadPairingStatus`** produces local pairing state, pending local Forget Mac cleanup, and, on iPhone, `watchErasePending` or the last confirmed responding-Watch cache erasure without claiming immediate complication-frame removal or erasure of another paired Watch. An iPad has no Watch-erasure field.
 - **`ExportDiagnostics`** produces a confirmed, redacted export from `DiagnosticsSink` history.
 

@@ -94,6 +94,42 @@ private func drive(_ clock: FakeAppClock, until finished: Locked<Bool>) async {
         #expect(rig.store.state.pendingManualRequest == nil)
     }
 
+    @Test func progressSeparatesRelayContactAndTheAcceptedWaitFromCompletion() async {
+        rig.relay.queueGet(rig.envelope(sequence: 5))
+        let use = make()
+        let steps = Locked<[MacRefreshProgress]>([])
+        let finished = Locked(false)
+        let start = rig.clock.now
+        let task = Task {
+            let outcome = await use.run(scope: [.codex]) { step in
+                steps.withLock { $0.append(step) }
+            }
+            finished.withLock { $0 = true }
+            return outcome
+        }
+        await rig.clock.waitForSleepers()
+        #expect(
+            steps.snapshot == [
+                .relayContacted,
+                .waitingForMac(deadline: start.addingTimeInterval(RequestMacRefresh.waitLimit)),
+            ])
+        await drive(rig.clock, until: finished)
+        #expect(await task.value == .timedOut)
+        #expect(steps.snapshot.count == 2)
+    }
+
+    @Test func noProgressIsReportedForAClaudeCodeOnlyActionOrARefusedRequest() async {
+        let steps = Locked<[MacRefreshProgress]>([])
+        rig.relay.queueGet(rig.envelope(sequence: 5))
+        _ = await make().run(scope: [.claudeCode]) { step in steps.withLock { $0.append(step) } }
+        #expect(steps.snapshot.isEmpty)
+        rig.relay.queuePost(.requestRateLimited)
+        #expect(
+            await make().run(scope: [.codex]) { step in steps.withLock { $0.append(step) } }
+                == .rateLimited)
+        #expect(steps.snapshot == [.relayContacted])
+    }
+
     @Test func aFailedCodexReadIsReportedSeparately() async {
         rig.relay.queueGet(rig.envelope(sequence: 5))
         let use = make()

@@ -1,3 +1,4 @@
+import Foundation
 import ResetRadarDomain
 
 /// The committed snapshot as the UI may show it. On an iPhone or iPad, usage stays hidden while
@@ -30,5 +31,11 @@ public struct VisibleSnapshot: Sendable {
     func transportStatus() async -> TransportStatus {
         guard let reader, let state = try? await reader.load() else { return .current }
         return state.transportStatus
+    }
+
+    /// The reader's last successful relay read; `nil` on the Mac, which has no reader.
+    func lastSyncedAt() async -> Date? {
+        guard let reader, let state = try? await reader.load() else { return nil }
+        return state.lastSuccessAt
     }
 }

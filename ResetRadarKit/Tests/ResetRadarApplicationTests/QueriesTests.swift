@@ -146,6 +146,28 @@ func fullSnapshot(
         #expect(rings(await hidden.load())[0].presentation == .current)
     }
 
+    @Test func lastSyncedIsTheReadersLastSuccessfulReadAndOnlyAccompaniesVisibleUsage() async {
+        let reader = FakeReaderStore(installationID: installation)
+        reader.seed { state in
+            state.pairing = ReaderPairing(
+                endpoint: endpoint, publisherID: publisher, readerID: readerA, minimumSequence: 0,
+                keyVersion: 1, registrationExpiresAt: epoch)
+            state.lastSuccessAt = at(120)
+            state.lastCommitAt = at(60)
+            state.transportStatus = .offline
+        }
+        let details = LoadUsageDetails(
+            visible: VisibleSnapshot(snapshots: store, reader: reader), clock: clock)
+        let visible = await details.load()
+        #expect(visible.lastSyncedAt == at(120))
+        #expect(visible.transport == .offline)
+        #expect(!visible.accounts.isEmpty)
+        reader.seed { $0.awaitingActivation = true }
+        #expect(await details.load().lastSyncedAt == nil)
+        let mac = LoadUsageDetails(visible: VisibleSnapshot(snapshots: store), clock: clock)
+        #expect(await mac.load().lastSyncedAt == nil)
+    }
+
     @Test func pairingStatusDistinguishesCleanupPendingAndWatchErasure() async {
         let reader = FakeReaderStore(installationID: installation)
         let phone = LoadPairingStatus(reader: reader, hasWatchStage: true)

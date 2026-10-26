@@ -30,7 +30,8 @@ public struct LoadUsageDetails: Sendable {
         return UsageDetailsReadModel(
             accounts: accounts,
             macLive: snapshot.map { MacLiveness.isPublishing(snapshot: $0, now: now) },
-            transport: await visible.transportStatus())
+            transport: await visible.transportStatus(),
+            lastSyncedAt: snapshot == nil ? nil : await visible.lastSyncedAt())
     }
 
     private static func windowOrder(_ left: AllowanceWindow, _ right: AllowanceWindow) -> Bool {

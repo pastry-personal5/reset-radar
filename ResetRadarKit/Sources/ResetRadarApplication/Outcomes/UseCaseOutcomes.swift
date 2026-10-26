@@ -45,6 +45,15 @@ public enum MacRefreshOutcome: Sendable, Equatable {
     case failed(TransportStatus)
 }
 
+/// What a Codex Refresh has reached before its outcome. Neither step claims Mac completion.
+public enum MacRefreshProgress: Sendable, Equatable {
+    /// The ordinary relay read finished without a failure that ends the action.
+    case relayContacted
+    /// The relay accepted the request, or a saved matching request resumed; the Mac has until
+    /// `deadline` to publish its result.
+    case waitingForMac(deadline: Date)
+}
+
 public enum HandleOutcome: Sendable, Equatable {
     /// No pending request needed work.
     case idle
