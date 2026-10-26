@@ -141,9 +141,10 @@ Details layout, rings, sidebar, per-account menu-bar status, alias editing, and 
 Plan: [overview](milestone-13-mac-ui-overview.md), [implementation plan](milestone-13-mac-ui-architecture.md)
 
 ### P1-M14: iOS core app
-Status: Planned
+Status: Active
 Goal: Pairing, relay reader, iPhone Account List, iPad split Account List and Account Details,
 Setup Banner, and Main Toolbar screens; re-enables the iPhone and iPad test runs in the gate.
+Plan: [overview](milestone-14-ios-core-app-overview.md), [sequence](milestone-14-ios-core-app-sequence.md)
 
 ### P1-M15: Scheduling
 Status: Planned

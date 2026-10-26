@@ -6,6 +6,56 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-26 — Claude Code — Measured slow iOS runs: compilation was not the cause (incremental
+  iOS builds take about 4 s; an empty-DerivedData build about 107 s, with the shared packages
+  compiled for both iOS and watchOS because the iOS app embeds the Watch app). About 12 UI tests
+  took about 137 s of the 151 s iPhone run and 175 s of the 210 s iPad run, and the gate ran the
+  destinations one after another. XCTest's waits check about once a second, and on iPad every
+  Main Toolbar lookup used its full 2-second timeout. The UI tests now poll every 0.1 s with the
+  same timeouts and assertions; in alternating same-machine runs, iPhone UI tests fell from about
+  137 s to 87 s and iPad from 165 s to 102 s. The gate and `make test` now test both iOS
+  destinations concurrently in one `xcodebuild` invocation (`make test-ios-ipad`); `make test-ios`
+  and `make test-ipad` remain for one destination. At the owner's request, UI tests sharing a
+  scenario and launch arguments were merged into three tests: the toolbar and the unpaired Home;
+  the paired rows, Account Details, and Home Refresh; and the Settings routes and Forget Mac. All
+  assertions are kept and the gate passed in 118.5 s. The owner also approved deleting six
+  DerivedData folders left by removed `/tmp` checkouts.
+
+- 2026-10-26 — Claude Code — The owner directed completion of P1-M14 while P1-M9 remains
+  `Active` (its release promotion/rollback and verdict items are open) and P1-M10 is `Active`. The
+  M14 entry criterion is therefore recorded as unmet rather than waived. The agent-side reader is
+  implemented and M14 is `Active`. The baseline iPhone run failed: unsigned Development builds
+  have no App Group on the simulator, so the app crashed at launch, and three Mac-only Keychain
+  tests failed on iOS. The iOS composition now injects every port and falls back to isolated
+  Development storage only in unsigned Development builds; Release fails closed. Keychain tests
+  are split by platform, and the iOS initializer again requires its explicit access group.
+  Implementation review fixed defects in the earlier draft: launch called `retryCleanup()`
+  unconditionally, which forgets an intact pairing; rings treated the 0–100 percentage as a
+  fraction; stale readings hid their value; Home Refresh posted `allCodex` without Codex
+  accounts; leaving the foreground cancelled relay reads into a false offline status; and the
+  300 px toolbar and Account Details bitmaps had opaque fills that rendered as solid shapes. The
+  bitmaps are now 25 pt and 24 pt template sets with the same outlines.
+  `RequestMacRefresh` gained an optional progress callback, so relay contact and an accepted
+  request show separately from Mac completion. `LoadUsageDetails` now reports Last Synced. Shared
+  reader presentation lives in `ResetRadarUI`, while the app's `ReaderEnvironment` holds iOS
+  screen state as the scene and refresh driver. That is narrower than the UI architecture's
+  observable screen models. It and the unsigned Development storage fallback are open owner
+  questions in the M14 overview; neither binding document was changed to adopt them. `make test` now runs the
+  Apple suites in sequence because they share one build database. Physical installation, the
+  seven-day re-sign, and deployed manual-refresh evidence remain owner-run.
+
+- 2026-10-26 — Codex — Reviewed the P1-M14 plan against the implemented reader queries and the
+  approved iPhone/iPad UX. Corrected the Application, iOS, and UI architecture query names;
+  clarified pending activation, first publication, preserved cache, refresh feedback, account
+  selection, pairing privacy, and large-text checks in the plan and UX docs. M14 remains planned
+  behind its entry dependencies; the iOS target is still a scaffold.
+
+- 2026-10-26 — Codex — Wrote the P1-M14 iOS core app overview and sequence. The plan keeps M9's
+  synthetic gate as an entry dependency, restores both iOS simulator runs during M14, starts
+  physical Sideloadly re-sign evidence with the first installable reader, and assigns widget and
+  scheduling checks to M15 and Watch delivery checks to M16. M14 remains `Planned`; no iOS
+  implementation or owner-run installation began.
+
 - 2026-10-25 — Codex — Reviewed M12/M13 startup and menu behavior. A failed Release signing
   check now leaves provider sources stopped and shows a collection pause; successful relay
   activation rebuilds the collector and rechecks signing. The open menu reevaluates allowance
