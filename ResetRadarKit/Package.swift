@@ -66,6 +66,9 @@ let package = Package(
             ]),
         .testTarget(
             name: "ResetRadarUIComponentTests",
-            dependencies: ["ResetRadarUI", "ResetRadarTestSupport"]),
+            dependencies: [
+                "ResetRadarDomain", "ResetRadarApplication", "ResetRadarUI",
+                "ResetRadarTestSupport",
+            ]),
     ]
 )

@@ -47,7 +47,7 @@ flowchart TB
     A11y["Accessibility labels"]
   end
   subgraph AppLayer["Application (inner layer)"]
-    ReadModels["HomeReadModel, AccountDetailsReadModel, PairingStatusReadModel"]
+    ReadModels["HomeReadModel, UsageDetailsReadModel, PairingStatusReadModel"]
     UseCaseProtocols["Use-case protocols"]
   end
   HomeModel --> ReadModels
@@ -67,10 +67,12 @@ flowchart TB
 
 ## Screen models
 
-**Home and Account Details.** `HomeModel` and `AccountDetailsModel` load their read model when they
-appear. They re-load when the composition root signals a commit, and at the read model's next-
-change instant, using a `TimelineView` schedule. This keeps countdowns and stale transitions moving
-without polling storage.
+**Home and Account Details.** `HomeModel` reads `LoadHome`; `AccountDetailsModel` selects one
+account from `LoadUsageDetails` by stable `AccountID`. They load when they appear and reload when
+the composition root signals a commit or transport change. Home uses `HomeReadModel.nextChange`;
+details use the earliest future `WindowDetails.nextChange` for the selected account. A scheduled
+reload recomputes presentation state from the clock, while the reset countdown uses a dynamic
+date display. This keeps stale and post-reset transitions moving without polling storage.
 
 **Actions.** Refresh, notification opt-in, Start Live Activity, pairing, and the diagnostics export each call one injected use case and show its typed outcome.
 
@@ -83,6 +85,12 @@ without polling storage.
 3. authorization required;
 4. source not set up; then
 5. incompatible.
+
+On iPhone and iPad, `ReaderSetupStep` applies this order to the reader. Unfinished local cleanup
+and Confirming Pairing precede the secrets step. Waiting for Mac Data precedes the source step,
+because only an authenticated publication can show that no account is set up. A signed-out
+source belongs to the source step, and a later delivery failure becomes a Sync Problem beside the
+rows.
 
 ## Components
 
