@@ -4,6 +4,8 @@ import ResetRadarDomain
 /// Builds the `WatchPayload` after a commit or transport-status change and sends it as the
 /// application context, plus a complication transfer when the daily budget allows.
 public actor ForwardToWatch: AfterCommitStep {
+    private enum ForwardError: Error { case invalidSnapshot }
+
     private let reader: any ReaderStore
     private let preferences: any PreferenceStore
     private let watch: any WatchLink
@@ -27,6 +29,35 @@ public actor ForwardToWatch: AfterCommitStep {
         _ = await sendOutcome(after: event)
     }
 
+    public func activate() async { await watch.activate() }
+
+    /// Replays the currently permitted value after launch or session activation. A pending clear
+    /// wins even though the reader no longer has a usage snapshot.
+    public func reconcileCurrent() async -> AfterCommitOutcome {
+        guard let state = try? await reader.load() else { return .retryable }
+        if let erasure = state.watchErasePending {
+            return await deliver(erasure.clear) ? .complete : .retryable
+        }
+        guard let snapshot = state.snapshot else { return .complete }
+        return await sendOutcome(
+            after: CommitEvent(
+                snapshot: snapshot, process: .app,
+                relaySequence: state.committedSequence ?? 0))
+    }
+
+    /// The latest payload permitted for an interactive Watch reply. It is read under the current
+    /// ReaderStore transaction rather than reused from an older commit event, so a Forget Mac or
+    /// newer relay commit cannot be resurrected by a late request.
+    public func currentPayload() async -> WatchPayload? {
+        guard let state = try? await reader.load() else { return nil }
+        if let erasure = state.watchErasePending { return erasure.clear }
+        guard !state.forgetCleanupPending, !state.awaitingActivation, state.pairing != nil,
+            let snapshot = state.snapshot
+        else { return nil }
+        let event = CommitEvent(snapshot: snapshot, process: .app)
+        return try? await persistPayload(for: event)
+    }
+
     private func sendOutcome(after event: CommitEvent) async -> AfterCommitOutcome {
         let state: ReaderState
         do {
@@ -36,8 +67,7 @@ public actor ForwardToWatch: AfterCommitStep {
         }
         if let erasure = state.watchErasePending {
             // Later usage waits for the receipt: only the saved clear goes out.
-            await deliver(erasure.clear)
-            return .complete
+            return await deliver(erasure.clear) ? .complete : .retryable
         }
         guard !state.forgetCleanupPending, !state.awaitingActivation, state.pairing != nil else {
             return .complete
@@ -48,14 +78,19 @@ public actor ForwardToWatch: AfterCommitStep {
         } catch {
             return .retryable
         }
-        await deliver(payload)
-        return await transferComplication(payload, snapshot: event.snapshot)
+        guard await deliver(payload) else { return .retryable }
+        guard let snapshot = payload.snapshot else { return .complete }
+        return await transferComplication(payload, snapshot: snapshot)
     }
 
     /// Persists one revision per distinct payload before anything is sent.
     private func persistPayload(for event: CommitEvent) async throws -> WatchPayload {
-        let snapshot = Self.watchCopy(of: event.snapshot)
         return try await reader.transact { state in
+            // A commit event may have waited behind a newer ingest or Forget Mac. Always prefer
+            // the value held by the same locked ReaderStore transaction used for the revision.
+            guard let snapshot = Self.watchCopy(of: state.snapshot ?? event.snapshot) else {
+                throw ForwardError.invalidSnapshot
+            }
             let candidate = try WatchPayload(
                 installationID: state.installationID, deliveryRevision: 0, snapshot: snapshot,
                 relaySequence: state.committedSequence, transportStatus: state.transportStatus,
@@ -66,25 +101,31 @@ public actor ForwardToWatch: AfterCommitStep {
             }
             state.watchDeliveryRevision += 1
             state.hasSentToWatch = true
-            let payload = candidate.withRevision(state.watchDeliveryRevision)
+            guard let payload = candidate.withRevision(state.watchDeliveryRevision) else {
+                throw ForwardError.invalidSnapshot
+            }
             state.lastWatchPayload = payload
             return payload
         }
     }
 
     /// The Watch needs usage state, not other readers' opaque request results.
-    private static func watchCopy(of snapshot: UsageSnapshot) -> UsageSnapshot {
-        let stripped = try? UsageSnapshot(
+    private static func watchCopy(of snapshot: UsageSnapshot) -> UsageSnapshot? {
+        try? UsageSnapshot(
             publisherID: snapshot.publisherID, generatedAt: snapshot.generatedAt,
             heartbeatSeconds: snapshot.heartbeatSeconds, accounts: snapshot.accounts,
             sources: snapshot.sources,
             windows: snapshot.windows, diagnostics: snapshot.diagnostics)
-        return stripped ?? snapshot
     }
 
-    private func deliver(_ payload: WatchPayload) async {
-        // An unreachable or inactive Watch session is not an error for the iPhone.
-        try? await watch.sendContext(payload)
+    private func deliver(_ payload: WatchPayload) async -> Bool {
+        do {
+            try await watch.sendContext(payload)
+            return true
+        } catch {
+            // The persisted revision makes an activation or launch reconciliation retry safe.
+            return false
+        }
     }
 
     private func transferComplication(
@@ -93,6 +134,11 @@ public actor ForwardToWatch: AfterCommitStep {
         let now = clock.now
         let values = Self.complicationValues(of: snapshot, now: now)
         let enabled = await preferences.complicationEnabled()
+        let linkState = await watch.state()
+        guard
+            linkState.activated, linkState.paired, linkState.watchAppInstalled,
+            linkState.complicationEnabled, linkState.remainingComplicationTransfers > 0
+        else { return .complete }
         let allowed: Bool
         do {
             allowed = try await reader.transact { state -> Bool in
@@ -110,13 +156,20 @@ public actor ForwardToWatch: AfterCommitStep {
                     state.complicationTransfers.filter {
                         now.timeIntervalSince($0) < ComplicationBudgetPolicy.window
                     } + [now]
-                state.lastComplicationValues = values
                 return true
             }
         } catch {
             return .retryable
         }
-        if allowed { try? await watch.transferComplication(payload) }
+        guard allowed else { return .complete }
+        do {
+            try await watch.transferComplication(payload)
+            try await reader.transact { $0.lastComplicationValues = values }
+        } catch {
+            // The reservation remains spent, but the changed-value marker does not advance. A
+            // later eligible activation may retry without exceeding the rolling system budget.
+            return .retryable
+        }
         return .complete
     }
 
@@ -145,12 +198,10 @@ public actor ForwardToWatch: AfterCommitStep {
 
 extension WatchPayload {
     /// The same payload at another delivery revision.
-    func withRevision(_ revision: UInt64) -> WatchPayload {
-        // A payload that already exists is valid, so rebuilding it cannot fail.
-        (try? WatchPayload(
+    func withRevision(_ revision: UInt64) -> WatchPayload? {
+        try? WatchPayload(
             installationID: installationID, deliveryRevision: revision, snapshot: snapshot,
             relaySequence: relaySequence, transportStatus: transportStatus,
-            lastRelayContactAt: lastRelayContactAt, lastCommitAt: lastCommitAt, cleared: cleared))
-            ?? self
+            lastRelayContactAt: lastRelayContactAt, lastCommitAt: lastCommitAt, cleared: cleared)
     }
 }

@@ -19,7 +19,7 @@ This file is the overall plan. Each milestone gets its own overview file when it
 - **Bottom-up, Mac first.** Milestones follow the `ResetRadarKit` dependency rule (Domain ← Application ← adapters and UI ← composition roots) from [software architecture](../architecture.md). The Mac collector is the only real data source, so it and its UI come before the iOS and Watch apps.
 - **Fixtures first.** Adapters and the Mac collector are built and tested locally against fixtures. P1-M9 no longer gates real usage.
 - **Tests travel with code.** Each milestone adds its tests and carries the [P1-M2 open work](../archive/p1-m2-open-work.md) rows for its modules, as ordinary tests or owner-run runbooks.
-- **Gate scope.** The Mac, lint, import, and relay checks run in every milestone. The iPhone, iPad, and Watch test runs are suspended (see the [changelog](changelog.md)) and return with P1-M14 and P1-M16.
+- **Gate scope.** The Mac, iPhone, iPad, Watch, lint, import, and relay checks run in the complete gate. The device suites returned with P1-M14 and P1-M16 as recorded in the [changelog](changelog.md).
 - **Stop on contradiction.** A result that contradicts an accepted decision goes back to the owner; behavior is not adjusted to fit (see [owner decisions](owner-decisions.md)).
 
 ## Order and dependencies
@@ -63,7 +63,7 @@ Start these as early as their milestone allows so elapsed time does not block th
 | Provider output shape changes or a current-data window is rejected. | Treat the source as unavailable, not as a guessed value; return to the owner. |
 | The Mac Keychain prompts after a rebuild or a lock. | Return the storage decision to the owner. |
 | Free-account signing limits (seven-day expiry, 10 App IDs per week). | Keep bundle identifiers stable; use Sideloadly refresh and record each re-sign. |
-| iOS and Watch regress while their tests are suspended. | The project still generates with every target, but the suspended runs do not execute; P1-M14 and P1-M16 must pass the complete gate before closing. |
+| iOS or Watch regresses. | The complete gate runs the reference iPhone, iPad, and Watch simulator destinations before M16 can close. |
 
 ## Closing the phase
 
@@ -87,7 +87,7 @@ Status: Done
 Goal: Create the Xcode project, all composition-root and test targets, the `ResetRadarKit` package, the relay package, SwiftLint and swift-format config, and a complete gate that passes with no deferrals and matches the P1-M2 architecture.
 Plan: [overview](milestone-03-scaffolding-overview.md), [sequencing](milestone-03-scaffolding-sequence.md), [repository layout](../architecture/repository-layout.md)
 
-Milestones receive overview files when they start. The Mac is built before iOS. The iOS, iPad, and Watch `xcodebuild test` runs are suspended in the gate until P1-M14 re-enables the iOS and iPad runs and P1-M16 the Watch run.
+Milestones receive overview files when they start. The Mac was built before iOS. P1-M14 restored the iPhone and iPad runs, and P1-M16 restored the Watch run to the complete gate.
 
 ### P1-M4: Domain model
 Status: Done
@@ -159,7 +159,7 @@ Plan: [overview](milestone-15-scheduling-overview.md), [sequence](milestone-15-s
 Notes: M9 exit is not an M15 prerequisite under the owner's 2026-10-26 instruction; M14's app and widget handoff remains the implementation dependency. The owner's all-window, notification-presentation, widget-budget, Live Activity lifecycle/prioritization, and local-dependency choices are recorded in [owner decisions](owner-decisions.md#time-zone-and-scheduling-semantics) and summarized in the [M15 overview](milestone-15-scheduling-overview.md#resolved-owner-decisions).
 
 ### P1-M16: Watch
-Status: Planned
+Status: Active
 Goal: WatchSync, Watch app grid, complication, offline and stale display, and Forget Mac erasure; re-enables the Watch test run and closes Watch-owned runtime security rows.
 Plan: [overview](milestone-16-watch-overview.md), [sequence](milestone-16-watch-sequence.md), [Watch app](../architecture/watch-app.md), [WatchSync](../architecture/watch-sync.md)
 Notes: M14 and M15 remain implementation dependencies. M9 exit is not an M16 prerequisite under the owner's waiver; M9's open remote evidence remains separate. The full seven-day Sideloadly refresh observation remains a Phase 1 exit criterion after M16 closes.

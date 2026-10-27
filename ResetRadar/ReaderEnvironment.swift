@@ -7,6 +7,7 @@ import ResetRadarApplication
 import ResetRadarDomain
 import ResetRadarScheduling
 import ResetRadarUI
+import ResetRadarWatchSync
 import UIKit
 
 @MainActor
@@ -18,8 +19,8 @@ private struct ReaderScheduling {
     let afterCommit: AfterCommitPipeline
 
     init(
-        dependencies: ReaderDependencies, visible: VisibleSnapshot,
-        reloader: any SurfaceReloader
+        dependencies: ReaderDependencies, visible: VisibleSnapshot, reloader: any SurfaceReloader,
+        watch: (any AfterCommitStep)?
     ) {
         let notifications = SystemNotificationScheduler()
         let activities: any LiveActivityController
@@ -41,7 +42,7 @@ private struct ReaderScheduling {
         self.liveActivities = liveActivities
         afterCommit = AfterCommitPipeline(
             reader: dependencies.reader, reloader: reloader, notifications: reminders,
-            liveActivities: liveActivities, watch: nil)
+            liveActivities: liveActivities, watch: watch)
     }
 }
 
@@ -92,6 +93,9 @@ final class ReaderEnvironment: ObservableObject {
     private let setNotificationOptIn: SetNotificationOptIn
     private let liveActivities: ReconcileLiveActivities
     private let afterCommit: AfterCommitPipeline
+    private let watchBridge: WCSessionBridge?
+    private let watchForward: ForwardToWatch?
+    private let confirmWatchErase: ConfirmWatchErase?
     private let exportDiagnostics: ExportDiagnostics
     private var preview: PairingPreview?
     private var activation: Task<Void, Never>?
@@ -116,14 +120,22 @@ final class ReaderEnvironment: ObservableObject {
         hasWatchStage = deps.hasWatchStage
         let reloader = WidgetCenterReloader()
         let visible = VisibleSnapshot(snapshots: deps.snapshots, reader: deps.reader)
+        let bridge = deps.hasWatchStage ? WCSessionBridge() : nil
+        let forward = bridge.map {
+            ForwardToWatch(
+                reader: deps.reader, preferences: deps.preferences,
+                watch: PhoneSideWatchLink(session: $0), clock: deps.clock)
+        }
         let scheduling = ReaderScheduling(
-            dependencies: deps, visible: visible, reloader: reloader)
+            dependencies: deps, visible: visible, reloader: reloader, watch: forward)
         notifications = scheduling.notifications
         setNotificationOptIn = scheduling.setNotificationOptIn
         // Scheduling replaces the notification and Live Activity steps; WatchSync adds the
         // Watch stage.
         liveActivities = scheduling.liveActivities
         afterCommit = scheduling.afterCommit
+        watchBridge = bridge
+        watchForward = forward
         let ingest = IngestRelaySnapshot(
             reader: deps.reader, secrets: deps.secrets, cipher: deps.cipher, relay: deps.relay,
             random: deps.random, clock: deps.clock, diagnostics: deps.diagnostics,
@@ -138,15 +150,46 @@ final class ReaderEnvironment: ObservableObject {
         acceptPairing = AcceptPairing(
             reader: deps.reader, secrets: deps.secrets, relay: deps.relay, cipher: deps.cipher,
             codec: deps.codec, clock: deps.clock, afterCommit: scheduling.afterCommit)
-        // Until WatchConnectivity is wired there is no link: a saved clear stays pending.
         forgetMac = ForgetMac(
             reader: deps.reader, secrets: deps.secrets,
             notifications: scheduling.notifications, activities: scheduling.activities,
-            reloader: reloader, watch: nil)
+            reloader: reloader, watch: bridge.map { PhoneSideWatchLink(session: $0) })
+        let confirmation = ConfirmWatchErase(
+            reader: deps.reader, clock: deps.clock, forward: forward)
+        confirmWatchErase = confirmation
         exportDiagnostics = ExportDiagnostics(diagnostics: deps.diagnostics, clock: deps.clock)
         selectedAccountID = deps.selection.load()
         backgroundRefreshAvailable = BackgroundRefreshDriver.register(environment: self)
+        startWatch(bridge: bridge, forward: forward, ingest: ingest, confirmation: confirmation)
         observeSystemTimeChanges()
+    }
+
+    private func startWatch(
+        bridge: WCSessionBridge?, forward: ForwardToWatch?, ingest: IngestRelaySnapshot,
+        confirmation: ConfirmWatchErase
+    ) {
+        guard let bridge else { return }
+        let refreshWatch = forward.map {
+            RefreshWatchFromPhone(ingest: ingest, forward: $0, clock: clock)
+        }
+        bridge.installRefreshHandler {
+            guard let payload = await refreshWatch?.request() else { return .empty }
+            return .payload(payload)
+        }
+        let receipts = bridge.incomingReceipts()
+        let activations = bridge.activations()
+        Task { [weak self] in
+            await bridge.activate()
+            for await receipt in receipts {
+                _ = await confirmation.confirm(receipt)
+                await self?.reload()
+            }
+        }
+        Task {
+            for await _ in activations {
+                _ = await forward?.reconcileCurrent()
+            }
+        }
     }
 
     var setupStep: ReaderSetupStep? {
@@ -197,6 +240,7 @@ final class ReaderEnvironment: ObservableObject {
                     _ = await forgetMac.retryCleanup()
                 }
                 _ = await acceptPairing.resumeActivation()
+                await watchForward?.activate()
                 await afterCommit.reconcilePending()
                 await afterCommit.reconcileCurrent()
                 await reload()

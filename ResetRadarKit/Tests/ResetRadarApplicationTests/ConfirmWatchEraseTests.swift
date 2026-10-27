@@ -56,4 +56,13 @@ import Testing
         #expect(sent.count == 1)
         #expect(sent.first?.cleared == false && sent.first?.deliveryRevision == 6)
     }
+
+    @Test func aStorageFailureIsNotReportedAsAnIrrelevantReceipt() async {
+        rig.store.failNextTransactions(1)
+        #expect(
+            await make().confirm(
+                WatchEraseReceipt(installationID: installation, deliveryRevision: 5))
+                == .storageFailed)
+        #expect(rig.store.state.watchErasePending != nil)
+    }
 }

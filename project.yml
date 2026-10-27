@@ -195,6 +195,7 @@ targets:
           - group.com.unidentifiedstealthstartup.ResetRadar
     settings:
       base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_BUNDLE_IDENTIFIER: com.unidentifiedstealthstartup.ResetRadar.watchkitapp
     dependencies:
       - target: ResetRadarWatchWidgets

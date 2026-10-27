@@ -15,17 +15,22 @@ public actor ConfirmWatchErase {
 
     public func confirm(_ receipt: WatchEraseReceipt) async -> ReceiptOutcome {
         let now = clock.now
-        let confirmed = try? await reader.transact { state -> Bool in
-            guard let pending = state.watchErasePending,
-                receipt.installationID == state.installationID,
-                receipt.deliveryRevision == pending.revision
-            else { return false }
-            state.watchErasePending = nil
-            state.confirmedWatchErasure = ConfirmedWatchErasure(
-                revision: pending.revision, confirmedAt: now)
-            return true
+        let confirmed: Bool
+        do {
+            confirmed = try await reader.transact { state -> Bool in
+                guard let pending = state.watchErasePending,
+                    receipt.installationID == state.installationID,
+                    receipt.deliveryRevision == pending.revision
+                else { return false }
+                state.watchErasePending = nil
+                state.confirmedWatchErasure = ConfirmedWatchErasure(
+                    revision: pending.revision, confirmedAt: now)
+                return true
+            }
+        } catch {
+            return .storageFailed
         }
-        guard confirmed == true else { return .ignored }
+        guard confirmed else { return .ignored }
         if let event = await latestUsage() { await forward?.send(after: event) }
         return .confirmed
     }

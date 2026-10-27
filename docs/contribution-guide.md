@@ -6,7 +6,7 @@ How to set up `reset-radar`, validate a change, write commit messages, and open 
 
 The documented local checks are also available as named targets in the root
 `Makefile`; run `make help` to list them and `make gate` for the complete gate. `make test`
-runs the macOS suite and then the iPhone and iPad suites, because they share one Xcode build
+runs the macOS suite and then the iPhone, iPad, and Watch suites, because they share one Xcode build
 database, beside the independent relay suite. The iPhone and iPad suites run in one `xcodebuild`
 invocation (`make test-ios-ipad`), which builds once and tests both simulators concurrently;
 `make test-ios` and `make test-ipad` run a single destination. Each suite retains its native
@@ -41,6 +41,8 @@ Scripts/generate-project.sh                                                     
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'                       # run the tests
 xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1' \
   -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'                 # both iOS destinations concurrently
+xcodebuild test -scheme ResetRadarWatch \
+  -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'             # Watch app and package tests
 swift-format format --in-place --recursive <maintained roots in Scripts/swift-roots.txt>   # format
 Scripts/lint-swift-format.sh                                                               # check formatting
 swiftlint --strict                                                                         # lint
@@ -63,7 +65,8 @@ Scripts/check-mac-architecture.sh
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
 xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1' \
   -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'
-# The Watch run remains suspended until P1-M16; see docs/phase-1/changelog.md.
+xcodebuild test -scheme ResetRadarWatch \
+  -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'
 npm --prefix relay ci
 npm --prefix relay test && npm --prefix relay run typecheck && npm --prefix relay run deploy:dry-run
 ```

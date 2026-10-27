@@ -6,6 +6,17 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-27 — Codex — Restored the Watch simulator test plan to `make test`, `make test-apple`,
+  and the complete gate for P1-M16. The reference Watch destination now runs alongside the Mac,
+  iPhone, and iPad suites; this restores automated coverage but does not replace paired-device
+  WatchConnectivity, App Group, complication, or free-signed installation evidence.
+
+- 2026-10-27 — Codex — Started P1-M16 implementation. Replaced the WatchSync placeholder with
+  a bounded versioned property-list codec, injected session boundary, typed iPhone/Watch link
+  adapters, and a WatchConnectivity bridge; wired the iPhone commit/erase path and introduced
+  Watch cache presentation and the rectangular configurable complication. Automated and paired
+  device validation remain pending; no physical delivery or signing claim is made.
+
 - 2026-10-27 — Codex — Re-reviewed the P1-M16 Watch plan against the current integrated reader and
   scheduling work. M9, M14, and M15 exit gates are excluded from M16 entry and closure; their
   unfinished evidence remains with those milestones. The revised sequence requires latest-bundle

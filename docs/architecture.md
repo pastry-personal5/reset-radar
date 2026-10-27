@@ -427,7 +427,10 @@ Scripts/lint-swift-format.sh
 swiftlint --strict
 Scripts/check-imports.sh
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
-# iOS, iPad, and Watch test runs are suspended until those apps have implementation; see the contribution guide
+xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1' \
+  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'
+xcodebuild test -scheme ResetRadarWatch \
+  -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'
 npm --prefix relay ci
 npm --prefix relay test && npm --prefix relay run typecheck && npm --prefix relay run deploy:dry-run
 ```

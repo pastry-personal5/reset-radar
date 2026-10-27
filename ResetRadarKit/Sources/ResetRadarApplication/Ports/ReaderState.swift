@@ -140,6 +140,9 @@ public struct WatchCacheState: Codable, Sendable, Equatable {
     /// True when the last committed payload was a clear: a tombstone with no usage.
     public var cleared = false
     public var localEraseHold = false
+    /// A clear was durably committed but its acknowledgement has not yet been accepted by the
+    /// WatchConnectivity queue. It survives relaunch so the Watch never claims remote erasure.
+    public var pendingEraseReceipt: WatchEraseReceipt?
     /// A payload from a different installation, held until the owner confirms.
     public var pendingInstallation: WatchPayload?
 

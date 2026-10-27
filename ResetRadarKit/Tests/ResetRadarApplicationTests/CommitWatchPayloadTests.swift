@@ -62,6 +62,23 @@ import Testing
         #expect(phone.receipts.count == 2)
     }
 
+    @Test func aReceiptQueueFailureIsDurableAndRetriesAfterRelaunch() async {
+        let use = make()
+        phone.failReceipts(true)
+        let clear = watchPayload(2, cleared: true)
+        #expect(await use.commit(clear) == .clearedReceiptPending)
+        #expect(
+            cache.state.pendingEraseReceipt
+                == WatchEraseReceipt(installationID: installation, deliveryRevision: 2))
+        #expect(phone.receipts.isEmpty)
+
+        phone.failReceipts(false)
+        let relaunched = make()
+        #expect(await relaunched.retryPendingReceipt())
+        #expect(cache.state.pendingEraseReceipt == nil)
+        #expect(phone.receipts.map(\.deliveryRevision) == [2])
+    }
+
     @Test func aDifferentInstallationIsHeldAndCommitsOnlyThePreviewedPayload() async {
         let use = make()
         _ = await use.commit(watchPayload(7, percent: 70))
@@ -75,6 +92,31 @@ import Testing
         let state = cache.state
         #expect(state.installationID == otherInstallation && state.deliveryRevision == 1)
         #expect(state.pendingInstallation == nil)
+    }
+
+    @Test func heldInstallationPreviewCannotBeReplacedByOlderOrAnotherInstallation() async throws {
+        let use = make()
+        _ = await use.commit(watchPayload(7, percent: 70))
+        let held = watchPayload(3, installationID: otherInstallation, percent: 30)
+        #expect(await use.commit(held) == .heldForOwnerConfirmation)
+        #expect(
+            await use.commit(watchPayload(2, installationID: otherInstallation, percent: 20))
+                == .ignoredOlder)
+        let third = try #require(
+            InstallationID(data: Data(repeating: 0x33, count: InstallationID.byteCount)))
+        #expect(
+            await use.commit(watchPayload(4, installationID: third, percent: 40))
+                == .rejectedConflict)
+        #expect(cache.state.pendingInstallation == held)
+    }
+
+    @Test func resetPairingReportsAStorageFailureAndKeepsTheEraseHold() async {
+        let use = make()
+        _ = await use.commit(watchPayload(4))
+        _ = await EraseWatchData(cache: cache, reloader: reloader).erase()
+        cache.failNextTransactions(1)
+        #expect(!(await use.resetPairing()))
+        #expect(cache.state.localEraseHold)
     }
 
     @Test func everyDeliveryOrderEndsAtTheHighestRevision() async {

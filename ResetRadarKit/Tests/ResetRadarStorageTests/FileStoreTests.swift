@@ -239,19 +239,24 @@ struct FileReaderStoreTests {
 }
 
 struct FileWatchCacheStoreTests {
-    @Test func tombstoneHoldAndPendingInstallationSurviveRelaunch() async throws {
+    @Test func tombstoneHoldPendingReceiptAndInstallationSurviveRelaunch() async throws {
         let directory = TemporaryDirectory()
         let store = FileWatchCacheStore(locations: locations(directory))
         try await store.transact {
             $0.cleared = true
             $0.deliveryRevision = 7
             $0.localEraseHold = true
+            $0.pendingEraseReceipt = WatchEraseReceipt(
+                installationID: installation, deliveryRevision: 7)
             $0.pendingInstallation = watchPayload(8)
         }
         let state = try await FileWatchCacheStore(locations: locations(directory)).load()
         #expect(state.cleared)
         #expect(state.deliveryRevision == 7)
         #expect(state.localEraseHold)
+        #expect(
+            state.pendingEraseReceipt
+                == WatchEraseReceipt(installationID: installation, deliveryRevision: 7))
         #expect(state.pendingInstallation == watchPayload(8))
     }
 

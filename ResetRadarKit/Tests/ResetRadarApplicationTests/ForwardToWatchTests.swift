@@ -41,6 +41,14 @@ import Testing
         #expect(rig.link.contexts.map(\.deliveryRevision) == [1, 2])
     }
 
+    @Test func aLateOldCommitEventSendsTheNewestLockedReaderSnapshot() async {
+        let oldEvent = rig.event(percent: 10)
+        let newest = rig.event(percent: 88).snapshot
+        rig.store.seed { $0.snapshot = newest }
+        await rig.makeForward().send(after: oldEvent)
+        #expect(rig.link.contexts.first?.snapshot?.windows.first?.observation?.usedPercent == 88)
+    }
+
     @Test func contextAndComplicationTransferCarryTheSameRevision() async {
         await rig.preferences.setComplicationEnabled(true)
         await rig.makeForward().send(after: rig.event())
@@ -52,6 +60,17 @@ import Testing
     @Test func aDisabledComplicationReceivesNoTransfer() async {
         await rig.makeForward().send(after: rig.event())
         #expect(rig.link.contexts.count == 1 && rig.link.transfers.isEmpty)
+    }
+
+    @Test func exhaustedSystemBudgetNeverSuppressesApplicationContext() async {
+        await rig.preferences.setComplicationEnabled(true)
+        rig.link.setState(
+            WatchLinkState(
+                activated: true, paired: true, watchAppInstalled: true,
+                complicationEnabled: true, remainingComplicationTransfers: 0))
+        await rig.makeForward().send(after: rig.event())
+        #expect(rig.link.contexts.count == 1 && rig.link.transfers.isEmpty)
+        #expect(rig.store.state.complicationTransfers.isEmpty)
     }
 
     @Test func transfersNeedAChangeAndThirtyMinutes() async {
@@ -81,6 +100,21 @@ import Testing
         #expect(rig.link.contexts.count == 1 && rig.link.transfers.isEmpty)
     }
 
+    @Test func aFailedComplicationTransferSpendsTheAttemptButKeepsTheChangeEligible() async {
+        await rig.preferences.setComplicationEnabled(true)
+        rig.link.failComplications(true)
+        let forward = rig.makeForward()
+        #expect(await forward.afterCommitOutcome(rig.event(percent: 20)) == .retryable)
+        #expect(rig.store.state.complicationTransfers == [epoch])
+        #expect(rig.store.state.lastComplicationValues == nil)
+
+        rig.link.failComplications(false)
+        rig.clock.advance(by: ComplicationBudgetPolicy.minimumInterval)
+        #expect(await forward.afterCommitOutcome(rig.event(percent: 20)) == .complete)
+        #expect(rig.link.transfers.count == 1)
+        #expect(rig.store.state.lastComplicationValues != nil)
+    }
+
     @Test func aPendingEraseResendsOnlyTheSavedClear() async {
         await rig.preferences.setComplicationEnabled(true)
         let clear = watchPayload(9, cleared: true)
@@ -94,6 +128,17 @@ import Testing
         #expect(rig.link.contexts == [clear, clear])
         #expect(rig.link.transfers.isEmpty)
         #expect(rig.store.state.watchDeliveryRevision == 9)
+    }
+
+    @Test func sessionActivationReplaysAPendingClearWithoutAUsageSnapshot() async {
+        let clear = watchPayload(9, cleared: true)
+        rig.store.seed {
+            $0.snapshot = nil
+            $0.watchErasePending = WatchErasure(clear: clear)
+            $0.watchDeliveryRevision = 9
+        }
+        #expect(await rig.makeForward().reconcileCurrent() == .complete)
+        #expect(rig.link.contexts == [clear])
     }
 
     @Test func aLockedOrUnpairedReaderSendsNothing() async {

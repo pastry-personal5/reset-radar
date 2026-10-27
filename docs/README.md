@@ -62,8 +62,10 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [phase-1/milestone-15-scheduling-overview.md](phase-1/milestone-15-scheduling-overview.md) | P1-M15 scheduling scope, M14 handoff, review findings, and completion checklist. Active. |
 | [phase-1/milestone-15-scheduling-sequence.md](phase-1/milestone-15-scheduling-sequence.md) | P1-M15 Scheduling, Mac notifications, background refresh, widgets, ActivityKit, and device-validation order. Active. |
 | [phase-1/milestone-15-scheduling-validation.md](phase-1/milestone-15-scheduling-validation.md) | P1-M15 automated review evidence, known validation limits, and pending owner-run device checks. Active. |
-| [phase-1/milestone-16-watch-overview.md](phase-1/milestone-16-watch-overview.md) | P1-M16 Watch scope, handoff review, physical-device evidence, and completion checklist. Planned. |
-| [phase-1/milestone-16-watch-sequence.md](phase-1/milestone-16-watch-sequence.md) | P1-M16 WatchSync, iPhone and Watch wiring, complication, signing, and validation order. Planned. |
+| [phase-1/milestone-16-watch-overview.md](phase-1/milestone-16-watch-overview.md) | P1-M16 Watch scope, handoff review, physical-device evidence, and completion checklist. Active. |
+| [phase-1/milestone-16-watch-sequence.md](phase-1/milestone-16-watch-sequence.md) | P1-M16 WatchSync, iPhone and Watch wiring, complication, signing, and validation order. Active. |
+| [phase-1/milestone-16-security-review.md](phase-1/milestone-16-security-review.md) | P1-M16 row-by-row failure and trust-boundary evidence table. Active. |
+| [phase-1/milestone-16-validation.md](phase-1/milestone-16-validation.md) | P1-M16 integrated handoff, automated evidence, and remaining paired-device proof. Active. |
 | [research/cloudflare-relay-spike-runbook.md](research/cloudflare-relay-spike-runbook.md) | Active owner-run P1-M9 deployment, smoke, 30-minute sample, fault, release, and teardown procedure. |
 | [phase-1/owner-decisions.md](phase-1/owner-decisions.md) | Owner-approved P1-M1 product, security, scheduling, synchronization, and distribution decisions that constrain P1-M2. |
 | [research/initial-research-on-feasibility.md](research/initial-research-on-feasibility.md) | P1-M1 feasibility study: service limits, reset-time sources, iOS capabilities, prior art, and owner-approved scope. Active. |
@@ -81,5 +83,6 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [research/mac-keychain-validation-spike-runbook.md](research/mac-keychain-validation-spike-runbook.md) | P1-M2 owner-run, synthetic-only harness and evidence procedure for validating unattended Mac Keychain access. Active. |
 | [research/source-calibration-spike-runbook.md](research/source-calibration-spike-runbook.md) | P1-M2 owner-run, privacy-safe command-line procedure for calibrating the installed signed-in Codex and Claude Code sources. Active. |
 | [research/m15-scheduling-device-runbook.md](research/m15-scheduling-device-runbook.md) | P1-M15 owner-run synthetic-device procedure for notifications, widgets, Live Activities, background refresh, and re-sign evidence. Active. |
+| [research/m16-watch-device-runbook.md](research/m16-watch-device-runbook.md) | P1-M16 owner-run synthetic paired-Watch installation, delivery, App Group, complication, and erase procedure. Active. |
 | [research/spike-results.md](research/spike-results.md) | P1-M2 spike evidence: relay, platform lifecycle, and source calibration measurements. Draft. |
 | [phase-1/changelog.md](phase-1/changelog.md) | Phase 1 decisions and plan changes. |

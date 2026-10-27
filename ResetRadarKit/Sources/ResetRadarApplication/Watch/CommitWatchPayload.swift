@@ -19,8 +19,7 @@ public actor CommitWatchPayload {
         guard let outcome = try? await cache.transact({ Self.apply(payload, to: &$0) }) else {
             return .storageFailed
         }
-        await finish(outcome, payload: payload)
-        return outcome
+        return await finish(outcome, payload: payload)
     }
 
     /// Accepts the previewed payload of a changed iPhone installation after the owner confirms:
@@ -33,41 +32,82 @@ public actor CommitWatchPayload {
             return Self.apply(payload, to: &state)
         }
         guard let outcome else { return .storageFailed }
-        await finish(outcome, payload: payload)
-        return outcome
+        return await finish(outcome, payload: payload)
     }
 
     /// Ends a local-erase hold for the same installation; the revision floor never drops.
-    public func resetPairing() async {
-        try? await cache.transact { $0.localEraseHold = false }
-    }
-
-    private func finish(_ outcome: WatchCommitOutcome, payload: WatchPayload) async {
-        switch outcome {
-        case .committed:
-            reloader.reloadComplications()
-        case .cleared:
-            reloader.reloadComplications()
-            await queueReceipt(for: payload)
-        case .idempotent where payload.cleared:
-            await queueReceipt(for: payload)
-        default:
-            break
+    @discardableResult
+    public func resetPairing() async -> Bool {
+        do {
+            try await cache.transact { $0.localEraseHold = false }
+            return true
+        } catch {
+            return false
         }
     }
 
-    private func queueReceipt(for payload: WatchPayload) async {
-        // The receipt stays queued by WatchConnectivity; a failure to queue is retried by the
-        // iPhone's resend of the same clear.
-        try? await phone.queueReceipt(
-            WatchEraseReceipt(
+    /// Retries only a receipt already made durable with its cleared cache. This is called at
+    /// Watch activation so a queue failure cannot be mistaken for remote erasure.
+    @discardableResult
+    public func retryPendingReceipt() async -> Bool {
+        let state: WatchCacheState
+        do {
+            state = try await cache.load()
+        } catch {
+            return false
+        }
+        guard let receipt = state.pendingEraseReceipt else { return true }
+        return await queueReceipt(for: receipt)
+    }
+
+    private func finish(
+        _ outcome: WatchCommitOutcome, payload: WatchPayload
+    ) async -> WatchCommitOutcome {
+        switch outcome {
+        case .committed:
+            reloader.reloadComplications()
+            return outcome
+        case .cleared:
+            reloader.reloadComplications()
+            return await queueReceipt(for: payload) ? outcome : .clearedReceiptPending
+        case .idempotent where payload.cleared:
+            return await queueReceipt(for: payload) ? outcome : .clearedReceiptPending
+        default:
+            return outcome
+        }
+    }
+
+    private func queueReceipt(for payload: WatchPayload) async -> Bool {
+        await queueReceipt(
+            for: WatchEraseReceipt(
                 installationID: payload.installationID, deliveryRevision: payload.deliveryRevision))
+    }
+
+    private func queueReceipt(for receipt: WatchEraseReceipt) async -> Bool {
+        do {
+            try await phone.queueReceipt(receipt)
+            try await cache.transact { state in
+                if state.pendingEraseReceipt == receipt { state.pendingEraseReceipt = nil }
+            }
+            return true
+        } catch {
+            return false
+        }
     }
 
     private static func apply(
         _ payload: WatchPayload, to state: inout WatchCacheState
     ) -> WatchCommitOutcome {
         if let current = state.installationID, current != payload.installationID {
+            if let pending = state.pendingInstallation {
+                guard pending.installationID == payload.installationID else {
+                    return .rejectedConflict
+                }
+                if payload.deliveryRevision < pending.deliveryRevision { return .ignoredOlder }
+                if payload.deliveryRevision == pending.deliveryRevision {
+                    return pending == payload ? .heldForOwnerConfirmation : .rejectedConflict
+                }
+            }
             state.pendingInstallation = payload
             return .heldForOwnerConfirmation
         }
@@ -86,6 +126,10 @@ public actor CommitWatchPayload {
         state.lastRelayContactAt = payload.lastRelayContactAt
         state.lastCommitAt = payload.lastCommitAt
         state.cleared = payload.cleared
+        if payload.cleared {
+            state.pendingEraseReceipt = WatchEraseReceipt(
+                installationID: payload.installationID, deliveryRevision: payload.deliveryRevision)
+        }
         state.pendingInstallation = nil
         return payload.cleared ? .cleared : .committed
     }

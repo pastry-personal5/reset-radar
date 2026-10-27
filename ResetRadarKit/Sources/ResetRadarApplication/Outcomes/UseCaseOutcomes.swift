@@ -93,12 +93,15 @@ public enum ForgetOutcome: Sendable, Equatable {
 public enum ReceiptOutcome: Sendable, Equatable {
     case confirmed
     case ignored
+    case storageFailed
 }
 
 public enum WatchCommitOutcome: Sendable, Equatable {
     case committed
     /// A clear was committed as a tombstone and its receipt queued.
     case cleared
+    /// A clear is durable locally, but the receipt queue rejected it and must be retried.
+    case clearedReceiptPending
     case idempotent
     case ignoredOlder
     case rejectedConflict

@@ -17,7 +17,7 @@ Work is organized into numbered phases and milestones. General documentation rul
 A milestone is done when:
 
 1. Its completion checklist is checked with acceptance evidence.
-2. The gate passes: `Scripts/generate-project.sh`, `Scripts/lint-swift-format.sh`, `swiftlint --strict`, `Scripts/check-imports.sh`, the Mac `xcodebuild test` run (the iPhone, iPad, and Watch runs are suspended until P1-M14 and P1-M16), and the relay checks listed in the [contribution guide](contribution-guide.md).
+2. The gate passes: `Scripts/generate-project.sh`, `Scripts/lint-swift-format.sh`, `swiftlint --strict`, `Scripts/check-imports.sh`, the Mac, iPhone, iPad, and Watch `xcodebuild test` runs, and the relay checks listed in the [contribution guide](contribution-guide.md).
 3. Affected docs and its phase-doc status are updated in the same change.
 
 Before the executable scaffold exists, a gate command that is inapplicable solely because its planned files, project, scheme, or targets do not yet exist may be deferred to the scaffolding milestone. The earlier milestone must record the attempted command, structural blocker, and target milestone; all applicable commands must pass. The scaffolding milestone cannot use this exception and must pass the complete gate. A tool failure, test failure, or missing dependency that should already exist is not an inapplicable check.

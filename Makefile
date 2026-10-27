@@ -1,4 +1,4 @@
-.PHONY: help generate run run-mac iphone ipad watch ipa format format-check lint imports mac-arch-check test-mac test-ios test-ipad test-ios-ipad test-apple relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
+.PHONY: help generate run run-mac iphone ipad watch ipa format format-check lint imports mac-arch-check test-mac test-ios test-ipad test-ios-ipad test-watch test-apple relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
 
 help:
 	@printf '%s\n' \
@@ -17,6 +17,7 @@ help:
 		'test-ios       Run iPhone 17 Pro Max iOS 26.1 tests' \
 		'test-ipad      Run iPad Air 11-inch (M2) iOS 26.1 tests' \
 		'test-ios-ipad  Build once and run the iPhone and iPad tests concurrently' \
+		'test-watch     Run the Watch tests on the reference simulator' \
 		'relay-install  Install the relay dependencies from its lockfile' \
 		'relay-test     Run relay tests' \
 		'relay-typecheck Run relay TypeScript checks' \
@@ -116,6 +117,9 @@ test-ios-ipad:
 	@xcodebuild -quiet test -scheme ResetRadar \
 		-destination '$(IPHONE_DESTINATION)' -destination '$(IPAD_DESTINATION)'
 
+test-watch:
+	@xcodebuild -quiet test -scheme ResetRadarWatch -destination '$(WATCH_DESTINATION)'
+
 relay-install:
 	npm --prefix relay ci
 
@@ -130,12 +134,13 @@ relay-dry-run:
 
 relay-ci: relay-install relay-test relay-typecheck relay-dry-run
 
-# The Mac and iOS runs share one build database, so they run in sequence beside the relay tests.
+# The Apple runs share one build database, so they run in sequence beside the relay tests.
 test-apple:
 	@$(MAKE) --no-print-directory test-mac
 	@$(MAKE) --no-print-directory test-ios-ipad
+	@$(MAKE) --no-print-directory test-watch
 
 test:
 	+@$(MAKE) --no-print-directory -j2 test-apple relay-test
 
-gate: generate format-check lint imports mac-arch-check test-mac test-ios-ipad relay-ci
+gate: generate format-check lint imports mac-arch-check test-mac test-ios-ipad test-watch relay-ci

@@ -263,6 +263,10 @@ public final class FakeWatchLink: WatchLink, @unchecked Sendable {
         var contexts: [WatchPayload] = []
         var transfers: [WatchPayload] = []
         var contextFailure = false
+        var complicationFailure = false
+        var linkState = WatchLinkState(
+            activated: true, paired: true, watchAppInstalled: true,
+            complicationEnabled: true, remainingComplicationTransfers: 50)
     }
 
     private let state = Locked(State())
@@ -272,6 +276,12 @@ public final class FakeWatchLink: WatchLink, @unchecked Sendable {
     public var contexts: [WatchPayload] { state.withLock { $0.contexts } }
     public var transfers: [WatchPayload] { state.withLock { $0.transfers } }
     public func failContexts(_ fail: Bool) { state.withLock { $0.contextFailure = fail } }
+    public func failComplications(_ fail: Bool) { state.withLock { $0.complicationFailure = fail } }
+    public func setState(_ linkState: WatchLinkState) {
+        state.withLock { $0.linkState = linkState }
+    }
+
+    public func state() async -> WatchLinkState { state.withLock { $0.linkState } }
 
     public func sendContext(_ payload: WatchPayload) async throws {
         try state.withLock { state in
@@ -281,7 +291,10 @@ public final class FakeWatchLink: WatchLink, @unchecked Sendable {
     }
 
     public func transferComplication(_ payload: WatchPayload) async throws {
-        state.withLock { $0.transfers.append(payload) }
+        try state.withLock { state in
+            if state.complicationFailure { throw FakeStoreError.injected }
+            state.transfers.append(payload)
+        }
     }
 }
 
@@ -290,6 +303,7 @@ public final class FakePhoneLink: PhoneLink, @unchecked Sendable {
         var reply: WatchPayload?
         var requests = 0
         var receipts: [WatchEraseReceipt] = []
+        var receiptFailure = false
     }
 
     private let state = Locked(State())
@@ -299,6 +313,7 @@ public final class FakePhoneLink: PhoneLink, @unchecked Sendable {
     public var requestCount: Int { state.withLock { $0.requests } }
     public var receipts: [WatchEraseReceipt] { state.withLock { $0.receipts } }
     public func setReply(_ payload: WatchPayload?) { state.withLock { $0.reply = payload } }
+    public func failReceipts(_ fail: Bool) { state.withLock { $0.receiptFailure = fail } }
 
     public func requestRefresh() async -> WatchPayload? {
         state.withLock { state in
@@ -308,7 +323,10 @@ public final class FakePhoneLink: PhoneLink, @unchecked Sendable {
     }
 
     public func queueReceipt(_ receipt: WatchEraseReceipt) async throws {
-        state.withLock { $0.receipts.append(receipt) }
+        try state.withLock { state in
+            if state.receiptFailure { throw FakeStoreError.injected }
+            state.receipts.append(receipt)
+        }
     }
 }
 

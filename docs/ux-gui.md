@@ -10,7 +10,9 @@ This document defines the owner-approved interface behavior. Product scope is in
 
 The iOS and iPadOS Home Screen icon is an original radar mark: two concentric reading rings,
 a sweep, and one highlighted reading dot on a dark background. The universal app uses the same
-icon on iPhone and iPad; the system supplies the rounded mask and appearance variations.
+icon on iPhone and iPad; the system supplies the rounded mask and appearance variations. The
+Apple Watch app uses a simplified, higher-contrast version of the same mark with circular-safe
+spacing for the system-applied Watch mask.
 
 ## First iPhone screen
 
@@ -153,6 +155,9 @@ appearances. The palette never carries usage or source state; status still uses 
 symbol and accessibility text. Every ring's accessibility description includes the complete
 alias, product, window, Percentage Used, reset, and freshness. Selecting a ring opens compact
 Account Details for that account with the selected window emphasized and the same accent.
+Watch Home has no navigation title. The Account List appears first, followed by the local data
+controls, with a full-width **Refresh** text button as the final scrollable list row instead of a
+pinned or top-toolbar control.
 
 The Watch app also offers an owner-confirmed **Erase Watch Data** action. It clears the local cache and prevents later usage delivery until the owner chooses **Reset Watch Pairing**. A complication may keep its previously rendered frame until watchOS processes a reload or the owner removes it.
 

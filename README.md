@@ -2,13 +2,21 @@
 
 Reset Radar monitors Codex and Claude Code allowance usage across your Mac, iPhone, iPad, and Apple Watch.
 
-The iPhone and iPad app uses an original radar icon with reading rings and a highlighted dot.
+The iPhone, iPad, and Apple Watch apps use an original radar icon with reading rings and a
+highlighted dot; the Watch artwork is simplified for legibility in the app grid.
 
 *See what’s left. Know when it resets.*
 
 The Collector Mac reads coding-allowance data from Codex and Claude Code without copying provider credentials. Reset Radar shares encrypted, timestamped readings with the owner's iPhone, iPad, and Apple Watch, where it shows Percentage Used, Reset Times, and data state in apps, widgets, Reset Live Activities, and an Allowance Complication.
 
-The project is in its Foundation phase. The Mac collector, local package, Cloudflare relay, and iPhone/iPad reader are implemented; widgets, reset reminders, Live Activities, and the Apple Watch app are still in progress. It is designed for personal sideloading with a free Apple account, not App Store or TestFlight distribution. The Mac main window and Settings share a Global Messages pane for collector and setup status, including the reason publication stops safely. Mac Settings offers a Codex source table with login-shell executable discovery and a Claude Code connection card; review the selected `CODEX_HOME` in the [installation guide](docs/mac-installation-and-recovery.md#configure-sources).
+The project is in its Foundation phase. The Mac collector, local package, Cloudflare relay,
+iPhone/iPad reader, scheduling surfaces, and Apple Watch app are implemented; their remaining
+physical-device validation is still in progress. It is designed for personal sideloading with a
+free Apple account, not App Store or TestFlight distribution. The Mac main window and Settings
+share a Global Messages pane for collector and setup status, including the reason publication
+stops safely. Mac Settings offers a Codex source table with login-shell executable discovery and a
+Claude Code connection card; review the selected `CODEX_HOME` in the
+[installation guide](docs/mac-installation-and-recovery.md#configure-sources).
 The Mac collector supports Apple silicon only; every Mac build is arm64-only and Intel Macs are unsupported.
 Mac Settings groups each section's controls into titled cards above Global Messages.
 The Mac Home account list and selected details refresh as the collector commits new readings;
@@ -38,6 +46,17 @@ but does not revoke it on the Mac. The reader is installed with Sideloadly using
 for package inspection and physical-device evidence.
 The initial signed iPhone installation and QR-pairing flow have been exercised; the procedure
 also tracks the remaining device and renewal checks.
+
+On Apple Watch, Home shows one two-ring row per configured account with stable lavender, mint, or
+peach account palettes and no visible alias; accessibility identifies every account and window.
+Home omits a navigation title; its full-width Refresh text button is the final scrollable row
+after the account list and local data controls.
+Account Details shows all provider windows, reset times, freshness, and unavailable/offline state.
+The rectangular Allowance Complication is configured for one exact account and standard window.
+The Watch keeps an aged local cache, can request an iPhone refresh, and offers owner-confirmed
+local erase and pairing-reset controls. Initial paired-device installation, background delivery,
+App Group, complication, and offline-erasure validation follows the
+[M16 Watch runbook](docs/research/m16-watch-device-runbook.md).
 
 The Mac app keeps a redacted troubleshooting history for up to eight days. Find its active folder
 in Settings → Diagnostics; Development uses `~/Library/Logs/ResetRadar.dev/` and Release uses
