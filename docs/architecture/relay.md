@@ -61,6 +61,8 @@ flowchart TB
 | `PUT /v1/snapshot` | Write token | Accept at most 64 KiB. On empty storage, bind the envelope's publisher ID and sequence. Otherwise atomically reject an unexpected publisher, an equal or lower sequence, malformed outer metadata, or an unsupported mandatory version. Return the sequence and a strong ETag. |
 | `GET /v1/snapshot` | Any registered read token | Authenticate a pending reader's preflight without activating it. Return the latest envelope with `Cache-Control: no-store`, support `If-None-Match`, and return not-found before the first publish. |
 | `POST /v1/readers/activate` | Registered read token | Derive `ReaderID` from the token and idempotently mark that reader activated after the client has saved its pairing locally. Return `200` even if already activated. Reject an expired or revoked pending reader with `401`; never accept a reader ID supplied in the body. |
+| `PUT /v2/reader-profile` | Activated read token | Derive `ReaderID` from the token and store only a canonical encrypted profile envelope. A greater revision replaces the prior body, an identical same-revision retry succeeds, and lower or conflicting same-revision writes return `409` without mutation. |
+| `GET /v2/readers` | Administration token | List reader status, optional relay activation time, and optional opaque encrypted profile. |
 | `POST /v2/refresh-requests` | Activated read token | Accept a client-generated random 128-bit request ID and a target of one opaque Reset Radar `AccountID` or `allCodex`, in a body capped at 192 bytes. Store at most one pending request per reader for 60 seconds. Repeating the same ID and target while pending returns the same `202` and expiry; changing the target for that ID returns `400`; repeating the last completed ID returns `409`; retrying the reader's last accepted ID after expiry or using another reader's live ID returns `400`; a different ID inside the reader's global 60-second rate limit returns `429`. The request carries no alias, usage value, provider account data, or credential. |
 | `GET /v2/refresh-requests` | Write token | Return at most three unexpired requests with `ReaderID`, request ID, target kind, optional opaque account ID, and relay-assigned expiry, using `Cache-Control: no-store`. Reading does not consume a request. |
 | `DELETE /v2/refresh-requests/{id}` | Write token | Remove a request after the Mac has successfully published its encrypted per-account result. A duplicate delete is idempotent. Expiry also removes a request. |
@@ -98,7 +100,7 @@ The wire credential is `Authorization: Bearer <token>`, where `<token>` is the u
 
 ### V2 manual-refresh body profile
 
-Only manual-refresh operations use protocol version 2. The account-target body is
+Manual-refresh and encrypted reader-profile operations use protocol version 2. The account-target body is
 `{"accountID":"<32 hex>","protocolVersion":2,"requestID":"<32 hex>","target":"account"}`;
 the all-account body is
 `{"protocolVersion":2,"requestID":"<32 hex>","target":"allCodex"}`. Both are canonical,
@@ -108,6 +110,8 @@ identifier. The old `/v1/refresh-requests` operations are not a compatibility pa
 | Operation | Request body | Success status and body |
 |---|---|---|
 | `POST /v2/refresh-requests` | One exact target body above | `202` `{"expiresAt":"<UTC millis>","protocolVersion":2}` |
+| `PUT /v2/reader-profile` | Canonical encrypted profile envelope, at most 2 KiB | `200` `{"protocolVersion":2,"revision":N}` |
+| `GET /v2/readers` | Empty | `200` canonical reader list with optional `activatedAt` and opaque `profile` fields |
 | `GET /v2/refresh-requests` | Empty | `200` `{"protocolVersion":2,"requests":[...]}` with zero to three canonical entries carrying expiry, reader ID, request ID, target, and `accountID` only for `account` |
 | `DELETE /v2/refresh-requests/{id}` | Empty | `204` empty |
 
@@ -173,16 +177,15 @@ The Durable Object's SQLite database has three tables:
 | Table | Columns |
 |---|---|
 | `relay_state` (one row) | Latest envelope, its ETag and accepted time, bound publisher ID, last sequence, and protocol-state version. |
-| `readers` (at most three rows) | Reader ID, token digest, activated flag, pending expiry, last accepted manual-refresh time and ID for duplicate and rate-limit checks, and a separate last completed request ID for replay rejection. |
+| `readers` (at most three rows) | Reader ID, token digest, activated flag, nullable first activation time, pending expiry, nullable profile revision and opaque envelope, last accepted manual-refresh time and ID, and last completed request ID. |
 | `refresh_requests` (at most three live rows) | Reader ID, opaque request ID, target (`account` or `allCodex`), optional opaque Reset Radar account ID, and relay-assigned accepted and expiry times. Expired rows are removed during request operations; no alarm is needed. Deleting a completed request does not reset the reader-global rate limit in `readers`. |
 
 There is no product history. An expired pending reader is unauthorized immediately. Cleanup runs only after a request has passed its applicable authority check; an invalid read token causes no write. Authenticated registration removes expired pending rows before enforcing the cap, and expiry cannot revoke an already activated reader. The write and administration digests live as Worker secrets, not in the database. Cloudflare point-in-time recovery may retain provider-managed historical storage for its documented period, so deletion copy cannot promise immediate physical erasure from backups.
 
-The schema migration for v2 manual refresh preserves `relay_state`, reader registrations, token
-digests, activation state, and the last accepted snapshot. It discards legacy and expired pending
-refresh rows because their v1 bodies cannot express an account target. The migration runs in one
-SQLite transaction and advances the internal protocol-state version only after the new tables and
-constraints are installed successfully.
+Schema migrations preserve `relay_state`, reader registrations and tokens, activation state,
+snapshots, and live refresh requests. M17 adds nullable activation and profile columns in one
+SQLite transaction; migrated active readers therefore have no invented activation time. The
+internal version advances only after every table and column is available.
 
 ## Operations
 

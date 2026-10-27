@@ -27,18 +27,22 @@ public struct WindowSection: Identifiable, Equatable, Sendable {
             guard matches.count == 1, let match = matches.first else {
                 return Self(
                     id: .standard(standard), title: title, details: nil,
-                    display: AllowanceDisplay(state: .unavailable, window: nil),
+                    display: AllowanceDisplay(
+                        state: .unavailable, window: nil, product: account.account.product),
                     ambiguous: matches.count > 1)
             }
             claimed.insert(match.window.id)
             return Self(
                 id: .standard(standard), title: title, details: match,
-                display: AllowanceDisplay(details: match), ambiguous: false)
+                display: AllowanceDisplay(details: match, product: account.account.product),
+                ambiguous: false)
         }
         let additional = account.windows.filter { !claimed.contains($0.window.id) }.map {
             Self(
                 id: .additional($0.window.id), title: ReaderVocabulary.windowLabel($0.window),
-                details: $0, display: AllowanceDisplay(details: $0), ambiguous: false)
+                details: $0,
+                display: AllowanceDisplay(details: $0, product: account.account.product),
+                ambiguous: false)
         }
         return standards + additional
     }

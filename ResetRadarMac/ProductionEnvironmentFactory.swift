@@ -266,13 +266,14 @@ enum ProductionEnvironmentFactory {
                             recordedTeamIdentifier: nil)
                     else { return nil }
                     return team
-                }, recordTeamIdentifier: { identityState.record($0) }),
+                }, recordTeamIdentifier: { identityState.record($0) },
+                publisher: core.publisher),
             pairing: PairingViewModel(
                 pairing: pairing, refreshManualRequests: refreshManualRequests),
             devices: DevicesViewModel(
                 reconcile: ReconcileReaders(
                     publisher: core.publisher, secrets: core.secrets, relay: core.relay,
-                    clock: core.clock),
+                    clock: core.clock, profileCipher: AESGCMReaderProfileCipher()),
                 revoke: RevokeReader(
                     publisher: core.publisher, secrets: core.secrets, relay: core.relay),
                 destroy: DestroyRelay(

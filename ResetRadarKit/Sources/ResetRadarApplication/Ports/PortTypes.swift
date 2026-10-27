@@ -99,10 +99,17 @@ public struct PendingRefreshRequest: Sendable, Equatable {
 public struct RelayReader: Sendable, Equatable {
     public let id: ReaderID
     public let activated: Bool
+    public let activatedAt: Date?
+    public let profileEnvelope: Data?
 
-    public init(id: ReaderID, activated: Bool) {
+    public init(
+        id: ReaderID, activated: Bool, activatedAt: Date? = nil,
+        profileEnvelope: Data? = nil
+    ) {
         self.id = id
         self.activated = activated
+        self.activatedAt = activatedAt
+        self.profileEnvelope = profileEnvelope
     }
 }
 

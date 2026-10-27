@@ -92,8 +92,10 @@ struct FirstInstanceActivationObserver {
         observer = DistributedNotificationCenter.default().addObserver(
             forName: notificationName, object: nil, queue: .main
         ) { _ in
-            NSApplication.shared.activate()
-            NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
+            Task { @MainActor in
+                NSApplication.shared.activate()
+                NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
+            }
         }
     }
 

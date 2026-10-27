@@ -2,6 +2,7 @@ import ResetRadarApplication
 import ResetRadarDomain
 import ResetRadarUI
 import SwiftUI
+import UIKit
 
 struct AccountRoute: Hashable {
     let accountID: AccountID
@@ -81,14 +82,16 @@ struct HomeView: View {
         )
         .navigationTitle("Home")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    Task { await environment.refreshHome() }
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        Task { await environment.refreshHome() }
+                    } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(environment.refresh?.isRunning == true || !environment.loaded)
+                    .accessibilityIdentifier("homeRefresh")
                 }
-                .disabled(environment.refresh?.isRunning == true || !environment.loaded)
-                .accessibilityIdentifier("homeRefresh")
             }
         }
     }
@@ -125,6 +128,7 @@ private struct AccountListView: View {
             .padding(.horizontal)
             .padding(.vertical, 8)
         }
+        .accessibilityIdentifier("accountList")
         .background(Color(uiColor: .systemGroupedBackground))
         .refreshable { await environment.pullToRefresh() }
     }

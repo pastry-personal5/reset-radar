@@ -9,9 +9,11 @@ public struct AllowanceDisplay: Equatable, Sendable {
     /// Percentage Used, 0 through 100. `nil` for unavailable and waiting windows, never 0.
     public let usedPercent: Double?
     public let fractionDigits: Int?
+    public let product: ProductID?
 
-    public init(state: PresentationState, window: AllowanceWindow?) {
+    public init(state: PresentationState, window: AllowanceWindow?, product: ProductID? = nil) {
         self.state = state
+        self.product = product
         switch state {
         case .current, .stale:
             usedPercent = window?.observation?.usedPercent
@@ -22,16 +24,16 @@ public struct AllowanceDisplay: Equatable, Sendable {
         }
     }
 
-    public init(ring: AccountRingSummary) {
+    public init(ring: AccountRingSummary, product: ProductID? = nil) {
         if case .window(let window) = ring.resolution {
-            self.init(state: ring.presentation, window: window)
+            self.init(state: ring.presentation, window: window, product: product)
         } else {
-            self.init(state: .unavailable, window: nil)
+            self.init(state: .unavailable, window: nil, product: product)
         }
     }
 
-    public init(details: WindowDetails) {
-        self.init(state: details.presentation, window: details.window)
+    public init(details: WindowDetails, product: ProductID? = nil) {
+        self.init(state: details.presentation, window: details.window, product: product)
     }
 
     /// The ring's fill from 0 toward 1.
@@ -42,13 +44,8 @@ public struct AllowanceDisplay: Equatable, Sendable {
     /// The source-precision percentage, for example `42%` or `42.5%`.
     public var percentText: String? {
         guard let usedPercent else { return nil }
-        let value =
-            if let fractionDigits {
-                usedPercent.formatted(.number.precision(.fractionLength(fractionDigits)))
-            } else {
-                usedPercent.formatted(.number.precision(.fractionLength(0...2)))
-            }
-        return "\(value)%"
+        return PercentageUsedFormatter.text(
+            usedPercent, product: product, fractionDigits: fractionDigits)
     }
 
     public var statusText: String {

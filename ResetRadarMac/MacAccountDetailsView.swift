@@ -1,6 +1,7 @@
 import Foundation
 import ResetRadarApplication
 import ResetRadarDomain
+import ResetRadarUI
 import SwiftUI
 
 struct MacDetailWindow: Identifiable {
@@ -88,10 +89,26 @@ struct MacAccountDetailsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     header
-                    ForEach(
-                        MacDetailWindow.ordered(
-                            account: account, snapshot: model.snapshot, now: timeline.date)
-                    ) { item in
+                    let details = MacDetailWindow.ordered(
+                        account: account, snapshot: model.snapshot, now: timeline.date)
+                    if let nextReset = nextReset(in: details, now: timeline.date) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Executive Summary").font(.headline)
+                            Text(
+                                nextReset.date.formatted(
+                                    date: .abbreviated, time: .shortened)
+                            )
+                            .font(.system(.largeTitle, design: .rounded).weight(.semibold))
+                            .minimumScaleFactor(0.65)
+                            Text(nextReset.label).font(.caption).foregroundStyle(.secondary)
+                        }
+                        .padding(18)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("executiveSummary")
+                    }
+                    ForEach(details) { item in
                         MacWindowDetailsCard(
                             account: account, source: model.snapshot?.source(for: account.id),
                             detail: item, model: model, now: timeline.date,
@@ -106,6 +123,18 @@ struct MacAccountDetailsView: View {
         }
         .onAppear { alias = account.alias?.value ?? "" }
         .onChange(of: account.alias?.value) { _, value in alias = value ?? "" }
+    }
+
+    private func nextReset(in details: [MacDetailWindow], now: Date) -> NextReset? {
+        details.compactMap { detail -> NextReset? in
+            guard case .standard(let standard) = detail.id, !detail.ambiguous,
+                let date = detail.window?.resetsAt, date > now
+            else { return nil }
+            return NextReset(date: date, window: standard)
+        }.min { left, right in
+            if left.date == right.date { return left.window == .fiveHour }
+            return left.date < right.date
+        }
     }
 
     private var header: some View {
@@ -139,6 +168,11 @@ struct MacAccountDetailsView: View {
             }
             if let message = model.message {
                 Text(message).font(.callout).foregroundStyle(.secondary)
+            }
+            if let delivery = model.aliasDelivery {
+                Text(delivery.rawValue)
+                    .font(.callout)
+                    .foregroundStyle(delivery == .failed ? .orange : .secondary)
             }
         }
     }
@@ -182,7 +216,11 @@ struct MacAccountDetailsView: View {
     private func saveAlias() {
         Task {
             await model.updateAlias(accountID: account.id, input: alias)
-            if model.message == nil { editingAlias = false }
+            let saveFinished =
+                model.aliasDelivery == .available || model.aliasDelivery == .localOnly
+            if model.message == nil && saveFinished {
+                editingAlias = false
+            }
         }
     }
 }
@@ -207,7 +245,7 @@ private struct MacWindowDetailsCard: View {
 
     private var display: MacAllowanceDisplay {
         guard let window = detail.window else { return .unavailable }
-        return .resolve(window: window, source: source, now: now)
+        return .resolve(window: window, source: source, product: account.product, now: now)
     }
 
     var body: some View {

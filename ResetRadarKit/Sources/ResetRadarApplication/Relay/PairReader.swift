@@ -53,7 +53,7 @@ public actor PairReader {
         self.clock = clock
     }
 
-    public func begin(deviceName: String) async throws -> PairingOffer {
+    public func begin(deviceName: String = "Awaiting iPhone or iPad") async throws -> PairingOffer {
         guard let state = try? await publisher.load(), state.lifecycle == .active,
             let endpoint = state.endpoint, let publisherID = state.publisherID
         else { throw PairReaderError.notActive }

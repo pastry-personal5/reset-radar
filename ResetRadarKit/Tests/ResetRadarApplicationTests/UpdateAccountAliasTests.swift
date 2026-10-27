@@ -17,8 +17,8 @@ struct UpdateAccountAliasTests {
         let result = try await useCase.update(accountID: codexAccountID, input: "  Work ⚡ ")
 
         #expect(result.account.alias?.value == "  Work ⚡ ")
-        #expect(result.change == .transition)
-        #expect(result.snapshot?.generatedAt == at(30))
+        #expect(result.change == .metadataOnly)
+        #expect(result.snapshot?.generatedAt == at(20))
         #expect(result.snapshot?.windows.first?.observation?.observedAt == at(10))
         #expect(store.commits.last == result.snapshot)
 
@@ -42,6 +42,7 @@ struct UpdateAccountAliasTests {
         #expect(result.account.alias == nil)
         #expect(result.account.effectiveDisplayLabel == "Account #1")
         #expect(result.snapshot == nil)
+        #expect(result.change == .metadataOnly)
     }
 
     @Test("unsafe and duplicate aliases fail without a snapshot commit")

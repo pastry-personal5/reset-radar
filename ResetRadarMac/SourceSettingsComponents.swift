@@ -76,7 +76,7 @@ struct CodexSourceRow: View {
                 .textSelection(.enabled)
                 .help(homeFolder ?? "Home Folder unavailable")
             HStack {
-                Button("Change Home", action: changeHome)
+                Button("Save Home Folder", action: changeHome)
                 Button("Save Alias") {
                     Task { await model.updateAlias(accountID: account.id, input: alias) }
                 }

@@ -1,6 +1,7 @@
 export const MAX_SEQUENCE = 9_007_199_254_740_991;
 export const SNAPSHOT_LIMIT = 64 * 1024;
 export const REFRESH_LIMIT = 192;
+export const READER_PROFILE_LIMIT = 2 * 1024;
 export const REGISTRATION_LIMIT = 256;
 export const RESPONSE_LIMIT = 4 * 1024;
 export const PROTOCOL_VERSION = 1;
@@ -41,6 +42,18 @@ export type RefreshRequestBody =
 export type RegistrationBody = {
   protocolVersion: 1;
   tokenDigest: string;
+};
+
+export type ReaderProfileEnvelope = {
+  ciphertext: string;
+  keyVersion: 1;
+  nonce: string;
+  profileVersion: 1;
+  protocolVersion: 2;
+  publisherID: string;
+  readerID: string;
+  revision: number;
+  tag: string;
 };
 
 type ObjectRecord = Record<string, unknown>;
@@ -170,6 +183,26 @@ export function parseRefreshRequest(
     return { failure: "badRequest" };
   }
   return { value: parsed.value as RefreshRequestBody };
+}
+
+export function parseReaderProfile(
+  text: string,
+): { value: ReaderProfileEnvelope } | { failure: ProtocolFailure } {
+  const parsed = parseCanonicalObject(text, [
+    "ciphertext", "keyVersion", "nonce", "profileVersion", "protocolVersion", "publisherID",
+    "readerID", "revision", "tag",
+  ], 2);
+  if ("failure" in parsed) return parsed;
+  const value = parsed.value;
+  if (value.profileVersion !== 1 || value.keyVersion !== 1) {
+    return { failure: "unsupportedVersion" };
+  }
+  if (
+    !isPublisherID(value.publisherID) || !isReaderOrRequestID(value.readerID) ||
+    !isSequence(value.revision) || !isBase64URL(value.nonce, 12) ||
+    !isBase64URL(value.tag, 16) || !isNonEmptyBase64URL(value.ciphertext)
+  ) return { failure: "badRequest" };
+  return { value: value as ReaderProfileEnvelope };
 }
 
 export function isPublisherID(value: unknown): value is string {

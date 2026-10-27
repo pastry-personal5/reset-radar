@@ -1,6 +1,7 @@
 import ActivityKit
 import ResetRadarApplication
 import ResetRadarDomain
+import ResetRadarUI
 import SwiftUI
 import WidgetKit
 
@@ -65,12 +66,16 @@ private struct ResetLiveActivity: Widget {
     }
 
     private func percentage(_ state: ResetActivityAttributes.ContentState) -> String {
-        state.usedPercent.formatted(
-            .number.precision(.fractionLength(state.fractionDigits ?? 0)))
+        String(
+            PercentageUsedFormatter.text(
+                state.usedPercent, product: state.product,
+                fractionDigits: state.fractionDigits
+            ).dropLast())
     }
 
-    private func product(_ value: ProductID) -> String {
-        value == .codex ? "Codex" : "Claude Code"
+    private func product(_ value: ProductID?) -> String {
+        guard let value else { return "Reset Radar" }
+        return value == .codex ? "Codex" : "Claude Code"
     }
 
     private func window(_ value: WindowDisplayDescriptor) -> String {

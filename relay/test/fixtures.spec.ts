@@ -87,7 +87,8 @@ it("validates the shared canonical pairing package and confirmation code", async
   expect(fields.minimumSequence).toBe(7);
   expect(Number.isSafeInteger(fields.minimumSequence)).toBe(true);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pairing.encoded));
-  expect(hex(digest).slice(0, 16).match(/.{4}/g)?.join("-")).toBe(pairing.confirmationCode);
+  const firstFour = new DataView(digest).getUint32(0, false);
+  expect((firstFour % 1_000_000).toString().padStart(6, "0")).toBe(pairing.confirmationCode);
 });
 
 const operations = [

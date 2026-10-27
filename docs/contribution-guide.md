@@ -6,11 +6,13 @@ How to set up `reset-radar`, validate a change, write commit messages, and open 
 
 The documented local checks are also available as named targets in the root
 `Makefile`; run `make help` to list them and `make gate` for the complete gate. `make test`
-runs the macOS suite and then the iPhone, iPad, and Watch suites, because they share one Xcode build
-database, beside the independent relay suite. The iPhone and iPad suites run in one `xcodebuild`
-invocation (`make test-ios-ipad`), which builds once and tests both simulators concurrently;
+runs the macOS suite and then the iPhone, iPad, and Watch suites so they do not compete for Xcode
+and simulator services, beside the independent relay suite. The iPhone and iPad suites run in one
+`xcodebuild` invocation (`make test-ios-ipad`), which builds once and tests both simulators concurrently;
 `make test-ios` and `make test-ipad` run a single destination. Each suite retains its native
-bounded test scheduling.
+bounded test scheduling. The Make targets keep reusable DerivedData caches isolated by platform,
+preventing iOS, Watch, and Mac simulator modules from contaminating one another while retaining
+incremental builds.
 
 The iOS UI tests launch the Development app with `-ResetRadarSyntheticScenario <name>`, which uses
 an isolated temporary store, in-memory secrets, and an in-process synthetic relay. Development
@@ -22,7 +24,7 @@ storage instead. UI tests wait with `appears(timeout:)` or `waitUntil(timeout:_:
 Run `make run-mac` to generate, build, and open the Development Mac collector with its normal
 live-source mode. Use Xcode to supply launch arguments such as `--synthetic` for fixture work.
 For local root-cause analysis, read Development's bounded JSON Lines in
-`~/Library/Logs/ResetRadar.dev/` (shown in Settings → Diagnostics). Release has a separate
+`~/Library/Logs/ResetRadar.dev/`. Release has a separate
 `~/Library/Logs/ResetRadar/` directory. For example, inspect recent Development events with
 `tail -n 100 "$HOME/Library/Logs/ResetRadar.dev"/events-*.jsonl`; these logs contain typed,
 redacted events and retain at most eight UTC days. Do not copy the logs into the repository.
@@ -39,8 +41,7 @@ redacted events and retain at most eight UTC days. Do not copy the logs into the
 ```sh
 Scripts/generate-project.sh                                                                # generate the ignored Xcode project
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'                       # run the tests
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1' \
-  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'                 # both iOS destinations concurrently
+make test-ios-ipad                                                                         # build once; test both iOS destinations concurrently
 xcodebuild test -scheme ResetRadarWatch \
   -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'             # Watch app and package tests
 swift-format format --in-place --recursive <maintained roots in Scripts/swift-roots.txt>   # format
@@ -63,8 +64,7 @@ swiftlint --strict
 Scripts/check-imports.sh
 Scripts/check-mac-architecture.sh
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1' \
-  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'
+make test-ios-ipad
 xcodebuild test -scheme ResetRadarWatch \
   -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'
 npm --prefix relay ci

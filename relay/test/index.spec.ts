@@ -413,6 +413,42 @@ describe("Relay Worker v1 snapshots and v2 refresh", () => {
     expect((await request(getSnapshot.path, getSnapshot.method, tokens.reader)).status).toBe(errorUnauthorized.status);
   });
 
+  it("stores encrypted reader profiles monotonically and reports activation provenance", async () => {
+    await setClock(registrationStart);
+    expect((await register()).status).toBe(200);
+    expect((await activateReader()).status).toBe(200);
+    const profile = (revision: number, ciphertext = "AQID") => canonicalJSON({
+      ciphertext,
+      keyVersion: 1,
+      nonce: "q6urq6urq6urq6ur",
+      profileVersion: 1,
+      protocolVersion: 2,
+      publisherID: "2323232323232323232323232323232323232323232323232323232323232323",
+      readerID: readerOneID,
+      revision,
+      tag: "u7u7u7u7u7u7u7u7u7u7uw",
+    });
+
+    const firstBody = profile(1);
+    const first = await request("/v2/reader-profile", "PUT", tokens.reader, firstBody);
+    expect(first.status).toBe(200);
+    expect(await first.text()).toBe('{"protocolVersion":2,"revision":1}');
+    expect((await request("/v2/reader-profile", "PUT", tokens.reader, firstBody)).status).toBe(200);
+    expect((await request("/v2/reader-profile", "PUT", tokens.reader, profile(1, "BAUG"))).status).toBe(409);
+    expect((await request("/v2/reader-profile", "PUT", tokens.reader, profile(2))).status).toBe(200);
+    expect((await request("/v2/reader-profile", "PUT", tokens.reader, firstBody)).status).toBe(409);
+
+    const listing = await request("/v2/readers", "GET", tokens.admin);
+    expect(listing.status).toBe(200);
+    const body = JSON.parse(await listing.text()) as {
+      readers: Array<{ activatedAt?: string; profile?: { revision: number }; readerID: string }>;
+    };
+    expect(body.readers[0]?.readerID).toBe(readerOneID);
+    expect(body.readers[0]?.activatedAt).toBe("2023-11-14T22:13:20.000Z");
+    expect(body.readers[0]?.profile?.revision).toBe(2);
+    expect((await request("/v2/readers", "GET", tokens.reader)).status).toBe(401);
+  });
+
   it("keeps concurrent snapshot, registration, and mailbox transitions atomic", async () => {
     const concurrentPublications = await Promise.all([
       request(putSnapshot.path, putSnapshot.method, tokens.writer, putSnapshot.requestBody),
@@ -575,7 +611,7 @@ describe("Relay Worker v1 snapshots and v2 refresh", () => {
       schema: state.storage.sql.exec("SELECT version FROM relay_schema WHERE id = 1").one().version,
       snapshot: state.storage.sql.exec("SELECT publisher_id, last_sequence, envelope, etag FROM relay_state WHERE id = 1").one(),
     }));
-    expect(stored.schema).toBe(2);
+    expect(stored.schema).toBe(3);
     expect(stored.columns).toEqual([
       "request_id", "reader_id", "target", "account_id", "accepted_at", "expires_at",
     ]);
@@ -712,7 +748,7 @@ describe("Relay Worker v1 snapshots and v2 refresh", () => {
     expect((await register()).status).toBe(200);
     const stub = env.RELAY.get(env.RELAY.idFromName("relay"));
     await runInDurableObject(stub, (_instance, state) => {
-      state.storage.sql.exec("UPDATE relay_schema SET version = 3 WHERE id = 1");
+      state.storage.sql.exec("UPDATE relay_schema SET version = 4 WHERE id = 1");
     });
     const unavailable = await request("/v1/nope", "GET");
     expect(unavailable.status).toBe(503);

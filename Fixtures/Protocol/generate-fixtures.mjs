@@ -42,8 +42,9 @@ const packageJSON = canonical({
   registrationExpiresAt: "2023-11-14T22:18:20.000Z",
 });
 const encoded = Buffer.from(packageJSON).toString("base64url");
-const confirmationHex = createHash("sha256").update(encoded).digest("hex").slice(0, 16);
-const confirmationCode = confirmationHex.match(/.{4}/g).join("-");
+const confirmationDigest = createHash("sha256").update(encoded).digest();
+const confirmationCode = (confirmationDigest.readUInt32BE(0) % 1_000_000)
+  .toString().padStart(6, "0");
 const output = (filename, value) => {
   writeFileSync(join(root, filename), `${JSON.stringify(value, null, 2)}\n`);
 };

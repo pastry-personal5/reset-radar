@@ -7,12 +7,34 @@ public struct RosterEntry: Sendable, Equatable {
         case activated
         /// Known locally but absent from the relay list: revoked or wiped elsewhere.
         case missingOnRelay
+        /// Activated at the relay but absent from this Mac's local history.
+        case unknownOnThisMac
     }
 
     public let readerID: ReaderID
     /// `nil` for a relay reader this Mac has no name for.
     public let name: String?
     public let status: Status
+    public let date: Date?
+    public let dateLabel: String?
+    public let profileUnavailable: Bool
+    public let deviceClass: ReaderDeviceClass?
+
+    public init(
+        readerID: ReaderID, name: String?, status: Status, date: Date? = nil,
+        dateLabel: String? = nil, profileUnavailable: Bool = false,
+        deviceClass: ReaderDeviceClass? = nil
+    ) {
+        self.readerID = readerID
+        self.name = name
+        self.status = status
+        self.date = date
+        self.dateLabel = dateLabel
+        self.profileUnavailable = profileUnavailable
+        self.deviceClass = deviceClass
+    }
+
+    public var shortID: String { "ID " + String(readerID.hex.suffix(8)) }
 }
 
 public enum ReconcileReadersOutcome: Sendable, Equatable {
@@ -28,15 +50,17 @@ public actor ReconcileReaders {
     private let secrets: any SecretStore
     private let relay: any RelayGateway
     private let clock: any AppClock
+    private let profileCipher: (any ReaderProfileCipher)?
 
     public init(
         publisher: any PublisherStore, secrets: any SecretStore, relay: any RelayGateway,
-        clock: any AppClock
+        clock: any AppClock, profileCipher: (any ReaderProfileCipher)? = nil
     ) {
         self.publisher = publisher
         self.secrets = secrets
         self.relay = relay
         self.clock = clock
+        self.profileCipher = profileCipher
     }
 
     public func run() async -> ReconcileReadersOutcome {
@@ -44,7 +68,17 @@ public actor ReconcileReaders {
             let endpoint = state.endpoint
         else { return .notActive }
         guard let admin = try? await secrets.read(.adminToken) else { return .secretsUnavailable }
-        let listed = await relay.listReaders(endpoint: endpoint, adminToken: admin)
+        let listed: RelayResponse<[RelayReader]>
+        if profileCipher != nil {
+            let profileResponse = await relay.listReadersV2(endpoint: endpoint, adminToken: admin)
+            if case .outcome(.unsupportedVersion) = profileResponse {
+                listed = await relay.listReaders(endpoint: endpoint, adminToken: admin)
+            } else {
+                listed = profileResponse
+            }
+        } else {
+            listed = await relay.listReaders(endpoint: endpoint, adminToken: admin)
+        }
         let remote: [RelayReader]
         switch listed {
         case .value(let readers): remote = readers
@@ -52,30 +86,75 @@ public actor ReconcileReaders {
         }
         let now = clock.now
         let activated = Set(remote.filter(\.activated).map(\.id))
-        await promoteActivated(activated, now: now)
+        let contentKey = try? await secrets.read(.contentKey)
+        let profiles = Dictionary(
+            uniqueKeysWithValues: remote.compactMap { reader in
+                profile(reader, key: contentKey).map { (reader.id, $0) }
+            })
+        await promoteActivated(remote, profiles: profiles, now: now)
         for pending in state.pendingRegistrations
         where pending.expiresAt <= now && !activated.contains(pending.readerID) {
             _ = await RelayRevocation.revoke(
                 pending.readerID, publisher: publisher, secrets: secrets, relay: relay)
         }
         guard let merged = try? await publisher.load() else { return .notActive }
-        return .reconciled(roster(local: merged, remote: remote))
+        return .reconciled(roster(local: merged, remote: remote, profiles: profiles))
     }
 
-    private func promoteActivated(_ activated: Set<ReaderID>, now: Date) async {
+    private func promoteActivated(
+        _ remote: [RelayReader], profiles: [ReaderID: ReaderProfile], now: Date
+    ) async {
+        let activated = Set(remote.filter(\.activated).map(\.id))
+        let legacyNames = profileCipher == nil
         try? await publisher.transact { state in
             for pending in state.pendingRegistrations where activated.contains(pending.readerID) {
+                let relayReader = remote.first { $0.id == pending.readerID }
+                let profile = profiles[pending.readerID]
                 if !state.devices.contains(where: { $0.readerID == pending.readerID }) {
                     state.devices.append(
                         PairedDevice(
-                            readerID: pending.readerID, name: pending.name, pairedAt: now))
+                            readerID: pending.readerID,
+                            name: profile?.displayName.value
+                                ?? (legacyNames ? pending.name : "iPhone or iPad"),
+                            pairedAt: relayReader?.activatedAt ?? now,
+                            relayActivatedAt: relayReader?.activatedAt,
+                            profileUnavailable: relayReader?.profileEnvelope != nil
+                                && profile == nil,
+                            deviceClass: profile?.deviceClass))
+                }
+            }
+            for index in state.devices.indices {
+                guard
+                    let relayReader = remote.first(where: {
+                        $0.id == state.devices[index].readerID
+                    })
+                else { continue }
+                if let profile = profiles[relayReader.id] {
+                    state.devices[index].name = profile.displayName.value
+                    state.devices[index].deviceClass = profile.deviceClass
+                    state.devices[index].profileUnavailable = false
+                } else if relayReader.profileEnvelope != nil {
+                    state.devices[index].profileUnavailable = true
+                }
+                if state.devices[index].relayActivatedAt == nil {
+                    state.devices[index].relayActivatedAt = relayReader.activatedAt
                 }
             }
             state.pendingRegistrations.removeAll { activated.contains($0.readerID) }
         }
     }
 
-    private func roster(local: PublisherState, remote: [RelayReader]) -> [RosterEntry] {
+    private func profile(_ reader: RelayReader, key: SecretValue?) -> ReaderProfile? {
+        guard let profileCipher, let key, let envelope = reader.profileEnvelope,
+            let opened = try? profileCipher.open(envelope, expected: nil, key: key),
+            opened.header.readerID == reader.id
+        else { return nil }
+        return opened.profile
+    }
+
+    private func roster(
+        local: PublisherState, remote: [RelayReader], profiles: [ReaderID: ReaderProfile]
+    ) -> [RosterEntry] {
         var entries: [RosterEntry] = []
         let remoteIDs = Set(remote.map(\.id))
         for reader in remote {
@@ -83,13 +162,27 @@ public actor ReconcileReaders {
             let pending = local.pendingRegistrations.first { $0.readerID == reader.id }
             entries.append(
                 RosterEntry(
-                    readerID: reader.id, name: device?.name ?? pending?.name,
+                    readerID: reader.id,
+                    name: device?.name ?? pending?.name ?? profiles[reader.id]?.displayName.value,
                     status: reader.activated
-                        ? .activated : .pending(expiresAt: pending?.expiresAt ?? clock.now)))
+                        ? (device == nil ? .unknownOnThisMac : .activated)
+                        : .pending(expiresAt: pending?.expiresAt ?? clock.now),
+                    date: reader.activated
+                        ? (reader.activatedAt ?? device?.pairedAt) : pending?.expiresAt,
+                    dateLabel: reader.activated
+                        ? (reader.activatedAt == nil ? "First seen" : "Paired") : "Expires",
+                    profileUnavailable: device?.profileUnavailable == true
+                        || (reader.profileEnvelope != nil && profiles[reader.id] == nil),
+                    deviceClass: device?.deviceClass ?? profiles[reader.id]?.deviceClass))
         }
         for device in local.devices where !remoteIDs.contains(device.readerID) {
             entries.append(
-                RosterEntry(readerID: device.readerID, name: device.name, status: .missingOnRelay))
+                RosterEntry(
+                    readerID: device.readerID, name: device.name, status: .missingOnRelay,
+                    date: device.relayActivatedAt ?? device.pairedAt,
+                    dateLabel: device.relayActivatedAt == nil ? "First seen" : "Paired",
+                    profileUnavailable: device.profileUnavailable == true,
+                    deviceClass: device.deviceClass))
         }
         return entries
     }

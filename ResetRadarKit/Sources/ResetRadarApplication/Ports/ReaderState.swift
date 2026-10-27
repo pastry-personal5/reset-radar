@@ -122,9 +122,41 @@ public struct ReaderState: Codable, Sendable, Equatable {
     public var confirmedWatchErasure: ConfirmedWatchErasure?
     public var complicationTransfers: [Date] = []
     public var lastComplicationValues: ComplicationValues?
+    /// Optional for backward-compatible decoding of pre-M17 reader stores.
+    public var readerProfile: ReaderProfileState?
 
     public init(installationID: InstallationID) {
         self.installationID = installationID
+    }
+}
+
+public enum ReaderProfileDelivery: String, Codable, Sendable, Equatable {
+    case waiting
+    case available
+    case failed
+}
+
+/// Reader-profile publication is independent from snapshot transport and pairing health.
+public struct ReaderProfileState: Codable, Sendable, Equatable {
+    public var name: ReaderProfileName
+    public var namingMode: ReaderNamingMode
+    public var deviceClass: ReaderDeviceClass
+    public var revision: UInt64
+    /// Exact canonical body retried for this revision; never resealed during retry.
+    public var pendingEnvelope: Data?
+    public var delivery: ReaderProfileDelivery
+
+    public init(
+        name: ReaderProfileName, namingMode: ReaderNamingMode,
+        deviceClass: ReaderDeviceClass, revision: UInt64 = 0,
+        pendingEnvelope: Data? = nil, delivery: ReaderProfileDelivery = .waiting
+    ) {
+        self.name = name
+        self.namingMode = namingMode
+        self.deviceClass = deviceClass
+        self.revision = revision
+        self.pendingEnvelope = pendingEnvelope
+        self.delivery = delivery
     }
 }
 

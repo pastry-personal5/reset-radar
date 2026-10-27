@@ -12,8 +12,9 @@ import Testing
         #expect(codex.fill == 0.42)
         let claudeCode = AllowanceDisplay(
             state: .current,
-            window: window(claude, product: .claudeCode, percent: 42.5, fractionDigits: 1))
-        #expect(claudeCode.percentText == "42.5%")
+            window: window(claude, product: .claudeCode, percent: 42.5, fractionDigits: 1),
+            product: .claudeCode)
+        #expect(claudeCode.percentText == "42%")
         let unreported = AllowanceDisplay(
             state: .current, window: window(codexA, percent: 42.25, fractionDigits: nil))
         #expect(unreported.percentText == "42.25%")
@@ -94,7 +95,7 @@ import Testing
         #expect(codex.map(\.display.percentText) == ["42%", "7%", "12%"])
         let claudeCode = WindowSection.ordered(details.accounts.first { $0.account.id == claude }!)
         #expect(claudeCode.map(\.title) == ["Five-hour", "Weekly"])
-        #expect(claudeCode[0].display.percentText == "33.5%")
+        #expect(claudeCode[0].display.percentText == "33%")
         #expect(claudeCode[1].details == nil)
         #expect(claudeCode[1].display.statusText == "Unavailable")
     }
@@ -111,6 +112,27 @@ import Testing
         #expect(sections[0].ambiguous)
         #expect(sections[0].display.percentText == nil)
         #expect(sections.map(\.title) == ["Five-hour", "Weekly", "Primary A", "Primary B"])
+    }
+
+    @Test func nextResetUsesOnlyUniqueFutureStandardsAndFiveHourWinsATie() async {
+        let details = await loadDetails(standardSnapshot())
+        let account = details.accounts.first { $0.account.id == codexA }!
+        let sections = WindowSection.ordered(account)
+        let future = sections.compactMap { $0.details?.window.resetsAt }.min()!
+        let selected = NextResetDerivation.derive(
+            from: sections, now: future.addingTimeInterval(-1))
+        #expect(selected?.date == future)
+        #expect(
+            NextResetDerivation.derive(from: sections, now: .distantFuture) == nil)
+    }
+}
+
+@Suite struct PercentageUsedFormatterTests {
+    @Test func claudeFloorsWhileCodexRetainsProviderPrecisionAndLegacyRetainsOldFormatting() {
+        #expect(
+            PercentageUsedFormatter.text(96.9, product: .claudeCode, fractionDigits: 1) == "96%")
+        #expect(PercentageUsedFormatter.text(96.9, product: .codex, fractionDigits: 1) == "96.9%")
+        #expect(PercentageUsedFormatter.text(96.9, product: nil, fractionDigits: 1) == "96.9%")
     }
 }
 

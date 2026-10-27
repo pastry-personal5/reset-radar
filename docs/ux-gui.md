@@ -110,7 +110,7 @@ Throughout source, relay, and pairing setup, the Mac keeps the Account List visi
 Banner offers the next action and coexists with already configured rows; the list is empty only
 when no account is configured.
 The Codex Sources table rejects a Home Folder with surrounding whitespace or a missing directory
-before discovery. Each configured Codex row offers Change Home, which previews and confirms an
+before discovery. Each configured Codex row offers Save Home Folder, which previews and confirms an
 exact replacement without removing the account or its alias.
 Claude Code setup identifies whether preview failed because its helper could not be verified or
 the existing status-line command cannot be safely composed. Neither failure changes Claude Code
@@ -126,9 +126,9 @@ cards. Each section uses the same inset, rounded card treatment and vertical spa
 scroll above the persistent Global Messages Pane. Keep related controls and explanatory text
 together in their card; show transient setup feedback in a card as well. General separates
 launch-at-login controls from signing and Keychain recovery; Sources separates Codex and Claude
-Code; Relay & Pairing separates relay setup, reader pairing, and paired devices; Diagnostics
-separates the log location from diagnostic events; About separates app information from license
-information.
+Code; Relay & Pairing separates relay setup, reader pairing, and paired devices; About uses native
+sections for product information, license, and owner-initiated GitHub feedback and support links.
+Diagnostics collection remains active without a Settings destination.
 
 Main and Settings share one Global Messages history. A pane at the bottom of each detail column,
 to the right of its sidebar, shows a boxed **Global Messages** tab title above a scrollable area

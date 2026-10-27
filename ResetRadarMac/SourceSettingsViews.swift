@@ -23,27 +23,47 @@ struct SourcesSettingsView: View {
         SettingsCardColumn {
             codexCard
             SettingsCard(title: "Claude Code") {
-                Text(
-                    "Reset Radar edits ~/.claude/settings.json directly after you review "
-                        + "and confirm the exact status-line change."
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(
+                        "Reset Radar edits ~/.claude/settings.json directly after you review "
+                            + "and confirm the exact status-line change."
+                    )
+                    .foregroundStyle(.secondary)
+                    .padding(12)
+                    Divider()
+                    HStack(spacing: 12) {
+                        Button("Set Up Claude Code Connection") {
+                            Task { await model.discoverClaudeCode() }
+                        }
+                        Button("Restore Previous Setting") {
+                            showRestoreConfirmation = true
+                        }
+                    }
+                    .padding(12)
+                    sourceOptions(for: .claudeCode)
+                        .padding(.horizontal, 12)
+                    if let account = model.configuredAccounts.first(where: {
+                        $0.product == .claudeCode
+                    }) {
+                        Divider()
+                        ConfiguredSourceRow(
+                            account: account, model: model,
+                            remove: { confirmRemoval(of: account) }
+                        )
+                        .padding(12)
+                    }
+                    if model.preview?.product == .claudeCode {
+                        Divider()
+                        confirmationPreview.padding(12)
+                    }
+                }
+                .background(
+                    Color(nsColor: .textBackgroundColor),
+                    in: RoundedRectangle(cornerRadius: 10)
                 )
-                .foregroundStyle(.secondary)
-                HStack(spacing: 12) {
-                    Button("Set Up Claude Code Connection") {
-                        Task { await model.discoverClaudeCode() }
-                    }
-                    Button("Restore Previous Setting") {
-                        showRestoreConfirmation = true
-                    }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10).strokeBorder(.quaternary)
                 }
-                sourceOptions(for: .claudeCode)
-                if let account = model.configuredAccounts.first(where: {
-                    $0.product == .claudeCode
-                }) {
-                    ConfiguredSourceRow(
-                        account: account, model: model, remove: { confirmRemoval(of: account) })
-                }
-                if model.preview?.product == .claudeCode { confirmationPreview }
             }
             if let message = model.message {
                 SettingsCard(title: "Source status") {

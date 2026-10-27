@@ -23,6 +23,7 @@ actor PublicationDriver {
     private var suspended = false
     private var lastChange = ChangeClass.none
     private var lastReportedBlock: PublishOutcome?
+    private var metadataObserver: (@Sendable (PublishOutcome) async -> Void)?
 
     init(
         clock: any AppClock, loadSnapshot: @escaping LoadSnapshot, publish: @escaping Publish,
@@ -34,14 +35,15 @@ actor PublicationDriver {
         self.reportOutcome = reportOutcome
     }
 
-    func collected(_ result: CollectResult) async {
+    @discardableResult
+    func collected(_ result: CollectResult) async -> PublishOutcome {
         lastChange = max(lastChange, result.change)
-        await attempt(snapshot: result.snapshot, change: result.change, trigger: .change)
+        return await attempt(snapshot: result.snapshot, change: result.change, trigger: .change)
     }
 
     func trigger(_ trigger: PublishTrigger) async {
         guard !suspended, let snapshot = try? await loadSnapshot() else { return }
-        await attempt(snapshot: snapshot, change: lastChange, trigger: trigger)
+        _ = await attempt(snapshot: snapshot, change: lastChange, trigger: trigger)
     }
 
     func reportManualOutcome(_ outcome: HandleOutcome) async {
@@ -61,6 +63,12 @@ actor PublicationDriver {
         if value { cancelTimer() }
     }
 
+    func observeMetadataDelivery(
+        _ observer: @escaping @Sendable (PublishOutcome) async -> Void
+    ) {
+        metadataObserver = observer
+    }
+
     func stop() {
         suspended = true
         cancelTimer()
@@ -68,8 +76,8 @@ actor PublicationDriver {
 
     private func attempt(
         snapshot: UsageSnapshot, change: ChangeClass, trigger: PublishTrigger
-    ) async {
-        guard !suspended else { return }
+    ) async -> PublishOutcome {
+        guard !suspended else { return .paused }
         let outcome = await publish(snapshot, change, trigger)
         switch outcome {
         case .notDue(let next):
@@ -86,6 +94,8 @@ actor PublicationDriver {
         if case .published = outcome {
             await reportOutcome(.published(date: clock.now))
         }
+        if change == .metadataOnly { await metadataObserver?(outcome) }
+        return outcome
     }
 
     private func reportBlockChange(_ outcome: PublishOutcome) async {

@@ -7,7 +7,6 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
     case general = "General"
     case sources = "Sources"
     case relay = "Relay & Pairing"
-    case diagnostics = "Diagnostics"
     case about = "About"
 
     var id: Self { self }
@@ -17,7 +16,6 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: "gearshape"
         case .sources: "externaldrive"
         case .relay: "network"
-        case .diagnostics: "waveform.path.ecg"
         case .about: "info.circle"
         }
     }
@@ -72,8 +70,9 @@ struct SettingsRootView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .contentShape(Rectangle())
+                .padding(.horizontal, 4)
                 .foregroundStyle(selection == section ? Color.white : Color.primary)
                 .background(
                     selection == section ? Color.accentColor : Color.clear,
@@ -100,7 +99,6 @@ struct SettingsRootView: View {
             RelaySettingsView(
                 relay: models.relay, pairing: models.pairing, devices: models.devices,
                 rebuildCollector: rebuildCollector)
-        case .diagnostics: DiagnosticsSettingsView(model: models.diagnostics)
         case .about: AboutSettingsView()
         }
     }
@@ -110,14 +108,37 @@ private struct GeneralSettingsView: View {
     @ObservedObject var model: LoginItemViewModel
     @ObservedObject var recovery: RecoveryViewModel
     @ObservedObject var home: HomeViewModel
+    @State private var showingLoginInfo = false
 
     var body: some View {
         SettingsCardColumn {
             SettingsCard(title: "Launch at login") {
-                Toggle(
-                    "Launch at login",
-                    isOn: Binding(get: { model.isEnabled }, set: { model.setEnabled($0) }))
-                LabeledContent("Registration", value: String(describing: model.state))
+                HStack {
+                    Toggle(
+                        "Launch at login",
+                        isOn: Binding(get: { model.isEnabled }, set: { model.setEnabled($0) }))
+                    Button {
+                        showingLoginInfo.toggle()
+                    } label: {
+                        Image(systemName: "info.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("About Launch at Login")
+                    .accessibilityHint("Explains automatic collection after sign in")
+                    .popover(isPresented: $showingLoginInfo, arrowEdge: .bottom) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(
+                                "Reset Radar can open automatically when you sign in so allowance "
+                                    + "collection and reset monitoring can continue. This toggle "
+                                    + "controls that feature."
+                            )
+                            .frame(width: 300, alignment: .leading)
+                            Button("Close") { showingLoginInfo = false }
+                                .keyboardShortcut(.cancelAction)
+                        }
+                        .padding()
+                    }
+                }
             }
             SettingsCard(title: "Signing and Keychain") {
                 Text(recovery.recoveryCopy).wrapsInMainPane()
@@ -170,6 +191,7 @@ private struct RelaySettingsView: View {
         }
         .navigationTitle("Relay & Pairing")
         .task { await devices.refresh() }
+        .task { await relay.load() }
         .onAppear { pairing.pairingViewAppeared() }
         .onDisappear { pairing.pairingViewDisappeared() }
         .confirmationDialog(
@@ -183,16 +205,25 @@ private struct RelaySettingsView: View {
             isPresented: $showDestroyConfirmation
         ) {
             Button("Destroy Relay", role: .destructive) {
-                Task { await devices.destroyRelay(confirmed: true) }
+                Task {
+                    await devices.destroyRelay(confirmed: true)
+                    await relay.load()
+                }
             }
         }
     }
 
     private var relaySetup: some View {
         SettingsCard(title: "Relay setup") {
-            TextField("https://name.account.workers.dev", text: $relay.origin)
-                .textFieldStyle(.roundedBorder)
-            Button("Prepare Relay") { Task { await relay.prepare() } }
+            LabeledContent("State", value: relayStateText)
+            if let endpoint = relay.endpoint, relay.lifecycle == .active {
+                LabeledContent("Endpoint", value: endpoint.absoluteString)
+                    .textSelection(.enabled)
+            } else {
+                TextField("https://name.account.workers.dev", text: $relay.origin)
+                    .textFieldStyle(.roundedBorder)
+                Button("Prepare Relay") { Task { await relay.prepare() } }
+            }
             if let write = relay.writeDigest {
                 LabeledContent("WRITE_TOKEN_DIGEST", value: write).textSelection(.enabled)
             }
@@ -210,9 +241,7 @@ private struct RelaySettingsView: View {
     }
 
     private var pairingSetup: some View {
-        SettingsCard(title: "Pair a reader") {
-            TextField("Device name", text: $pairing.deviceName)
-                .textFieldStyle(.roundedBorder)
+        SettingsCard(title: "Pair an iPhone or iPad") {
             Button("Create QR Pairing Code") { Task { await pairing.begin() } }
             if let encoded = pairing.encodedPackage {
                 PairingCodeView(encoded: encoded)
@@ -228,13 +257,20 @@ private struct RelaySettingsView: View {
         SettingsCard(title: "Paired devices") {
             Button("Refresh") { Task { await devices.refresh() } }
             ForEach(devices.roster, id: \.readerID) { entry in
-                HStack {
-                    Text(entry.name ?? "Unknown reader")
-                    Spacer()
-                    Button("Revoke") { Task { await devices.revokeReader(entry.readerID) } }
+                PairedDeviceRow(entry: entry) {
+                    Task { await devices.revokeReader(entry.readerID) }
                 }
             }
             Button("Destroy Relay…", role: .destructive) { showDestroyConfirmation = true }
+        }
+    }
+
+    private var relayStateText: String {
+        switch relay.lifecycle {
+        case .notConfigured: "Not Configured"
+        case .setupPending: "Setup Pending"
+        case .active: "Configured"
+        case .destroyPending: "Destroy Pending"
         }
     }
 }
@@ -282,13 +318,24 @@ private struct DiagnosticsSettingsView: View {
 }
 
 private struct AboutSettingsView: View {
+    @Environment(\.openURL) private var openURL
+    private let repository = URL(string: "https://github.com/pastry-personal5/reset-radar")!
+    private let issues = URL(string: "https://github.com/pastry-personal5/reset-radar/issues/new")!
+
     var body: some View {
-        SettingsCardColumn {
-            SettingsCard(title: "Reset Radar") {
-                Text("Personal allowance monitoring for Codex and Claude Code.")
+        List {
+            Section("Reset Radar") {
+                Text(
+                    "See when Codex and Claude Code allowances reset, with private encrypted "
+                        + "synchronization from your Collector Mac.")
             }
-            SettingsCard(title: "License") {
+            Section("License") {
                 Text("Apache License 2.0")
+            }
+            Section("Feedback") {
+                Button("GitHub") { openURL(repository) }
+                Button("Report an Issue") { openURL(issues) }
+                Button("Support Reset Radar") { openURL(repository) }
             }
         }
         .navigationTitle("About")

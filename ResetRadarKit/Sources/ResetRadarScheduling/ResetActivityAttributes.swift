@@ -11,14 +11,14 @@
             public let resetsAt: Date
             public let observedAt: Date
             public let accountLabel: String
-            public let product: ProductID
+            public let product: ProductID?
             public let window: WindowDisplayDescriptor
             public let sourceState: SourceState
             public let fractionDigits: Int?
 
             public init(
                 usedPercent: Double, resetsAt: Date, observedAt: Date, accountLabel: String,
-                product: ProductID, window: WindowDisplayDescriptor, sourceState: SourceState,
+                product: ProductID?, window: WindowDisplayDescriptor, sourceState: SourceState,
                 fractionDigits: Int?
             ) {
                 self.usedPercent = usedPercent

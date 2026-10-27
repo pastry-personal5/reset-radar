@@ -104,6 +104,33 @@ public final class HTTPRelayGateway: RelayGateway, @unchecked Sendable {
         return .outcome(mapped.outcome)
     }
 
+    public func putReaderProfile(
+        _ envelope: Data, endpoint: URL, readToken: SecretValue
+    ) async -> RelayOutcome {
+        guard envelope.count <= AESGCMReaderProfileCipher.maximumEnvelopeBytes,
+            let profile = try? WireCoding.decoder().decode(
+                ReaderProfileEnvelope.self, from: envelope),
+            let canonical = try? WireCoding.encoder().encode(profile), canonical == envelope,
+            profile.protocolVersion == 2, profile.profileVersion == 1,
+            profile.keyVersion == 1,
+            (1...AESGCMReaderProfileCipher.maximumRevision).contains(profile.revision)
+        else { return .badRequest }
+        return await perform(
+            .putReaderProfile, method: "PUT", path: "/v2/reader-profile",
+            endpoint: endpoint, token: readToken, body: envelope
+        ).outcome
+    }
+
+    public func listReadersV2(
+        endpoint: URL, adminToken: SecretValue
+    ) async -> RelayResponse<[RelayReader]> {
+        let mapped = await perform(
+            .listReadersV2, method: "GET", path: "/v2/readers", endpoint: endpoint,
+            token: adminToken)
+        if case .readers(let readers) = mapped { return .value(readers) }
+        return .outcome(mapped.outcome)
+    }
+
     public func revokeReader(
         _ id: ReaderID, endpoint: URL, adminToken: SecretValue
     ) async -> RelayOutcome {
@@ -147,7 +174,7 @@ public final class HTTPRelayGateway: RelayGateway, @unchecked Sendable {
             guard let http = response as? HTTPURLResponse, response.url == url else {
                 return .outcome(.protocolFailure)
             }
-            let limit = operation == .getSnapshot && http.statusCode == 200 ? 65_536 : 4_096
+            let limit = operation == .getSnapshot && http.statusCode == 200 ? 65_536 : 8_192
             if response.expectedContentLength > Int64(limit) {
                 return .outcome(.protocolFailure)
             }

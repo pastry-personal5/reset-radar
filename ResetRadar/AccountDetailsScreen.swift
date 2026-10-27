@@ -21,35 +21,10 @@ struct AccountDetailsScreen: View {
     }
 
     private func content(_ account: AccountDetails) -> some View {
-        ScrollViewReader { proxy in
+        let sections = WindowSection.ordered(account)
+        return ScrollViewReader { proxy in
             List {
-                Section {
-                    LabeledContent(
-                        "Product", value: ReaderVocabulary.productName(account.source.product))
-                    LabeledContent(
-                        "Source", value: ReaderVocabulary.sourceState(account.source.state))
-                }
-                ForEach(WindowSection.ordered(account)) { section in
-                    Section {
-                        WindowDetailsView(
-                            section: section, source: account.source, accountID: account.account.id,
-                            environment: environment,
-                            emphasized: focus.map { .standard($0) } == section.id)
-                    }
-                    .id(section.id)
-                }
-                if let line = environment.refresh.flatMap({
-                    RefreshFeedback.line(
-                        for: account.source.product, accountID: accountID, in: $0)
-                }) {
-                    Section("Refresh") {
-                        Text(line).accessibilityIdentifier("accountRefreshResult")
-                    }
-                }
-                ProvenanceSection(
-                    source: account.source, macLive: environment.details.macLive,
-                    transport: environment.details.transport,
-                    lastSyncedAt: environment.details.lastSyncedAt)
+                detailSections(account, sections: sections)
             }
             .onAppear {
                 if let focus {
@@ -69,6 +44,52 @@ struct AccountDetailsScreen: View {
                 .disabled(environment.refresh?.isRunning == true)
                 .accessibilityIdentifier("accountRefresh")
             }
+        }
+    }
+
+    @ViewBuilder
+    private func detailSections(_ account: AccountDetails, sections: [WindowSection]) -> some View {
+        Section {
+            LabeledContent("Product", value: ReaderVocabulary.productName(account.source.product))
+            LabeledContent("Source", value: ReaderVocabulary.sourceState(account.source.state))
+        }
+        if let nextReset = NextResetDerivation.derive(from: sections, now: .now) {
+            ExecutiveSummaryView(nextReset: nextReset)
+        }
+        ForEach(sections) { section in
+            Section {
+                WindowDetailsView(
+                    section: section, source: account.source, accountID: account.account.id,
+                    environment: environment,
+                    emphasized: focus.map { .standard($0) } == section.id)
+            }
+            .id(section.id)
+        }
+        if let line = environment.refresh.flatMap({
+            RefreshFeedback.line(for: account.source.product, accountID: accountID, in: $0)
+        }) {
+            Section("Refresh") { Text(line).accessibilityIdentifier("accountRefreshResult") }
+        }
+        ProvenanceSection(
+            source: account.source, macLive: environment.details.macLive,
+            transport: environment.details.transport,
+            lastSyncedAt: environment.details.lastSyncedAt)
+    }
+}
+
+private struct ExecutiveSummaryView: View {
+    let nextReset: NextReset
+
+    var body: some View {
+        Section("Executive Summary") {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(nextReset.date.formatted(date: .abbreviated, time: .shortened))
+                    .font(.largeTitle.weight(.semibold))
+                    .minimumScaleFactor(0.65)
+                Text(nextReset.label).font(.caption).foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("executiveSummary")
         }
     }
 }

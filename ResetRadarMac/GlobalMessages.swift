@@ -84,6 +84,19 @@ final class GlobalMessageCenter: ObservableObject {
     func observe(_ flows: OwnerFlowModels) {
         subscriptions.removeAll()
         observe(flows.home.$message)
+        flows.home.$aliasDelivery
+            .removeDuplicates()
+            .compactMap { $0 }
+            .sink { [weak self] state in
+                Task { @MainActor in
+                    self?.post(
+                        state.rawValue,
+                        tone: state == .available
+                            ? .success
+                            : (state == .failed ? .attention : .information))
+                }
+            }
+            .store(in: &subscriptions)
         observe(flows.general.$errorMessage, tone: .attention)
         observe(flows.sources.$message)
         observe(flows.relay.$message)

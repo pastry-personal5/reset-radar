@@ -14,6 +14,8 @@ final class RelaySetupViewModel: ObservableObject {
     @Published private(set) var adminDigest: String?
     @Published private(set) var isPending = false
     @Published private(set) var message: String?
+    @Published private(set) var lifecycle = RelayLifecycle.notConfigured
+    @Published private(set) var endpoint: URL?
 
     private let setup: SetUpRelay
     private let publication: PublicationDriver
@@ -22,6 +24,7 @@ final class RelaySetupViewModel: ObservableObject {
     private let resumeManualRequests: @MainActor () async -> Void
     private let runningTeamIdentifier: () -> String?
     private let recordTeamIdentifier: (String) -> Void
+    private let publisher: (any PublisherStore)?
 
     init(
         setup: SetUpRelay, publication: PublicationDriver,
@@ -29,7 +32,8 @@ final class RelaySetupViewModel: ObservableObject {
         pauseManualRequests: @escaping @MainActor () async -> Void = {},
         resumeManualRequests: @escaping @MainActor () async -> Void = {},
         runningTeamIdentifier: @escaping () -> String? = { nil },
-        recordTeamIdentifier: @escaping (String) -> Void = { _ in }
+        recordTeamIdentifier: @escaping (String) -> Void = { _ in },
+        publisher: (any PublisherStore)? = nil
     ) {
         self.setup = setup
         self.publication = publication
@@ -38,6 +42,15 @@ final class RelaySetupViewModel: ObservableObject {
         self.resumeManualRequests = resumeManualRequests
         self.runningTeamIdentifier = runningTeamIdentifier
         self.recordTeamIdentifier = recordTeamIdentifier
+        self.publisher = publisher
+    }
+
+    func load() async {
+        guard let state = try? await publisher?.load() else { return }
+        lifecycle = state.lifecycle
+        endpoint = state.endpoint
+        isPending = state.lifecycle == .setupPending
+        if origin.isEmpty { origin = state.endpoint?.absoluteString ?? "" }
     }
 
     func prepare() async {
@@ -54,6 +67,7 @@ final class RelaySetupViewModel: ObservableObject {
             adminDigest = hexadecimal(digests.adminToken)
             if let team = runningTeamIdentifier() { recordTeamIdentifier(team) }
             isPending = true
+            await load()
             message = "Install both digests as Worker secrets, then activate."
         } catch {
             message = "Relay preparation paused safely. Try again to resume it."
@@ -72,6 +86,7 @@ final class RelaySetupViewModel: ObservableObject {
             await refreshManualRequests()
             await resumeManualRequests()
             await publication.trigger(.wake)
+            await load()
             return true
         case .notPrepared:
             message = "Prepare the relay first."
@@ -111,7 +126,6 @@ final class RelaySetupViewModel: ObservableObject {
 
 @MainActor
 final class PairingViewModel: ObservableObject {
-    @Published var deviceName = "iPhone"
     @Published private(set) var encodedPackage: String?
     @Published private(set) var confirmationCode: String?
     @Published private(set) var expiresAt: Date?
@@ -138,7 +152,7 @@ final class PairingViewModel: ObservableObject {
     func begin() async {
         stopPolling()
         do {
-            let offer = try await pairing.begin(deviceName: deviceName)
+            let offer = try await pairing.begin()
             await refreshManualRequests()
             clearClipboardIfUnchanged()
             cancelExpiry()

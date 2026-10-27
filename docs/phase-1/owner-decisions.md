@@ -113,6 +113,23 @@ shell syntax, and untrusted scripts remain blocked.
 - Toolbar icons are original, neutral, tintable bitmap assets using house, faceted-gem, three-person, lightbulb, and three-horizontal-bars metaphors.
 - The relay uses strict TypeScript, npm, Wrangler, Workers Vitest support, and a SQLite-backed Durable Object. This build-tool addition is approved.
 - Pairing uses a short-lived QR package with a manual copy/paste fallback.
+- Paired iPhones and iPads own their displayed device name. During pairing the reader proposes
+  `UIDevice.name`; if iOS provides only generic `iPhone` or `iPad`, the reader offers an editable
+  fallback. M17 does not depend on Apple's restricted user-assigned-device-name entitlement.
+  After unchanged activation, the reader reports its chosen name and device class through an
+  optional, retryable, end-to-end encrypted `/v2` reader profile. The relay stores only opaque
+  ciphertext, profile failure never fails pairing, and the Mac never invents or edits the name.
+  Pairing & Sync exposes the reported name after pairing: a custom edit remains stable, while
+  **Use Device Name** restores automatic updates from `UIDevice.name` on later app executions.
+  It separately shows Available to Mac, Waiting to share, or Couldn't share — Retry; failure
+  retains the local choice and pairing and supports automatic plus manual retry.
+  Profile delivery uses its own monotonic revision and byte-identical retries so reordered network
+  completion cannot overwrite a newer device-name choice; it never consumes snapshot sequence.
+  New reader rows use the relay's activation timestamp as Paired; migrated rows lacking it keep
+  their local observation time but label it First seen.
+  Every roster row also shows `ID ` plus the final eight lowercase hexadecimal Reader ID
+  characters in smaller monospaced secondary text. Status uses separate appearance-aware color,
+  text, and a symbol; color is never the only cue.
 - Small and Lock Screen widgets select one account window; the medium widget shows both standard
   windows for one selected account.
 - Account aliases accept Unicode letters, marks, numbers, punctuation, symbols, and ASCII spaces,
@@ -121,6 +138,9 @@ shell syntax, and untrusted scripts remain blocked.
   exact without Unicode normalization. This preserves letters from international scripts and
   emoji that need no zero-width joiner while excluding invisible controls, bidirectional
   overrides, explicit shaping controls, private-use text, and whitespace-only names.
+- Claude Code Percentage Used is display-only floored to a whole percent on every surface:
+  `96.9%` displays as `96%`. Raw observation precision remains unchanged, and Codex continues to
+  use provider-reported precision.
 
 ## Architecture review decisions
 

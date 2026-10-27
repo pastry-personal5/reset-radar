@@ -12,11 +12,20 @@ public struct PairedDevice: Codable, Sendable, Equatable {
     public let readerID: ReaderID
     public var name: String
     public var pairedAt: Date
+    public var relayActivatedAt: Date?
+    public var profileUnavailable: Bool?
+    public var deviceClass: ReaderDeviceClass?
 
-    public init(readerID: ReaderID, name: String, pairedAt: Date) {
+    public init(
+        readerID: ReaderID, name: String, pairedAt: Date, relayActivatedAt: Date? = nil,
+        profileUnavailable: Bool? = nil, deviceClass: ReaderDeviceClass? = nil
+    ) {
         self.readerID = readerID
         self.name = name
         self.pairedAt = pairedAt
+        self.relayActivatedAt = relayActivatedAt
+        self.profileUnavailable = profileUnavailable
+        self.deviceClass = deviceClass
     }
 }
 

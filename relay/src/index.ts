@@ -9,9 +9,11 @@ import {
   isDigest,
   parseEnvelope,
   parseRefreshRequest,
+  parseReaderProfile,
   parseRegistration,
   REFRESH_PROTOCOL_VERSION,
   REFRESH_LIMIT,
+  READER_PROFILE_LIMIT,
   REGISTRATION_LIMIT,
   RESPONSE_LIMIT,
   SNAPSHOT_LIMIT,
@@ -19,7 +21,7 @@ import {
 } from "./domain/protocol";
 
 const INTERNAL_AUTHORITY = "X-Reset-Radar-Authority";
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const READER_LIMIT = 3;
 const PENDING_READER_LIFETIME_MS = 5 * 60 * 1000;
 const REFRESH_LIFETIME_MS = 60 * 1000;
@@ -29,10 +31,13 @@ type InternalAuthority = Exclude<Authority, "read">;
 type SecretEnv = { ADMIN_TOKEN_DIGEST?: string; WRITE_TOKEN_DIGEST?: string };
 type StoredReader = {
   activated: number;
+  activated_at: number | null;
   last_accepted_at: number | null;
   last_accepted_id: string | null;
   last_completed_id: string | null;
   pending_expires_at: number;
+  profile_envelope: string | null;
+  profile_revision: number | null;
   reader_id: string;
   token_digest: string;
 };
@@ -71,8 +76,9 @@ function failure(code: ErrorCode, options: ResponseOptions = {}): Response {
   return new Response(errorBody(code, options.protocolVersion), { headers, status: statusFor(code) });
 }
 
-function isV2RefreshRoute(url: URL): boolean {
-  return url.pathname === "/v2/refresh-requests" ||
+function isV2Route(url: URL): boolean {
+  return url.pathname === "/v2/reader-profile" || url.pathname === "/v2/readers" ||
+    url.pathname === "/v2/refresh-requests" ||
     /^\/v2\/refresh-requests\/[0-9a-f]{32}$/.test(url.pathname);
 }
 
@@ -100,6 +106,7 @@ function fixedRouteAuthority(request: Request): InternalAuthority | undefined {
   if (
     (request.method === "PUT" && /^\/v1\/readers\/[0-9a-f]{32}$/.test(url.pathname)) ||
     (request.method === "GET" && url.pathname === "/v1/readers") ||
+    (request.method === "GET" && url.pathname === "/v2/readers") ||
     (request.method === "DELETE" && /^\/v1\/readers\/[0-9a-f]{32}$/.test(url.pathname)) ||
     (request.method === "DELETE" && url.pathname === "/v1/relay")
   ) return "admin";
@@ -165,7 +172,7 @@ export class RelayObject extends DurableObject {
       const fail = (code: ErrorCode, options: ResponseOptions = {}): Response =>
         failure(code, {
           ...options,
-          protocolVersion: isV2RefreshRoute(url) ? REFRESH_PROTOCOL_VERSION : 1,
+          protocolVersion: isV2Route(url) ? REFRESH_PROTOCOL_VERSION : 1,
         });
       const schemaState = this.schemaState();
       if (schemaState === "unavailable") return fail("relayUnavailable");
@@ -182,6 +189,7 @@ export class RelayObject extends DurableObject {
           if (!this.ensureSchema()) return fail("relayUnavailable");
         } else if (url.search === "" && (
           (request.method === "GET" && url.pathname === "/v1/snapshot") ||
+          (request.method === "PUT" && url.pathname === "/v2/reader-profile") ||
           (request.method === "POST" && (
             url.pathname === "/v1/readers/activate" || url.pathname === "/v2/refresh-requests"
           ))
@@ -196,6 +204,8 @@ export class RelayObject extends DurableObject {
       if (request.method === "PUT" && url.pathname === "/v1/snapshot") return this.putSnapshot(request);
       if (request.method === "GET" && url.pathname === "/v1/snapshot") return this.getSnapshot(request);
       if (request.method === "POST" && url.pathname === "/v1/readers/activate") return this.activateReader(request);
+      if (request.method === "PUT" && url.pathname === "/v2/reader-profile") return this.putReaderProfile(request);
+      if (request.method === "GET" && url.pathname === "/v2/readers") return this.listReadersV2(request);
       if (request.method === "POST" && url.pathname === "/v2/refresh-requests") return this.postRefreshRequest(request);
       if (request.method === "GET" && url.pathname === "/v2/refresh-requests") return this.listRefreshRequests(request);
       if (request.method === "DELETE" && /^\/v2\/refresh-requests\/[0-9a-f]{32}$/.test(url.pathname)) return this.deleteRefreshRequest(request, url.pathname.split("/").at(-1)!);
@@ -207,7 +217,7 @@ export class RelayObject extends DurableObject {
     } catch {
       const url = new URL(request.url);
       return failure("relayUnavailable", {
-        protocolVersion: isV2RefreshRoute(url) ? REFRESH_PROTOCOL_VERSION : 1,
+        protocolVersion: isV2Route(url) ? REFRESH_PROTOCOL_VERSION : 1,
       });
     }
   }
@@ -217,20 +227,34 @@ export class RelayObject extends DurableObject {
       return this.ctx.storage.transactionSync(() => {
         this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS relay_schema (id INTEGER PRIMARY KEY CHECK (id = 1), version INTEGER NOT NULL)");
         const version = this.one<{ version: number }>("SELECT version FROM relay_schema WHERE id = 1");
-        if (version !== undefined && version.version !== 1 && version.version !== SCHEMA_VERSION) {
+        if (version !== undefined && ![1, 2, SCHEMA_VERSION].includes(version.version)) {
           return false;
         }
         this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS relay_state (id INTEGER PRIMARY KEY CHECK (id = 1), publisher_id TEXT NOT NULL, last_sequence INTEGER NOT NULL, envelope TEXT NOT NULL, etag TEXT NOT NULL, accepted_at INTEGER NOT NULL)");
         this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS readers (reader_id TEXT PRIMARY KEY, token_digest TEXT NOT NULL UNIQUE, activated INTEGER NOT NULL, pending_expires_at INTEGER NOT NULL, last_accepted_at INTEGER, last_accepted_id TEXT, last_completed_id TEXT)");
-        if (version?.version === 1) {
-          this.ctx.storage.sql.exec("DROP TABLE IF EXISTS refresh_requests");
+        const refreshColumns = new Set(
+          this.all<{ name: string }>("PRAGMA table_info(refresh_requests)")
+            .map((column) => column.name),
+        );
+        if (refreshColumns.size > 0 && !refreshColumns.has("target")) {
+          this.ctx.storage.sql.exec("ALTER TABLE refresh_requests RENAME TO refresh_requests_v1");
+          this.ctx.storage.sql.exec("CREATE TABLE refresh_requests (request_id TEXT PRIMARY KEY, reader_id TEXT NOT NULL UNIQUE, target TEXT NOT NULL CHECK (target IN ('account', 'allCodex')), account_id TEXT, accepted_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, CHECK ((target = 'account' AND account_id IS NOT NULL) OR (target = 'allCodex' AND account_id IS NULL)))");
+          this.ctx.storage.sql.exec("INSERT INTO refresh_requests (request_id, reader_id, target, account_id, accepted_at, expires_at) SELECT request_id, reader_id, 'allCodex', NULL, accepted_at, expires_at FROM refresh_requests_v1");
+          this.ctx.storage.sql.exec("DROP TABLE refresh_requests_v1");
+        } else {
+          this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS refresh_requests (request_id TEXT PRIMARY KEY, reader_id TEXT NOT NULL UNIQUE, target TEXT NOT NULL CHECK (target IN ('account', 'allCodex')), account_id TEXT, accepted_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, CHECK ((target = 'account' AND account_id IS NOT NULL) OR (target = 'allCodex' AND account_id IS NULL)))");
         }
-        this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS refresh_requests (request_id TEXT PRIMARY KEY, reader_id TEXT NOT NULL UNIQUE, target TEXT NOT NULL CHECK (target IN ('account', 'allCodex')), account_id TEXT, accepted_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, CHECK ((target = 'account' AND account_id IS NOT NULL) OR (target = 'allCodex' AND account_id IS NULL)))");
+        const readerColumns = new Set(
+          this.all<{ name: string }>("PRAGMA table_info(readers)").map((column) => column.name),
+        );
+        if (!readerColumns.has("activated_at")) this.ctx.storage.sql.exec("ALTER TABLE readers ADD COLUMN activated_at INTEGER");
+        if (!readerColumns.has("profile_revision")) this.ctx.storage.sql.exec("ALTER TABLE readers ADD COLUMN profile_revision INTEGER");
+        if (!readerColumns.has("profile_envelope")) this.ctx.storage.sql.exec("ALTER TABLE readers ADD COLUMN profile_envelope TEXT");
         if (version === undefined) {
           this.ctx.storage.sql.exec(
             "INSERT INTO relay_schema (id, version) VALUES (1, ?)", SCHEMA_VERSION,
           );
-        } else if (version.version === 1) {
+        } else if (version.version === 1 || version.version === 2) {
           this.ctx.storage.sql.exec(
             "UPDATE relay_schema SET version = ? WHERE id = 1", SCHEMA_VERSION,
           );
@@ -254,8 +278,25 @@ export class RelayObject extends DurableObject {
         return tables.length === 0 ? "missing" : "unavailable";
       }
       const version = this.one<{ version: number }>("SELECT version FROM relay_schema WHERE id = 1");
-      if (version?.version === SCHEMA_VERSION) return "ready";
-      return version?.version === 1 ? "migrate" : "unavailable";
+      if (version?.version === SCHEMA_VERSION) {
+        const names = new Set(tables.map((table) => table.name));
+        if (!["relay_schema", "relay_state", "readers", "refresh_requests"].every((name) => names.has(name))) {
+          return "unavailable";
+        }
+        const readerColumns = new Set(
+          this.all<{ name: string }>("PRAGMA table_info(readers)").map((column) => column.name),
+        );
+        const refreshColumns = new Set(
+          this.all<{ name: string }>("PRAGMA table_info(refresh_requests)")
+            .map((column) => column.name),
+        );
+        if (!["activated_at", "profile_envelope", "profile_revision"].every((name) => readerColumns.has(name)) ||
+          !["account_id", "target"].every((name) => refreshColumns.has(name))) {
+          return "unavailable";
+        }
+        return "ready";
+      }
+      return version?.version === 1 || version?.version === 2 ? "migrate" : "unavailable";
     } catch {
       return "unavailable";
     }
@@ -351,7 +392,10 @@ export class RelayObject extends DurableObject {
         return false;
       }
       if (current.activated === 0) {
-        this.ctx.storage.sql.exec("UPDATE readers SET activated = 1 WHERE reader_id = ?", current.reader_id);
+        this.ctx.storage.sql.exec(
+          "UPDATE readers SET activated = 1, activated_at = COALESCE(activated_at, ?) WHERE reader_id = ?",
+          now, current.reader_id,
+        );
       }
       return true;
     });
@@ -393,6 +437,67 @@ export class RelayObject extends DurableObject {
       return this.all<Pick<StoredReader, "activated" | "reader_id">>("SELECT reader_id, activated FROM readers ORDER BY reader_id ASC");
     });
     return success(200, canonicalJSON({ protocolVersion: 1, readers: readers.map((reader) => ({ activated: reader.activated === 1, readerID: reader.reader_id })) }));
+  }
+
+  private async putReaderProfile(request: Request): Promise<Response> {
+    const fail = (code: ErrorCode): Response => failure(code, { protocolVersion: 2 });
+    const reader = await this.authenticatedReader(request);
+    if (reader === undefined || reader.activated !== 1) return fail("unauthorized");
+    const body = await readBody(request, READER_PROFILE_LIMIT);
+    if ("error" in body) return fail(body.error);
+    if (!validJSONContentType(request)) return fail("badRequest");
+    const parsed = parseReaderProfile(body.text);
+    if ("failure" in parsed) return fail(parsed.failure);
+    if (parsed.value.readerID !== reader.reader_id) return fail("badRequest");
+    const result = this.ctx.storage.transactionSync(() => {
+      const current = this.one<Pick<StoredReader, "activated" | "profile_envelope" | "profile_revision" | "reader_id">>(
+        "SELECT reader_id, activated, profile_revision, profile_envelope FROM readers WHERE reader_id = ?",
+        reader.reader_id,
+      );
+      if (current === undefined || current.activated !== 1) return "unauthorized" as const;
+      if (current.profile_revision !== null && parsed.value.revision < current.profile_revision) {
+        return "sequenceConflict" as const;
+      }
+      if (
+        current.profile_revision === parsed.value.revision &&
+        current.profile_envelope !== body.text
+      ) return "sequenceConflict" as const;
+      if (current.profile_revision === null || parsed.value.revision > current.profile_revision) {
+        this.ctx.storage.sql.exec(
+          "UPDATE readers SET profile_revision = ?, profile_envelope = ? WHERE reader_id = ?",
+          parsed.value.revision, body.text, reader.reader_id,
+        );
+      }
+      return undefined;
+    });
+    if (result !== undefined) return fail(result);
+    return success(200, canonicalJSON({ protocolVersion: 2, revision: parsed.value.revision }));
+  }
+
+  private async listReadersV2(request: Request): Promise<Response> {
+    if (!this.isInternal(request, "admin")) {
+      return failure("unauthorized", { protocolVersion: 2 });
+    }
+    const empty = await requestHasNoBody(request);
+    if ("error" in empty) return failure(empty.error, { protocolVersion: 2 });
+    const now = this.clock.now();
+    const readers = this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec("DELETE FROM readers WHERE activated = 0 AND pending_expires_at <= ?", now);
+      return this.all<Pick<StoredReader, "activated" | "activated_at" | "profile_envelope" | "reader_id">>(
+        "SELECT reader_id, activated, activated_at, profile_envelope FROM readers ORDER BY reader_id ASC",
+      );
+    });
+    return success(200, canonicalJSON({
+      protocolVersion: 2,
+      readers: readers.map((reader) => ({
+        activated: reader.activated === 1,
+        ...(reader.activated_at === null ? {} : { activatedAt: formatTime(reader.activated_at) }),
+        ...(reader.profile_envelope === null
+          ? {}
+          : { profile: JSON.parse(reader.profile_envelope) as unknown }),
+        readerID: reader.reader_id,
+      })),
+    }), { bodyLimit: 8 * 1024, noStore: true });
   }
 
   private async deleteReader(request: Request, readerID: string): Promise<Response> {
@@ -511,7 +616,7 @@ export default {
     if (authority !== undefined) {
       if (!await isAuthorizedForWorkerRole(request, env, authority)) {
         return failure("unauthorized", {
-          protocolVersion: isV2RefreshRoute(new URL(request.url))
+          protocolVersion: isV2Route(new URL(request.url))
             ? REFRESH_PROTOCOL_VERSION
             : 1,
         });

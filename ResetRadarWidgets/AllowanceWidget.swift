@@ -8,6 +8,7 @@ import ResetRadarDomain
 import ResetRadarScheduling
 import ResetRadarStorage
 import ResetRadarTransport
+import ResetRadarUI
 import SwiftUI
 import WidgetKit
 
@@ -98,7 +99,9 @@ struct ReadAllowanceIntent: AppIntent {
         }
         let percentage =
             value.window.observation.map {
-                "\($0.usedPercent.formatted(.number.precision(.fractionLength(0))))% used"
+                PercentageUsedFormatter.text(
+                    $0.usedPercent, product: value.source.product,
+                    fractionDigits: $0.fractionDigits) + " used"
             } ?? "no percentage"
         let reset =
             value.window.resetsAt.map { $0.formatted(date: .abbreviated, time: .shortened) }
@@ -190,7 +193,9 @@ struct AllowanceWidgetProvider: AppIntentTimelineProvider {
         }
         let percentage =
             value.window.observation.map {
-                "\($0.usedPercent.formatted(.number.precision(.fractionLength(0))))% used"
+                PercentageUsedFormatter.text(
+                    $0.usedPercent, product: value.source.product,
+                    fractionDigits: $0.fractionDigits) + " used"
             } ?? "No percentage"
         let status: String
         switch value.presentation {
@@ -465,7 +470,9 @@ struct StandardAllowanceWidgetProvider: AppIntentTimelineProvider {
         guard let value else { return "\(label) · Unavailable" }
         let percentage =
             value.window.observation.map {
-                $0.usedPercent.formatted(.number.precision(.fractionLength(0))) + "% used"
+                PercentageUsedFormatter.text(
+                    $0.usedPercent, product: value.source.product,
+                    fractionDigits: $0.fractionDigits) + " used"
             } ?? "No percentage"
         switch value.presentation {
         case .current: return "\(label) · \(percentage)"

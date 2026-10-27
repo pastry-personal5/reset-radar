@@ -65,6 +65,7 @@ public actor ForgetMac {
         state.stagingReaderID = nil
         state.awaitingActivation = false
         state.pendingManualRequest = nil
+        state.readerProfile = nil
         state.lastWatchPayload = nil
         state.lastComplicationValues = nil
         state.watchDeliveryRevision += 1

@@ -34,7 +34,7 @@ actor SyntheticUsageSource: UsageSource {
         continuation = pair.continuation
     }
 
-    func start() async throws { _ = await refresh() }
+    func start() async throws { _ = refresh() }
 
     func refresh() -> ReadReceipt {
         let now = clock.now

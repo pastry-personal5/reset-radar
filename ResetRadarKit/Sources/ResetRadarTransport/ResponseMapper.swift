@@ -12,6 +12,8 @@ enum RelayOperation {
     case deleteRefreshRequest
     case registerReader
     case listReaders
+    case putReaderProfile
+    case listReadersV2
     case revokeReader
     case destroyRelay
 }
@@ -21,6 +23,15 @@ extension RelayOperation {
         switch self {
         case .postRefreshRequest, .listRefreshRequests, .deleteRefreshRequest: true
         default: false
+        }
+    }
+
+    var protocolVersion: Int {
+        switch self {
+        case .postRefreshRequest, .listRefreshRequests, .deleteRefreshRequest,
+            .putReaderProfile, .listReadersV2:
+            2
+        default: 1
         }
     }
 }
@@ -58,7 +69,8 @@ enum ResponseMapper {
 
         switch response.operation {
         case .putSnapshot, .getSnapshot: return mapSnapshot(response)
-        case .activateReader, .registerReader, .listReaders, .revokeReader:
+        case .activateReader, .registerReader, .listReaders, .putReaderProfile,
+            .listReadersV2, .revokeReader:
             return mapReader(response)
         case .postRefreshRequest, .listRefreshRequests, .deleteRefreshRequest:
             return mapRefresh(response)
@@ -94,6 +106,14 @@ enum ResponseMapper {
     }
 
     private static func mapReader(_ response: RelayResponseContext) -> RelayMappedResult {
+        switch response.operation {
+        case .putReaderProfile: return mapProfileWrite(response)
+        case .listReadersV2: return mapProfileReaders(response)
+        default: return mapV1Reader(response)
+        }
+    }
+
+    private static func mapV1Reader(_ response: RelayResponseContext) -> RelayMappedResult {
         switch (response.operation, response.status) {
         case (.activateReader, 200):
             guard let body = decode(ActivationBody.self, response.body),
@@ -119,6 +139,32 @@ enum ResponseMapper {
         default:
             return .outcome(.protocolFailure)
         }
+    }
+
+    private static func mapProfileWrite(_ response: RelayResponseContext) -> RelayMappedResult {
+        guard response.status == 200,
+            let body = decode(ProfileReceiptBody.self, response.body), body.protocolVersion == 2,
+            let submitted = response.submittedEnvelope,
+            let envelope = decode(ReaderProfileEnvelope.self, submitted),
+            body.revision == envelope.revision
+        else { return .outcome(.protocolFailure) }
+        return .outcome(.accepted(sequence: nil))
+    }
+
+    private static func mapProfileReaders(_ response: RelayResponseContext) -> RelayMappedResult {
+        guard response.status == 200, let body = decode(ReaderListV2Body.self, response.body),
+            body.protocolVersion == 2, body.readers.count <= 3,
+            body.readers.map(\.readerID.hex).lexicographicallyPrecedesOrEqualsSorted()
+        else { return .outcome(.protocolFailure) }
+        let readers = body.readers.compactMap { reader -> RelayReader? in
+            let profile = reader.profile.flatMap { try? WireCoding.encoder().encode($0) }
+            if reader.profile != nil && profile == nil { return nil }
+            return RelayReader(
+                id: reader.readerID, activated: reader.activated,
+                activatedAt: reader.activatedAt, profileEnvelope: profile)
+        }
+        guard readers.count == body.readers.count else { return .outcome(.protocolFailure) }
+        return .readers(readers)
     }
 
     private static func mapRefresh(_ response: RelayResponseContext) -> RelayMappedResult {
@@ -153,22 +199,49 @@ enum ResponseMapper {
     }
 
     private static func mapError(_ response: RelayResponseContext) -> RelayOutcome {
-        let expectedVersion = response.operation.isRefresh ? 2 : 1
-        guard let body = decode(ErrorBody.self, response.body),
-            body.protocolVersion == expectedVersion
-        else { return .protocolFailure }
+        guard let body = decode(ErrorBody.self, response.body) else { return .protocolFailure }
+        if isUnsupportedProfileRoute(response, body: body) {
+            return .unsupportedVersion
+        }
+        guard body.protocolVersion == response.operation.protocolVersion else {
+            return .protocolFailure
+        }
+        return mapErrorStatus(response, body: body)
+    }
+
+    private static func mapErrorStatus(
+        _ response: RelayResponseContext, body: ErrorBody
+    ) -> RelayOutcome {
         switch response.status {
-        case 400: return body.code == "badRequest" ? .badRequest : .protocolFailure
-        case 401: return body.code == "unauthorized" ? .unauthorized : .protocolFailure
-        case 404:
-            return body.code == "awaitingFirstPublish" && response.operation == .getSnapshot
-                ? .awaitingFirstPublish : .protocolFailure
+        case 400: return matching(body.code, "badRequest", outcome: .badRequest)
+        case 401: return matching(body.code, "unauthorized", outcome: .unauthorized)
+        case 404: return mapNotFound(code: body.code, operation: response.operation)
         case 409: return mapConflict(code: body.code, operation: response.operation)
-        case 413: return body.code == "payloadTooLarge" ? .payloadTooLarge : .protocolFailure
-        case 422: return body.code == "unsupportedVersion" ? .unsupportedVersion : .protocolFailure
+        case 413: return matching(body.code, "payloadTooLarge", outcome: .payloadTooLarge)
+        case 422: return matching(body.code, "unsupportedVersion", outcome: .unsupportedVersion)
         case 429: return mapRateLimit(code: body.code, operation: response.operation)
         default: return .protocolFailure
         }
+    }
+
+    private static func matching(
+        _ actual: String, _ expected: String, outcome: RelayOutcome
+    ) -> RelayOutcome {
+        actual == expected ? outcome : .protocolFailure
+    }
+
+    private static func mapNotFound(code: String, operation: RelayOperation) -> RelayOutcome {
+        code == "awaitingFirstPublish" && operation == .getSnapshot
+            ? .awaitingFirstPublish : .protocolFailure
+    }
+
+    private static func isUnsupportedProfileRoute(
+        _ response: RelayResponseContext, body: ErrorBody
+    ) -> Bool {
+        let profileOperation =
+            response.operation == .putReaderProfile || response.operation == .listReadersV2
+        return response.status == 404 && body.code == "unknownRoute" && profileOperation
+            && (body.protocolVersion == 1 || body.protocolVersion == 2)
     }
 
     private static func mapConflict(code: String, operation: RelayOperation) -> RelayOutcome {
@@ -272,6 +345,23 @@ private struct ReaderListBody: Codable {
 private struct ReaderWire: Codable {
     let activated: Bool
     let readerID: ReaderID
+}
+
+private struct ReaderListV2Body: Codable {
+    let protocolVersion: Int
+    let readers: [ReaderWireV2]
+}
+
+private struct ReaderWireV2: Codable {
+    let activated: Bool
+    let activatedAt: Date?
+    let profile: ReaderProfileEnvelope?
+    let readerID: ReaderID
+}
+
+private struct ProfileReceiptBody: Codable {
+    let protocolVersion: Int
+    let revision: UInt64
 }
 
 private struct ErrorBody: Codable {

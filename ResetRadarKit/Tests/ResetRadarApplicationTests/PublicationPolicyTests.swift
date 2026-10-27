@@ -32,6 +32,11 @@ import Testing
         #expect(decide(.transition, since: 4_000) == .publishNow)
     }
 
+    @Test func metadataPublishesImmediatelyOutsideBackoff() {
+        #expect(decide(.metadataOnly, since: 0) == .publishNow)
+        #expect(waits(decide(.metadataOnly, since: 0, backoff: 42), 42))
+    }
+
     @Test func materialWaitsForTheCoalescingWindow() {
         #expect(waits(decide(.material, since: 29.999), 0.001))
         #expect(decide(.material, since: 30) == .publishNow)
@@ -64,7 +69,7 @@ import Testing
 
     @Test(arguments: [PublishTrigger.change, .heartbeat, .wake, .networkRestored])
     func activeBackoffWaitsForEveryTriggerAndChange(trigger: PublishTrigger) {
-        for change in [ChangeClass.none, .observationOnly, .material, .transition] {
+        for change in ChangeClass.allCases {
             #expect(waits(decide(change, trigger, since: 9_999, backoff: 42), 42))
         }
     }

@@ -4,6 +4,8 @@ public enum ChangeClass: Int, Sendable, Comparable, CaseIterable {
     case none
     /// Only `observedAt` advanced.
     case observationOnly
+    /// Local presentation metadata changed without a new provider observation.
+    case metadataOnly
     /// A percentage or reset instant changed.
     case material
     /// Source state, the window set, report state, or account scope changed.

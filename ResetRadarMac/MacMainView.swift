@@ -45,6 +45,7 @@ enum MacHomeSelection {
 }
 
 struct MacMainView: View {
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @ObservedObject var model: HomeViewModel
     @ObservedObject var messages: GlobalMessageCenter
     @State private var section = MacMainSection.home
@@ -61,12 +62,19 @@ struct MacMainView: View {
             HStack(spacing: 0) {
                 sidebar.frame(width: 210)
                 Divider()
-                if section == .home {
-                    accountList.frame(width: 440)
-                    Divider()
+                VStack(spacing: 0) {
+                    HStack(spacing: 0) {
+                        if section == .home {
+                            accountList.frame(width: 440)
+                            Divider()
+                        }
+                        detailPane
+                            .frame(maxWidth: .infinity)
+                    }
+                    .frame(height: max(0, geometry.size.height - 220))
+                    GlobalMessagesPane(messages: messages)
+                        .frame(height: 180, alignment: .bottom)
                 }
-                detailPane(height: max(0, geometry.size.height - 40))
-                    .frame(maxWidth: .infinity)
             }
             .frame(height: max(0, geometry.size.height - 40))
             .padding(.top, 40)
@@ -99,33 +107,28 @@ struct MacMainView: View {
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
-    private func detailPane(height: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            Group {
-                if section == .home {
-                    if let account = selectedAccount {
-                        MacAccountDetailsView(
-                            account: account, model: model, messages: messages,
-                            focusedWindow: focusedAccountID == account.id ? focusedWindow : nil
-                        )
-                        .id(account.id)
-                    } else {
-                        ContentUnavailableView(
-                            "No account selected",
-                            systemImage: "gauge.with.dots.needle.50percent",
-                            description: Text(
-                                "Configure a source in Settings to see its details."))
-                    }
+    private var detailPane: some View {
+        Group {
+            if section == .home {
+                if let account = selectedAccount {
+                    MacAccountDetailsView(
+                        account: account, model: model, messages: messages,
+                        focusedWindow: focusedAccountID == account.id ? focusedWindow : nil
+                    )
+                    .id(account.id)
                 } else {
-                    ContentUnavailableView(section.rawValue, systemImage: section.symbol)
+                    ContentUnavailableView(
+                        "No account selected",
+                        systemImage: "gauge.with.dots.needle.50percent",
+                        description: Text(
+                            "Configure a source in Settings to see its details."))
                 }
+            } else {
+                ContentUnavailableView(section.rawValue, systemImage: section.symbol)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: max(0, height - 180))
-            .clipped()
-            GlobalMessagesPane(messages: messages)
-                .frame(height: 180, alignment: .bottom)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
     }
 
     private var accountList: some View {
@@ -143,17 +146,18 @@ struct MacMainView: View {
                     .padding(.horizontal, 12)
                     .padding(.bottom, 8)
             }
-            List(selection: $selectedAccountID) {
+            List {
                 ForEach(model.accounts, id: \.id) { account in
                     MacAccountRow(
                         account: account, model: model, snapshot: model.snapshot,
+                        selected: selectedAccountID == account.id,
+                        increasedContrast: colorSchemeContrast == .increased,
                         openDetails: { window in
                             selectedAccountID = account.id
                             focusedAccountID = account.id
                             focusedWindow = window
                         }
                     )
-                    .tag(account.id)
                 }
             }
             .listStyle(.inset)
@@ -193,13 +197,15 @@ private struct MacAccountRow: View {
     let account: AccountMetadata
     @ObservedObject var model: HomeViewModel
     let snapshot: UsageSnapshot?
+    let selected: Bool
+    let increasedContrast: Bool
     let openDetails: (AccountWindow.StandardWindow?) -> Void
     @State private var editingAlias = false
     @State private var alias = ""
     @State private var aliasError: String?
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 if editingAlias {
                     TextField("Account Alias", text: $alias)
@@ -213,6 +219,11 @@ private struct MacAccountRow: View {
                             .font(.caption2)
                             .foregroundStyle(.red)
                             .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let delivery = model.aliasDelivery {
+                        Text(delivery.rawValue)
+                            .font(.caption2)
+                            .foregroundStyle(delivery == .failed ? .orange : .secondary)
                     }
                 } else {
                     Button(account.effectiveDisplayLabel) {
@@ -254,8 +265,18 @@ private struct MacAccountRow: View {
             .accessibilityLabel("Account Details")
         }
         .padding(10)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary) }
+        .background(
+            selected ? Color.accentColor.opacity(0.12) : Color.clear,
+            in: RoundedRectangle(cornerRadius: 12)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 12).strokeBorder(
+                selected ? Color.accentColor : Color.secondary.opacity(0.25),
+                lineWidth: selected ? (increasedContrast ? 2 : 1) : 1)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .onTapGesture { openDetails(nil) }
+        .accessibilityAddTraits(selected ? .isSelected : [])
         .onChange(of: account.alias?.value) { _, value in alias = value ?? "" }
     }
 
@@ -263,7 +284,11 @@ private struct MacAccountRow: View {
         Task {
             await model.updateAlias(accountID: account.id, input: alias)
             aliasError = model.message
-            if aliasError == nil { editingAlias = false }
+            let saveFinished =
+                model.aliasDelivery == .available || model.aliasDelivery == .localOnly
+            if aliasError == nil && saveFinished {
+                editingAlias = false
+            }
         }
     }
 }

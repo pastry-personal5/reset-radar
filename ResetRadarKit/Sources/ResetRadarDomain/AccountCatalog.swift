@@ -133,3 +133,130 @@ public struct AccountCatalog: Codable, Hashable, Sendable {
         accounts.first { $0.id == id }
     }
 }
+
+public enum ReaderProfileNameError: Error, Equatable, Sendable {
+    case empty
+    case tooLong
+    case unsafeScalar
+    case noVisibleContent
+}
+
+/// A reader-authored, visible Unicode device label. Duplicate labels are valid; Reader ID is
+/// the identity.
+public struct ReaderProfileName: Codable, Hashable, Sendable {
+    public static let maximumUTF8Bytes = 64
+    public let value: String
+
+    public init(validating value: String) throws(ReaderProfileNameError) {
+        guard !value.isEmpty else { throw .empty }
+        guard value.utf8.count <= Self.maximumUTF8Bytes else { throw .tooLong }
+        var hasVisibleContent = false
+        for scalar in value.unicodeScalars {
+            if scalar.value == 0x20 { continue }
+            switch scalar.properties.generalCategory {
+            case .uppercaseLetter, .lowercaseLetter, .titlecaseLetter, .modifierLetter,
+                .otherLetter, .decimalNumber, .letterNumber, .otherNumber,
+                .connectorPunctuation, .dashPunctuation, .openPunctuation, .closePunctuation,
+                .initialPunctuation, .finalPunctuation, .otherPunctuation, .mathSymbol,
+                .currencySymbol, .modifierSymbol, .otherSymbol:
+                hasVisibleContent = true
+            case .nonspacingMark, .spacingMark, .enclosingMark:
+                break
+            default:
+                throw .unsafeScalar
+            }
+        }
+        guard hasVisibleContent else { throw .noVisibleContent }
+        self.value = value
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        do {
+            try self.init(validating: container.decode(String.self))
+        } catch {
+            throw DecodingError.dataCorruptedError(
+                in: container, debugDescription: "Invalid reader profile name")
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(value)
+    }
+}
+
+public enum ReaderDeviceClass: String, Codable, Sendable, CaseIterable {
+    case phone
+    case tablet
+}
+
+public enum ReaderNamingMode: String, Codable, Sendable {
+    case automatic
+    case custom
+}
+
+public struct ReaderProfile: Codable, Sendable, Equatable {
+    public let profileVersion: Int
+    public let displayName: ReaderProfileName
+    public let deviceClass: ReaderDeviceClass
+
+    public init(displayName: ReaderProfileName, deviceClass: ReaderDeviceClass) {
+        profileVersion = 1
+        self.displayName = displayName
+        self.deviceClass = deviceClass
+    }
+}
+
+public struct ReaderProfileHeader: Codable, Sendable, Equatable {
+    public let protocolVersion: Int
+    public let profileVersion: Int
+    public let publisherID: PublisherID
+    public let readerID: ReaderID
+    public let keyVersion: Int
+    public let revision: UInt64
+
+    public init(
+        publisherID: PublisherID, readerID: ReaderID, keyVersion: Int, revision: UInt64
+    ) {
+        protocolVersion = 2
+        profileVersion = 1
+        self.publisherID = publisherID
+        self.readerID = readerID
+        self.keyVersion = keyVersion
+        self.revision = revision
+    }
+}
+
+/// Opaque at the relay: the two user-readable fields exist only inside the ciphertext.
+public struct ReaderProfileEnvelope: Codable, Sendable, Equatable {
+    public let protocolVersion: Int
+    public let profileVersion: Int
+    public let publisherID: PublisherID
+    public let readerID: ReaderID
+    public let keyVersion: Int
+    public let revision: UInt64
+    public let nonce: String
+    public let ciphertext: String
+    public let tag: String
+
+    public var header: ReaderProfileHeader {
+        ReaderProfileHeader(
+            publisherID: publisherID, readerID: readerID, keyVersion: keyVersion,
+            revision: revision)
+    }
+
+    public init(
+        header: ReaderProfileHeader, nonce: String, ciphertext: String, tag: String
+    ) {
+        protocolVersion = header.protocolVersion
+        profileVersion = header.profileVersion
+        publisherID = header.publisherID
+        readerID = header.readerID
+        keyVersion = header.keyVersion
+        revision = header.revision
+        self.nonce = nonce
+        self.ciphertext = ciphertext
+        self.tag = tag
+    }
+}

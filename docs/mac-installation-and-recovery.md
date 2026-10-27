@@ -18,8 +18,8 @@ The owner performs every Cloudflare login, deployment, secret entry, and billing
 send a signing team identifier, a token, a pairing package, a QR image, Keychain data, or a
 provider response to an agent or put it in the repository.
 
-For Mac collector troubleshooting, **Settings → Diagnostics** shows the active log folder.
-The installed Release app uses `~/Library/Logs/ResetRadar/`; Development uses the separate
+For Mac collector troubleshooting, the installed Release app uses `~/Library/Logs/ResetRadar/`;
+Development uses the separate
 `~/Library/Logs/ResetRadar.dev/`. These owner-only JSON Lines retain at most eight UTC days and
 contain fixed, redacted event fields. Coding agents running under this macOS account can inspect
 the Development folder directly for startup and publication root-cause analysis.
@@ -75,7 +75,7 @@ Reset Radar never reads provider credential files or uses API-key mode.
    for the intended home and confirm that the same home, executable, and every allowlisted
    environment value appear under **Confirm exact change**. Select **Confirm and Apply** only if
    they are correct. The alias is saved with the newly configured source. Use the next Add row
-   for a second home. Use **Change Home** on a configured row to correct its folder through the
+   for a second home. Use **Save Home Folder** on a configured row to correct its folder through the
    same preview and confirmation while keeping its alias and account. Each confirmation rebuilds
    the collector immediately.
 3. In the **Claude Code** card, choose **Set Up Claude Code Connection**, then **Preview**.

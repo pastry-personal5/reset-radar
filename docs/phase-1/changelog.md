@@ -6,6 +6,135 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-27 — Owner/Codex — Isolated reusable Mac, iOS, and Watch DerivedData paths in the
+  Make targets, declared test targets' directly imported local package products, and removed four
+  Swift build warnings. Generation, formatting, strict lint, imports, relay CI, Mac and Watch
+  tests, the arm64 Mac check, and a clean iOS build-for-testing pass. Xcode 27.1 still blocks the
+  iOS simulator gate before XCTest launch in test-log finalization with `invalidDigitCount(94232)`;
+  Xcode 26.1.1 cannot compile the current project and is not a fallback.
+
+- 2026-10-27 — Owner/Codex — Fixed M17's Mac Account List selection treatment: subtle
+  accent-tinted background, semantic primary/secondary text, a one-point accent border, and a
+  two-point border in Increased Contrast. Native opaque selection fill is suppressed and
+  allowance/source colors retain independent meaning.
+
+- 2026-10-27 — Owner/Codex — Set the M17 pending-reader label to Awaiting iPhone or iPad. The Mac
+  displays a friendly name only after the authenticated reader reports it; an activated reader
+  without a valid profile uses iPhone or iPad plus its short ID.
+
+- 2026-10-27 — Owner/Codex — Added explicit reader-profile delivery feedback to M17 Pairing &
+  Sync: Available to Mac, Waiting to share, and Couldn't share — Retry. Failure retains the
+  selected name and pairing, queues a later app-execution retry, and permits manual retry without
+  changing snapshot transport status.
+
+- 2026-10-27 — Owner/Codex — Defined M17 alias-feedback lifetime. Inline copy distinguishes Saved
+  locally — publishing, Saved and available to devices, Saved locally — couldn't publish, and the non-error Saved locally
+  state when no relay exists. Success clears when editing closes; terminal failure persists until
+  retry success or a new edit. Global Messages records session transitions without duplicate retry
+  noise.
+
+- 2026-10-27 — Owner/Codex — Fixed the M17 short reader identifier as `ID ` plus the final eight
+  lowercase hexadecimal Reader ID characters. Roster rows use primary device-name text, smaller
+  monospaced secondary ID text, and a separately colored text-and-symbol status badge so color is
+  never the only identity or status cue.
+
+- 2026-10-27 — Owner/Codex — Made the paired-device date truthful in M17. New `/v2/readers`
+  results carry the relay-assigned activation timestamp, which the Mac labels Paired. Existing
+  rows without that timestamp retain their local observation date but label it First seen;
+  idempotent activation cannot rewrite the original time.
+
+- 2026-10-27 — Owner/Codex — Changed M17's Claude Code whole-percentage rule from nearest rounding
+  to floor. For example, `96.9%` displays as `96%` on every surface while raw storage and
+  transport retain the provider's one-decimal observation; Codex precision remains unchanged.
+
+- 2026-10-27 — Owner/Codex — Moved M17's Executive Summary out of the Five-hour section into its
+  own Account Details section before all windows. This prevents an earlier Weekly Reset or a
+  weekly-only known reset from appearing under a misleading Five-hour hierarchy; selection and
+  omission rules remain unchanged.
+
+- 2026-10-27 — Owner/Codex — Added post-pairing reader-name management to M17. iPhone/iPad
+  Pairing & Sync shows This Device, permits a custom reported name, and offers Use Device Name to
+  restore automatic Apple-name updates. The naming mode is local reader metadata; edits and
+  profile retries never alter credentials, activation, cached usage, or pairing.
+
+- 2026-10-27 — Owner/Codex — Replaced M17's neutral Mac-authored reader label with a
+  reader-reported profile. The iPhone or iPad proposes Apple's device name, offers an editable
+  device-side fallback when iOS returns only a generic name, and best-effort reports the chosen
+  name and device class after activation. The new `/v2` profile path is end-to-end encrypted,
+  stores ciphertext only, retries independently, and cannot fail or roll back pairing. M17 does
+  not depend on Apple's restricted user-assigned-device-name entitlement.
+
+- 2026-10-27 — Owner/Codex — Decided that M17 alias synchronization feedback appears both inline
+  beside the edited Mac alias and in session-local Global Messages. Both surfaces distinguish the
+  completed local save from pending or failed relay delivery and must not imply alias validation,
+  source acquisition, cached reader data, or pairing failed.
+
+- 2026-10-27 — Owner/Codex — Renamed M17 **Experience, pairing, and synchronization polish** and
+  confirmed that it includes the supporting alias-publication,
+  durable relay-lifecycle, reader-reconciliation, and pairing-metadata implementation needed by
+  its management UI. The milestone is no longer characterized as presentation-only; pairing wire
+  bytes, provider acquisition, allowance semantics, dependencies, signing, and distribution remain
+  unchanged. Implementation and validation are still pending.
+
+- 2026-10-27 — Owner/Codex — Added planned M17 macOS Settings-control polish. Every sidebar
+  destination will have a consistent near-full-width clickable row. General will replace the
+  persistent Launch at Login registration-status line with an adjacent accessible information
+  button and explanatory overlay, without changing login-item registration or recovery behavior.
+  No implementation or validation result is claimed.
+
+- 2026-10-27 — Owner/Codex — Added planned M17 macOS Sources polish. Claude Code will adopt the
+  Codex-style structured list presentation, while Codex Alias and Home Folder fields will be made
+  visually consistent and its actions will read Save Home Folder, Save Alias, and Remove. Save
+  Home Folder remains the existing reviewed discovery/preview/confirmation replacement flow; no
+  source, alias, Claude Code safeguard, restore, or removal semantics change. No implementation
+  or validation result is claimed.
+
+- 2026-10-27 — Owner/Codex — Added planned M17 macOS Settings and About polish. Diagnostics will
+  be removed only as a Settings destination; no local diagnostic collection, logging, deletion, or
+  feedback upload changes. About will use a native List-style interface with approved Reset Radar
+  marketing copy, retained License information, and explicit external GitHub repository and
+  new-issue links that do not prefill or share local data. A Support Reset Radar button will open
+  the repository for GitHub's native signed-in Star or Fork controls when available; the app will
+  not perform either action. No implementation or validation result is claimed.
+
+- 2026-10-27 — Owner/Codex — Added planned P1-M17 GUI enhancement and polish. The approved scope
+  centers account-row identity and details actions on iPhone and Mac, removes the iPhone Home
+  toolbar Refresh bitmap while retaining pull to refresh, refines Mac selected-row contrast and
+  moves Main Global Messages below the Account List plus detail region. It adds a large iPhone/Mac
+  five-hour Executive Summary whose next-reset line selects the earlier known five-hour or weekly
+  reset (five-hour wins ties), and makes Watch Refresh match Advanced. No app behavior or
+  validation result is claimed by this plan.
+
+- 2026-10-27 — Owner/Codex — Added the M17 display-precision rule: every Claude Code Percentage
+  Used surface presents a rounded whole percent (for example, `96.0%` as `96%`) while retaining
+  the provider's raw one-decimal observation in storage and transport. The Executive Summary is
+  reset-focused: it shows only the earliest known future five-hour/weekly reset as a large local
+  absolute time and a small `5h Reset` or `Weekly Reset` label; it is absent when neither reset
+  is known. No implementation or validation result is claimed by this plan update.
+
+- 2026-10-27 — Owner/Codex — Planned a six-digit decimal Pairing Confirmation Code in M17. It is
+  deterministically derived from the exact canonical encoded Pairing Package, renders leading
+  zeroes, and replaces the current grouped hexadecimal display only. The pairing package wire
+  format, keys, tokens, preflight, activation, and owner comparison requirement remain unchanged;
+  the code is not a password or authenticator. No implementation or validation result is claimed.
+
+- 2026-10-27 — Codex — Reviewed the report that an iPhone pairing stopped working after a Mac
+  alias edit. The inspected alias path does not modify a reader token, pairing, publisher ID, or
+  registration, and the available redacted Mac log records successful publications without a
+  relay rejection; the report therefore does not establish alias edit as a credential-revocation
+  cause. M17 now repairs the real boundary flaw: alias edits are planned as explicit metadata-only
+  publications that preserve collection timestamps and pairing state, report save separately from
+  delivery, and receive paired-reader, failed-delivery, and concurrent-pairing regression tests.
+  No implementation or validation result is claimed.
+
+- 2026-10-27 — Owner/Codex — Added macOS Relay & Pairing cleanup to planned M17. The screen will
+  show durable relay lifecycle state rather than leaving setup status implicit, replace the
+  arbitrary iPhone label text field with a neutral Pair an iPhone or iPad action, and render the
+  existing reconciled reader roster as an accessible Paired Devices list with status, date, short
+  reader ID, empty/unknown/missing states, and confirmed revocation. It does not add device
+  discovery, remote health claims, or alter relay and pairing security contracts. No
+  implementation or validation result is claimed.
+
 - 2026-10-27 — Codex — Replaced `make ipa`'s Xcode export step with direct packaging of the
   verified, signed Release archive. Xcode-managed iOS profiles can omit the paired Watch UDID,
   causing `-exportArchive` to reject an otherwise valid archive. The new step does not re-sign

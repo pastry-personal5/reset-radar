@@ -133,7 +133,7 @@ struct AllowanceComplicationProvider: AppIntentTimelineProvider {
                 title: "Unavailable", nextChange: home.nextChange)
         }
         return AllowanceComplicationEntry(
-            date: now, display: AllowanceDisplay(ring: ring),
+            date: now, display: AllowanceDisplay(ring: ring, product: row.account.product),
             title: row.account.effectiveDisplayLabel, nextChange: ring.nextChange)
     }
 }

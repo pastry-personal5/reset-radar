@@ -72,6 +72,8 @@ final class ReaderEnvironment: ObservableObject {
     @Published private(set) var liveActivitiesEnabled: Bool?
     @Published private(set) var backgroundRefreshAvailable = true
     @Published private(set) var selectedAccountID: AccountID?
+    @Published private(set) var readerProfile: ReaderProfileState?
+    @Published var proposedDeviceName = UIDevice.current.name
 
     let hasWatchStage: Bool
 
@@ -88,6 +90,7 @@ final class ReaderEnvironment: ObservableObject {
     private let requestRefresh: RequestMacRefresh
     private let acceptPairing: AcceptPairing
     private let forgetMac: ForgetMac
+    private let reportProfile: ReportReaderProfile
     private let preferences: any PreferenceStore
     private let notifications: any NotificationScheduler
     private let setNotificationOptIn: SetNotificationOptIn
@@ -120,12 +123,7 @@ final class ReaderEnvironment: ObservableObject {
         hasWatchStage = deps.hasWatchStage
         let reloader = WidgetCenterReloader()
         let visible = VisibleSnapshot(snapshots: deps.snapshots, reader: deps.reader)
-        let bridge = deps.hasWatchStage ? WCSessionBridge() : nil
-        let forward = bridge.map {
-            ForwardToWatch(
-                reader: deps.reader, preferences: deps.preferences,
-                watch: PhoneSideWatchLink(session: $0), clock: deps.clock)
-        }
+        let (bridge, forward) = Self.makeWatchComponents(deps)
         let scheduling = ReaderScheduling(
             dependencies: deps, visible: visible, reloader: reloader, watch: forward)
         notifications = scheduling.notifications
@@ -154,6 +152,9 @@ final class ReaderEnvironment: ObservableObject {
             reader: deps.reader, secrets: deps.secrets,
             notifications: scheduling.notifications, activities: scheduling.activities,
             reloader: reloader, watch: bridge.map { PhoneSideWatchLink(session: $0) })
+        reportProfile = ReportReaderProfile(
+            reader: deps.reader, secrets: deps.secrets, relay: deps.relay,
+            cipher: deps.profileCipher)
         let confirmation = ConfirmWatchErase(
             reader: deps.reader, clock: deps.clock, forward: forward)
         confirmWatchErase = confirmation
@@ -162,6 +163,18 @@ final class ReaderEnvironment: ObservableObject {
         backgroundRefreshAvailable = BackgroundRefreshDriver.register(environment: self)
         startWatch(bridge: bridge, forward: forward, ingest: ingest, confirmation: confirmation)
         observeSystemTimeChanges()
+    }
+
+    private static func makeWatchComponents(
+        _ dependencies: ReaderDependencies
+    ) -> (WCSessionBridge?, ForwardToWatch?) {
+        let bridge = dependencies.hasWatchStage ? WCSessionBridge() : nil
+        let forward = bridge.map {
+            ForwardToWatch(
+                reader: dependencies.reader, preferences: dependencies.preferences,
+                watch: PhoneSideWatchLink(session: $0), clock: dependencies.clock)
+        }
+        return (bridge, forward)
     }
 
     private func startWatch(
@@ -240,6 +253,7 @@ final class ReaderEnvironment: ObservableObject {
                     _ = await forgetMac.retryCleanup()
                 }
                 _ = await acceptPairing.resumeActivation()
+                await refreshAutomaticProfileIfNeeded()
                 await watchForward?.activate()
                 await afterCommit.reconcilePending()
                 await afterCommit.reconcileCurrent()
@@ -316,6 +330,7 @@ final class ReaderEnvironment: ObservableObject {
         home = await loadHome.load()
         details = await loadDetails.load()
         pairing = await loadPairing.load()
+        readerProfile = (try? await reader.load())?.readerProfile
         notificationAuthorization = await notifications.authorization()
         liveActivitiesEnabled = await system.liveActivitiesEnabled()
         loaded = true
@@ -490,6 +505,7 @@ extension ReaderEnvironment {
         do {
             let decoded = try acceptPairing.preview(package)
             preview = decoded
+            proposedDeviceName = UIDevice.current.name
             pairingStep = .confirm(code: decoded.confirmationCode)
             pairingMessage = nil
         } catch {
@@ -511,13 +527,28 @@ extension ReaderEnvironment {
     /// The owner confirmed that both devices show the same code.
     func confirmPairing() async {
         guard let preview, pairingStep != .saving else { return }
+        let name: ReaderProfileName
+        do { name = try ReaderProfileName(validating: proposedDeviceName) } catch {
+            pairingMessage = "Enter a visible device name up to 64 UTF-8 bytes."
+            return
+        }
         pairingStep = .saving
-        let outcome = await acceptPairing.accept(preview, confirmed: true)
+        let deviceClass: ReaderDeviceClass =
+            UIDevice.current.userInterfaceIdiom == .pad
+            ? .tablet : .phone
+        let mode: ReaderNamingMode =
+            proposedDeviceName == UIDevice.current.name
+            ? .automatic : .custom
+        let outcome = await acceptPairing.accept(
+            preview, confirmed: true,
+            profile: ReaderProfileState(
+                name: name, namingMode: mode, deviceClass: deviceClass))
         self.preview = nil
         pairingStep = .entry
         pairingMessage = PairingSyncText.pairingOutcome(outcome)
         await reload()
         if outcome == .paired || outcome == .awaitingActivation {
+            if outcome == .paired { _ = await reportProfile.retry() }
             _ = await ingest.run(trigger: .foregroundActivation, inAppProcess: true)
             await reload()
         }
@@ -531,8 +562,60 @@ extension ReaderEnvironment {
         }
         await reload()
         if outcome == .paired {
+            _ = await reportProfile.retry()
             _ = await ingest.run(trigger: .foregroundActivation, inAppProcess: true)
             await reload()
+        }
+    }
+
+    func saveDeviceName(_ value: String) async {
+        let deviceClass: ReaderDeviceClass =
+            UIDevice.current.userInterfaceIdiom == .pad
+            ? .tablet : .phone
+        let outcome = await reportProfile.update(
+            name: value, namingMode: .custom, deviceClass: deviceClass)
+        pairingMessage = profileMessage(outcome)
+        await reload()
+    }
+
+    func useDeviceName() async {
+        proposedDeviceName = UIDevice.current.name
+        let deviceClass: ReaderDeviceClass =
+            UIDevice.current.userInterfaceIdiom == .pad
+            ? .tablet : .phone
+        let outcome = await reportProfile.update(
+            name: UIDevice.current.name, namingMode: .automatic, deviceClass: deviceClass)
+        pairingMessage = profileMessage(outcome)
+        await reload()
+    }
+
+    func retryDeviceProfile() async {
+        pairingMessage = profileMessage(await reportProfile.retry())
+        await reload()
+    }
+
+    private func refreshAutomaticProfileIfNeeded() async {
+        guard let state = try? await reader.load(), let profile = state.readerProfile else {
+            return
+        }
+        if profile.namingMode == .automatic, profile.name.value != UIDevice.current.name {
+            let deviceClass: ReaderDeviceClass =
+                UIDevice.current.userInterfaceIdiom == .pad
+                ? .tablet : .phone
+            _ = await reportProfile.update(
+                name: UIDevice.current.name, namingMode: .automatic, deviceClass: deviceClass)
+        } else {
+            _ = await reportProfile.retry()
+        }
+    }
+
+    private func profileMessage(_ outcome: ReaderProfileUpdateOutcome) -> String? {
+        switch outcome {
+        case .available: "Device name is available to the Mac."
+        case .waiting: "Device name is saved and waiting to share."
+        case .failed: "Device name is saved locally but couldn’t be shared."
+        case .notPaired: nil
+        case .invalidName: "Enter a visible device name up to 64 UTF-8 bytes."
         }
     }
 

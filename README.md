@@ -58,10 +58,10 @@ local erase and pairing-reset controls. Initial paired-device installation, back
 App Group, complication, and offline-erasure validation follows the
 [M16 Watch runbook](docs/research/m16-watch-device-runbook.md).
 
-The Mac app keeps a redacted troubleshooting history for up to eight days. Find its active folder
-in Settings → Diagnostics; Development uses `~/Library/Logs/ResetRadar.dev/` and Release uses
-`~/Library/Logs/ResetRadar/`. See the [contribution guide](docs/contribution-guide.md) for a
-local inspection command.
+The Mac app keeps a redacted troubleshooting history for up to eight days. Development uses
+`~/Library/Logs/ResetRadar.dev/` and Release uses `~/Library/Logs/ResetRadar/`; these logs remain
+available for troubleshooting even though Diagnostics is no longer a Settings destination. See
+the [contribution guide](docs/contribution-guide.md) for a local inspection command.
 
 ## Documentation
 

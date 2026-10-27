@@ -27,10 +27,10 @@ struct AccountRowView: View {
                     }
                 }
             } else {
-                HStack(alignment: .top, spacing: 12) {
-                    identity.frame(maxWidth: .infinity, alignment: .topLeading)
+                HStack(alignment: .center, spacing: 12) {
+                    identity.frame(maxWidth: .infinity, alignment: .leading)
                     rings
-                    detailsButton.padding(.top, 5)
+                    detailsButton
                 }
             }
             if let refreshLine {
@@ -74,7 +74,7 @@ struct AccountRowView: View {
     private var rings: some View {
         HStack(spacing: 10) {
             ForEach(row.standardWindows, id: \.accountWindow) { ring in
-                let display = AllowanceDisplay(ring: ring)
+                let display = AllowanceDisplay(ring: ring, product: row.account.product)
                 let window = ring.accountWindow.window
                 Button {
                     open(window)

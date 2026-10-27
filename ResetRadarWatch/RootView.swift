@@ -95,7 +95,7 @@ struct RootView: View {
                     Text("Refresh")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
                 .accessibilityLabel("Refresh from iPhone")
                 .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
             }
@@ -173,7 +173,7 @@ private struct WatchAccountRow: View {
                     value: WatchSelection(accountID: row.account.id, window: standard)
                 ) {
                     AllowanceRing(
-                        display: AllowanceDisplay(ring: ring),
+                        display: AllowanceDisplay(ring: ring, product: row.account.product),
                         caption: ReaderVocabulary.windowCaption(standard), diameter: 58)
                 }
                 .buttonStyle(.plain)
@@ -200,7 +200,7 @@ private struct WatchAccountRow: View {
     private func accessibilityLabel(
         _ ring: AccountRingSummary, standard: AccountWindow.StandardWindow
     ) -> String {
-        let display = AllowanceDisplay(ring: ring)
+        let display = AllowanceDisplay(ring: ring, product: row.account.product)
         let base = display.accessibilityLabel(
             account: row.account, window: ReaderVocabulary.windowName(standard))
         let reset =

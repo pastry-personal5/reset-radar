@@ -1,6 +1,6 @@
 # Phase 1: Foundation
 
-Status: Active
+Status: Planned
 
 Goal: Settle what Reset Radar must do and how it is built, stand up a project that builds and passes the gate, then build the first usable version: a Mac collector that publishes encrypted readings through the relay to the iPhone, iPad, and Apple Watch.
 
@@ -39,6 +39,7 @@ This file is the overall plan. Each milestone gets its own overview file when it
 | P1-M14 iOS core app | M6, M7, M13 | iOS root | initial free-signed iPhone/iPad install; begin seven-day refresh observation |
 | P1-M15 Scheduling | M14 | Scheduling, widgets | widget, Live Activity, and background-timing checks on device |
 | P1-M16 Watch | M14, M15 | WatchSync, Watch root | initial free-signed install and WatchConnectivity on reference paired devices; seven-day refresh at Phase 1 exit |
+| P1-M17 experience, pairing, and synchronization polish | M14, M15, M16 implementation handoff | Application, Transport, UI, iOS root, Mac root, Watch root | focused contract tests plus visual inspection at reference simulator destinations |
 
 M6, M7 and M8 can proceed in parallel after M5. The expanded M10 account-refresh scope starts
 after M7 and M8 and can run in parallel with M9. M11 preparation may proceed independently, but
@@ -163,3 +164,12 @@ Status: Active
 Goal: WatchSync, Watch app grid, complication, offline and stale display, and Forget Mac erasure; re-enables the Watch test run and closes Watch-owned runtime security rows.
 Plan: [overview](milestone-16-watch-overview.md), [sequence](milestone-16-watch-sequence.md), [Watch app](../architecture/watch-app.md), [WatchSync](../architecture/watch-sync.md)
 Notes: M14 and M15 remain implementation dependencies. M9 exit is not an M16 prerequisite under the owner's waiver; M9's open remote evidence remains separate. The full seven-day Sideloadly refresh observation remains a Phase 1 exit criterion after M16 closes.
+
+### P1-M17: Experience, pairing, and synchronization polish
+Status: Active
+Goal: Polish the iPhone, Mac, and Watch presentation and repair the supporting alias-publication,
+relay-lifecycle, reader-roster, and pairing-metadata seams needed for truthful management UI.
+Plan: [overview](milestone-17-gui-polish-overview.md), [sequence](milestone-17-gui-polish-sequence.md)
+Notes: This work follows the implemented M14–M16 seams. It does not close their outstanding device
+or runtime evidence and does not change provider acquisition, pairing wire bytes, or allowance
+semantics.

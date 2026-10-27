@@ -15,6 +15,12 @@ private func noAccountRefresh(_ accountID: AccountID?) async -> [AccountRefreshR
 
 @MainActor
 final class HomeViewModel: ObservableObject {
+    enum AliasDeliveryState: String, Equatable {
+        case publishing = "Saved locally — publishing"
+        case available = "Saved and available to devices"
+        case failed = "Saved locally — couldn’t publish"
+        case localOnly = "Saved locally"
+    }
     @Published private(set) var accounts = [AccountMetadata]()
     @Published private(set) var snapshot: UsageSnapshot?
     @Published private(set) var message: String?
@@ -23,6 +29,7 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var isRefreshing = false
     @Published private(set) var loadFailed = false
     @Published private(set) var notificationAuthorization = NotificationAuthorization.notDetermined
+    @Published private(set) var aliasDelivery: AliasDeliveryState?
 
     private let catalog: any AccountCatalogStore
     private let snapshots: any LocalSnapshotCommitting
@@ -149,12 +156,38 @@ final class HomeViewModel: ObservableObject {
             if let updates { await updates.aliasDidChange() } else { await load() }
             if let snapshot = update.snapshot {
                 _ = await reminders.run(onIOS: false)
-                await publication.collected(
+                guard let publisher, let state = try? await publisher.load(),
+                    state.lifecycle == .active
+                else {
+                    aliasDelivery = .localOnly
+                    message = nil
+                    return
+                }
+                aliasDelivery = .publishing
+                await publication.observeMetadataDelivery { [weak self] outcome in
+                    await MainActor.run {
+                        guard let self else { return }
+                        self.aliasDelivery = Self.aliasState(for: outcome)
+                    }
+                }
+                let outcome = await publication.collected(
                     CollectResult(snapshot: snapshot, change: update.change))
+                aliasDelivery = Self.aliasState(for: outcome)
+            } else {
+                aliasDelivery = .localOnly
             }
             message = nil
         } catch {
+            aliasDelivery = nil
             message = "The alias must be unique, visible text no longer than 32 bytes."
+        }
+    }
+
+    private static func aliasState(for outcome: PublishOutcome) -> AliasDeliveryState {
+        switch outcome {
+        case .published: .available
+        case .notDue, .backoff: .publishing
+        case .paused, .secretsUnavailable, .envelopeTooLarge, .stopped: .failed
         }
     }
 

@@ -41,18 +41,21 @@ IPHONE_DESTINATION := platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1
 IPAD_DESTINATION := platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1
 WATCH_DESTINATION := platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)
 IPA_PACKAGE := .build/ipa/ResetRadar.ipa
+MAC_TEST_DERIVED_DATA := .build/derived-data/mac-tests
+IOS_DERIVED_DATA := .build/derived-data/ios
+WATCH_DERIVED_DATA := .build/derived-data/watch
 
 iphone: generate
 	@xcodebuild -quiet build -scheme ResetRadar -configuration Development \
-		-destination '$(IPHONE_DESTINATION)'
+		-destination '$(IPHONE_DESTINATION)' -derivedDataPath '$(IOS_DERIVED_DATA)'
 
 ipad: generate
 	@xcodebuild -quiet build -scheme ResetRadar -configuration Development \
-		-destination '$(IPAD_DESTINATION)'
+		-destination '$(IPAD_DESTINATION)' -derivedDataPath '$(IOS_DERIVED_DATA)'
 
 watch: generate
 	@xcodebuild -quiet build -scheme ResetRadarWatch -configuration Development \
-		-destination '$(WATCH_DESTINATION)'
+		-destination '$(WATCH_DESTINATION)' -derivedDataPath '$(WATCH_DERIVED_DATA)'
 
 # The package is signed with the owner's local Personal Team configuration.  It intentionally
 # preserves an existing IPA so a repeat `make ipa` cannot replace a package awaiting installation.
@@ -94,22 +97,27 @@ mac-arch-check: generate
 	Scripts/check-mac-architecture.sh
 
 test-mac:
-	@xcodebuild -quiet test -scheme ResetRadarMac -destination 'platform=macOS'
+	@xcodebuild -quiet test -scheme ResetRadarMac -destination 'platform=macOS' \
+		-derivedDataPath '$(MAC_TEST_DERIVED_DATA)'
 
 test-ios:
-	@xcodebuild -quiet test -scheme ResetRadar -destination '$(IPHONE_DESTINATION)'
+	@xcodebuild -quiet test -scheme ResetRadar -destination '$(IPHONE_DESTINATION)' \
+		-derivedDataPath '$(IOS_DERIVED_DATA)'
 
 test-ipad:
-	@xcodebuild -quiet test -scheme ResetRadar -destination '$(IPAD_DESTINATION)'
+	@xcodebuild -quiet test -scheme ResetRadar -destination '$(IPAD_DESTINATION)' \
+		-derivedDataPath '$(IOS_DERIVED_DATA)'
 
 # One invocation builds once and tests both simulators concurrently, so the run takes about as
 # long as the slower destination rather than the sum of both.
 test-ios-ipad:
 	@xcodebuild -quiet test -scheme ResetRadar \
-		-destination '$(IPHONE_DESTINATION)' -destination '$(IPAD_DESTINATION)'
+		-destination '$(IPHONE_DESTINATION)' -destination '$(IPAD_DESTINATION)' \
+		-derivedDataPath '$(IOS_DERIVED_DATA)'
 
 test-watch:
-	@xcodebuild -quiet test -scheme ResetRadarWatch -destination '$(WATCH_DESTINATION)'
+	@xcodebuild -quiet test -scheme ResetRadarWatch -destination '$(WATCH_DESTINATION)' \
+		-derivedDataPath '$(WATCH_DERIVED_DATA)'
 
 relay-install:
 	npm --prefix relay ci

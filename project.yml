@@ -289,7 +289,15 @@ targets:
     dependencies:
       - target: ResetRadar
       - package: ResetRadarKit
+        product: ResetRadarApplication
+      - package: ResetRadarKit
+        product: ResetRadarDomain
+      - package: ResetRadarKit
+        product: ResetRadarStorage
+      - package: ResetRadarKit
         product: ResetRadarTestSupport
+      - package: ResetRadarKit
+        product: ResetRadarUI
   ResetRadarUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -306,7 +314,17 @@ targets:
     dependencies:
       - target: ResetRadarMac
       - package: ResetRadarKit
+        product: ResetRadarApplication
+      - package: ResetRadarKit
+        product: ResetRadarDomain
+      - package: ResetRadarKit
+        product: ResetRadarProviderAdapters
+      - package: ResetRadarKit
+        product: ResetRadarStorage
+      - package: ResetRadarKit
         product: ResetRadarTestSupport
+      - package: ResetRadarKit
+        product: ResetRadarTransport
   ResetRadarWatchTests:
     templates: [UnitTests]
     platform: watchOS

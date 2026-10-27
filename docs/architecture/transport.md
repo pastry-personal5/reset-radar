@@ -133,7 +133,12 @@ The authenticated header is the exact UTF-8 byte output of `WireCoding.encoder()
 
 The outer envelope is one compact, sorted-key UTF-8 JSON object with exactly the eight keys `protocolVersion`, `envelopeVersion`, `publisherID`, `sequence`, `keyVersion`, `nonce`, `ciphertext`, and `tag`. The first five reproduce the header fields with the same JSON types; the last three are unpadded base64url strings. The v1 sequence is a JSON integer from `1` through `9007199254740991` (`2^53 - 1`), so TypeScript can compare it exactly. Swift refuses to seal or send a larger v1 sequence. The decoder rejects duplicate or unknown keys, noncanonical encoding, wrong lengths, out-of-range sequences, and unsupported versions before opening. The relay applies the same outer checks without seeing the plaintext or content key.
 
-The pairing package is the exact compact, sorted-key UTF-8 `WireCoding` JSON of `PairingPackage`, encoded once as unpadded base64url text. The two 32-byte `Data` fields inside that JSON use `WireCoding`'s standard padded base64 encoding. Its `minimumSequence` cannot exceed the v1 envelope sequence cap. The top-level text and its decoded JSON must re-encode identically; whitespace, alternate padding, duplicate or unknown keys, and alternate spellings are rejected. The confirmation code is the first eight SHA-256 digest bytes of that exact top-level text, rendered as 16 lowercase hexadecimal characters in four groups of four separated by hyphens. A fixture pins header bytes, outer bytes, pairing JSON and text, and the displayed code.
+The pairing package is the exact compact, sorted-key UTF-8 `WireCoding` JSON of `PairingPackage`, encoded once as unpadded base64url text. The two 32-byte `Data` fields inside that JSON use `WireCoding`'s standard padded base64 encoding. Its `minimumSequence` cannot exceed the v1 envelope sequence cap. The top-level text and its decoded JSON must re-encode identically; whitespace, alternate padding, duplicate or unknown keys, and alternate spellings are rejected. The confirmation code interprets the first four SHA-256 bytes of that exact top-level text as a big-endian integer, reduces it modulo `1_000_000`, and renders exactly six zero-padded decimal digits. A fixture pins header bytes, outer bytes, pairing JSON and text, and the displayed code.
+
+Reader profiles are a separate canonical version-2 envelope encrypted with the existing 32-byte
+content key and a fresh 12-byte AES-GCM nonce. Associated data binds publisher ID, reader ID,
+profile version, key version, and the independent revision. Only display name and device class are
+plaintext inside the cipher; the relay sees the bounded envelope and monotonic revision only.
 
 The canonical `workers.dev` origin is `https://<worker>.<account>.workers.dev` with exactly two lowercase ASCII DNS labels before `workers.dev`, no explicit port or trailing slash, and no path, user information, query, or fragment. A package deadline is locally admissible from 30 seconds before the decoding clock through five minutes and 30 seconds after it, inclusive; the relay's authenticated `401` decides whether a pending reader can still activate.
 
@@ -156,6 +161,10 @@ The canonical `workers.dev` origin is `https://<worker>.<account>.workers.dev` w
   accepted request, `304`, or a plain newer snapshot as proof of a read; only an authenticated
   matching `ManualRefreshResult` with the targeted per-account outcomes proves completion. The v2
   request carries no alias, provider account identifier, usage value, or credential.
+- **Reader profiles.** After unchanged v1 activation, the reader independently uploads its exact
+  encrypted pending revision to `/v2/reader-profile`. The Mac prefers `/v2/readers` and falls back
+  to strict `/v1/readers` when the profile route is unsupported. Profile failure never changes
+  pairing, snapshot transport status, or the last validated cache.
 - **No certificate pinning.** Content is authenticated end to end, and `workers.dev` certificates rotate under Cloudflare's control.
 
 ## Pairing package codec

@@ -10,6 +10,7 @@ struct PairingSyncView: View {
     @State private var packageText = ""
     @State private var scanning = false
     @State private var confirmForget = false
+    @State private var deviceName = ""
 
     var body: some View {
         List {
@@ -20,6 +21,9 @@ struct PairingSyncView: View {
                     LabeledContent(
                         "Sync", value: ReaderVocabulary.transport(environment.details.transport))
                 }
+            }
+            if environment.pairing?.state == .paired {
+                thisDevice
             }
             if PairingSyncText.acceptsPairingPackage(environment.pairing) {
                 pairMac
@@ -118,6 +122,9 @@ struct PairingSyncView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                TextField("Device Name", text: $environment.proposedDeviceName)
+                    .textInputAutocapitalization(.words)
+                    .accessibilityIdentifier("pairing.deviceName")
                 Button("Confirm Pairing") { Task { await environment.confirmPairing() } }
                     .accessibilityIdentifier("pairing.confirm")
                 Button("Cancel", role: .cancel) { environment.cancelPairing() }
@@ -131,6 +138,31 @@ struct PairingSyncView: View {
                 "Scan the QR code or paste the Pairing Package shown in the Collector Mac’s Relay "
                     + "& Pairing settings. It carries Reset Radar secrets, never provider "
                     + "credentials.")
+        }
+    }
+
+    private var thisDevice: some View {
+        Section("This Device") {
+            TextField("Device Name", text: $deviceName)
+                .onSubmit { Task { await environment.saveDeviceName(deviceName) } }
+            Button("Save Device Name") {
+                Task { await environment.saveDeviceName(deviceName) }
+            }
+            Button("Use Device Name") { Task { await environment.useDeviceName() } }
+            LabeledContent("Sharing", value: profileDeliveryText)
+            if environment.readerProfile?.delivery == .failed {
+                Button("Retry") { Task { await environment.retryDeviceProfile() } }
+            }
+        }
+        .onAppear { deviceName = environment.readerProfile?.name.value ?? "" }
+    }
+
+    private var profileDeliveryText: String {
+        switch environment.readerProfile?.delivery {
+        case .available: "Available to Mac"
+        case .waiting: "Waiting to share"
+        case .failed: "Couldn’t share — Retry"
+        case nil: "Waiting to share"
         }
     }
 

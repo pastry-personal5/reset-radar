@@ -15,7 +15,6 @@ public struct AccountAliasUpdate: Sendable, Equatable {
 public actor UpdateAccountAlias {
     private let catalogStore: any AccountCatalogStore
     private let snapshots: any LocalSnapshotCommitting
-    private let clock: any AppClock
 
     public init(
         catalogStore: any AccountCatalogStore, snapshots: any LocalSnapshotCommitting,
@@ -23,7 +22,7 @@ public actor UpdateAccountAlias {
     ) {
         self.catalogStore = catalogStore
         self.snapshots = snapshots
-        self.clock = clock
+        _ = clock
     }
 
     public func update(accountID: AccountID, input: String) async throws -> AccountAliasUpdate {
@@ -42,15 +41,15 @@ public actor UpdateAccountAlias {
             throw UpdateAccountAliasError.accountNotFound
         }
         guard let previous = try await snapshots.load() else {
-            return AccountAliasUpdate(account: account, snapshot: nil, change: .transition)
+            return AccountAliasUpdate(account: account, snapshot: nil, change: .metadataOnly)
         }
         let updated = try UsageSnapshot(
-            publisherID: previous.publisherID, generatedAt: clock.now,
+            publisherID: previous.publisherID, generatedAt: previous.generatedAt,
             heartbeatSeconds: previous.heartbeatSeconds, accounts: catalog.accounts,
             sources: previous.sources, windows: previous.windows,
             diagnostics: previous.diagnostics,
             manualRefreshResults: previous.manualRefreshResults)
         try await snapshots.commitLocal(updated)
-        return AccountAliasUpdate(account: account, snapshot: updated, change: .transition)
+        return AccountAliasUpdate(account: account, snapshot: updated, change: .metadataOnly)
     }
 }

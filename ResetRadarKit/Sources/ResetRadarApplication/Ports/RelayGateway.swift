@@ -22,6 +22,22 @@ public protocol RelayGateway: Sendable {
         _ id: ReaderID, digest: Data, endpoint: URL, adminToken: SecretValue
     ) async -> RelayResponse<Date>
     func listReaders(endpoint: URL, adminToken: SecretValue) async -> RelayResponse<[RelayReader]>
+    func putReaderProfile(
+        _ envelope: Data, endpoint: URL, readToken: SecretValue
+    ) async -> RelayOutcome
+    func listReadersV2(
+        endpoint: URL, adminToken: SecretValue
+    ) async -> RelayResponse<[RelayReader]>
     func revokeReader(_ id: ReaderID, endpoint: URL, adminToken: SecretValue) async -> RelayOutcome
     func destroyRelay(endpoint: URL, adminToken: SecretValue) async -> RelayOutcome
+}
+
+extension RelayGateway {
+    public func putReaderProfile(
+        _ envelope: Data, endpoint: URL, readToken: SecretValue
+    ) async -> RelayOutcome { .unsupportedVersion }
+
+    public func listReadersV2(
+        endpoint: URL, adminToken: SecretValue
+    ) async -> RelayResponse<[RelayReader]> { .outcome(.unsupportedVersion) }
 }

@@ -106,7 +106,6 @@ public final class FakePairingCodec: PairingCodec, @unchecked Sendable {
     public func confirmationCode(for encoded: String) -> String {
         var hash: UInt32 = 2_166_136_261
         for byte in encoded.utf8 { hash = (hash ^ UInt32(byte)) &* 16_777_619 }
-        let hex = String(format: "%08X", hash)
-        return "\(hex.prefix(4))-\(hex.suffix(4))"
+        return String(format: "%06u", hash % 1_000_000)
     }
 }

@@ -34,7 +34,10 @@ public enum PublicationPolicy {
             return .wait(until: backoffUntil)
         }
         guard let last = state.lastPublishedAt else { return .publishNow }
-        if trigger == .wake || trigger == .networkRestored || change == .transition {
+        let immediate =
+            trigger == .wake || trigger == .networkRestored || change == .transition
+            || change == .metadataOnly
+        if immediate {
             return .publishNow
         }
         var due = last.addingTimeInterval(change == .material ? coalescing : heartbeat)

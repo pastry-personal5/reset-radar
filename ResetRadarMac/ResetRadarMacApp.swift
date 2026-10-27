@@ -27,7 +27,7 @@ final class MacBootstrap: ObservableObject {
         await log.startMaintenance()
         if !(await log.record(.lifecycle(.starting))) {
             messages.post(
-                "Troubleshooting log is unavailable. Check Settings → Diagnostics.",
+                "Troubleshooting log is unavailable. Check the documented build log folder.",
                 tone: .attention)
         }
         messages.post("Starting the Mac collector.")

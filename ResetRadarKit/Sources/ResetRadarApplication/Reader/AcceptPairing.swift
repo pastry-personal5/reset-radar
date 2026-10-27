@@ -51,7 +51,10 @@ public actor AcceptPairing {
         }
     }
 
-    public func accept(_ preview: PairingPreview, confirmed: Bool) async -> PairingOutcome {
+    public func accept(
+        _ preview: PairingPreview, confirmed: Bool,
+        profile: ReaderProfileState? = nil
+    ) async -> PairingOutcome {
         guard confirmed else { return .failed(.confirmationRequired) }
         await recoverStaging()
         guard let state = try? await reader.load() else { return .failed(.storageFailed) }
@@ -64,7 +67,7 @@ public actor AcceptPairing {
         case .failure(let error): return .failed(error)
         }
         guard await stage(package) else { return .failed(.storageFailed) }
-        guard await commit(package, preflight) else {
+        guard await commit(package, preflight, profile: profile) else {
             await unstage()
             return .failed(.storageFailed)
         }
@@ -139,7 +142,9 @@ public actor AcceptPairing {
 
     /// One atomic replacement: pairing metadata, the validated preflight snapshot if any, and
     /// `awaitingActivation`. The preflight snapshot is stored but not presented until activation.
-    private func commit(_ package: PairingPackage, _ preflight: Preflight) async -> Bool {
+    private func commit(
+        _ package: PairingPackage, _ preflight: Preflight, profile: ReaderProfileState?
+    ) async -> Bool {
         let pairing = ReaderPairing(
             endpoint: package.relayEndpoint, publisherID: package.publisherID,
             readerID: package.readerID, minimumSequence: package.minimumSequence,
@@ -163,6 +168,7 @@ public actor AcceptPairing {
                 state.backoffUntil = nil
                 state.needsAppReconcile = preflight.snapshot != nil
                 state.pendingManualRequest = nil
+                state.readerProfile = profile
             }
             return true
         } catch {
@@ -230,5 +236,125 @@ public actor AcceptPairing {
         }
         try? await secrets.delete(.readToken)
         try? await secrets.delete(.contentKey)
+    }
+}
+
+public enum ReaderProfileUpdateOutcome: Sendable, Equatable {
+    case available
+    case waiting
+    case failed(RelayOutcome)
+    case notPaired
+    case invalidName(ReaderProfileNameError)
+}
+
+/// Saves the selected reader name first, then independently publishes its opaque profile.
+public actor ReportReaderProfile {
+    private let reader: any ReaderStore
+    private let secrets: any SecretStore
+    private let relay: any RelayGateway
+    private let cipher: any ReaderProfileCipher
+
+    public init(
+        reader: any ReaderStore, secrets: any SecretStore, relay: any RelayGateway,
+        cipher: any ReaderProfileCipher
+    ) {
+        self.reader = reader
+        self.secrets = secrets
+        self.relay = relay
+        self.cipher = cipher
+    }
+
+    public func update(
+        name input: String, namingMode: ReaderNamingMode, deviceClass: ReaderDeviceClass
+    ) async -> ReaderProfileUpdateOutcome {
+        let name: ReaderProfileName
+        do { name = try ReaderProfileName(validating: input) } catch { return .invalidName(error) }
+        do {
+            try await reader.transact { state in
+                let revision = state.readerProfile?.revision ?? 0
+                state.readerProfile = ReaderProfileState(
+                    name: name, namingMode: namingMode, deviceClass: deviceClass,
+                    revision: revision, delivery: .waiting)
+            }
+        } catch { return .waiting }
+        return await createAndSend()
+    }
+
+    /// Uses a previously persisted exact body, including after app relaunch.
+    public func retry() async -> ReaderProfileUpdateOutcome {
+        guard let state = try? await reader.load(), let pairing = state.pairing,
+            !state.awaitingActivation, let profile = state.readerProfile
+        else { return .notPaired }
+        if let pending = profile.pendingEnvelope {
+            return await send(pending, pairing: pairing)
+        }
+        return await createAndSend()
+    }
+
+    private func createAndSend() async -> ReaderProfileUpdateOutcome {
+        guard let state = try? await reader.load(), let pairing = state.pairing,
+            !state.awaitingActivation, let profileState = state.readerProfile,
+            let key = try? await secrets.read(.contentKey)
+        else { return .notPaired }
+        guard profileState.revision < 9_007_199_254_740_991 else {
+            return await markFailed(.protocolFailure)
+        }
+        let revision = profileState.revision + 1
+        let header = ReaderProfileHeader(
+            publisherID: pairing.publisherID, readerID: pairing.readerID,
+            keyVersion: pairing.keyVersion, revision: revision)
+        let profile = ReaderProfile(
+            displayName: profileState.name, deviceClass: profileState.deviceClass)
+        guard let body = try? cipher.seal(profile, header: header, key: key) else {
+            return await markFailed(.protocolFailure)
+        }
+        do {
+            let stored = try await reader.transact { state -> Bool in
+                guard var current = state.readerProfile,
+                    current.revision == profileState.revision,
+                    current.name == profileState.name,
+                    current.namingMode == profileState.namingMode,
+                    current.deviceClass == profileState.deviceClass
+                else { return false }
+                current.revision = revision
+                current.pendingEnvelope = body
+                current.delivery = .waiting
+                state.readerProfile = current
+                return true
+            }
+            guard stored else { return .waiting }
+        } catch { return .waiting }
+        return await send(body, pairing: pairing)
+    }
+
+    private func send(
+        _ body: Data, pairing: ReaderPairing
+    ) async -> ReaderProfileUpdateOutcome {
+        guard let token = try? await secrets.read(.readToken) else {
+            return await markFailed(.protocolFailure, envelope: body)
+        }
+        let outcome = await relay.putReaderProfile(
+            body, endpoint: pairing.endpoint, readToken: token)
+        if case .accepted = outcome {
+            let applied = try? await reader.transact { state -> Bool in
+                guard state.readerProfile?.pendingEnvelope == body else { return false }
+                state.readerProfile?.pendingEnvelope = nil
+                state.readerProfile?.delivery = .available
+                return true
+            }
+            return applied == true ? .available : .waiting
+        }
+        return await markFailed(outcome, envelope: body)
+    }
+
+    private func markFailed(
+        _ outcome: RelayOutcome, envelope: Data? = nil
+    ) async -> ReaderProfileUpdateOutcome {
+        let applied = try? await reader.transact { state -> Bool in
+            if let envelope, state.readerProfile?.pendingEnvelope != envelope { return false }
+            state.readerProfile?.delivery = .failed
+            return true
+        }
+        return applied == true ? .failed(outcome) : .waiting
     }
 }

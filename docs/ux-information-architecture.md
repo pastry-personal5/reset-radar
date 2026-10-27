@@ -99,8 +99,10 @@ Activity authorization status on iPhone, Privacy & Data, Diagnostics, and About.
 notification and Live Activity actions remain in Account Details. On iPhone, Pairing & Sync owns
 the pending or confirmed Watch-erasure state after Forget Mac; iPad has no Watch state.
 
-Mac Settings contains General, Sources, Relay & Pairing, Diagnostics, and About. General owns
+Mac Settings contains General, Sources, Relay & Pairing, and About. General owns
 launch at login and notification authorization status. Sources owns Codex and Claude Code account
 configuration, replacement/removal confirmation, and alias editing. Relay & Pairing owns relay
 setup, QR/manual pairing, the warned Manual Copy action, paired-device revocation, destruction,
 Keychain-cache disclosure, and recovery status.
+Redacted diagnostics collection and the documented build-specific log folders remain available,
+but have no Mac Settings destination.

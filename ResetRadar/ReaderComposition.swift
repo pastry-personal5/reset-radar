@@ -13,6 +13,7 @@ struct ReaderDependencies {
     var secrets: any SecretStore
     var relay: any RelayGateway
     var cipher: any EnvelopeCipher
+    var profileCipher: any ReaderProfileCipher = AESGCMReaderProfileCipher()
     var codec: any PairingCodec
     var random: any SecretGenerator
     var clock: any AppClock
@@ -110,7 +111,8 @@ enum ReaderComposition {
             reader: store, snapshots: ReaderSnapshotStore(store: store),
             secrets: KeychainSecretStore(
                 build: Build.current == .release ? .release : .debug, accessGroup: accessGroup),
-            relay: HTTPRelayGateway(), cipher: AESGCMEnvelopeCipher(), codec: JSONPairingCodec(),
+            relay: HTTPRelayGateway(), cipher: AESGCMEnvelopeCipher(),
+            profileCipher: AESGCMReaderProfileCipher(), codec: JSONPairingCodec(),
             random: CryptoSecretGenerator(), clock: clock,
             diagnostics: LogDiagnosticsSink(locations: locations),
             system: LiveReaderSystemStatus(), selection: UserDefaultsSelectionStore(),

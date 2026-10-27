@@ -90,7 +90,9 @@ private func fixture(_ name: String) throws -> [String: String] {
     }
     let encoded = try codec.encode(package(expiresAt: now.addingTimeInterval(300)))
     #expect(try codec.decode(encoded, now: now).readerID == reader)
-    #expect(codec.confirmationCode(for: encoded).split(separator: "-").count == 4)
+    #expect(codec.confirmationCode(for: encoded).count == 6)
+    #expect(codec.confirmationCode(for: encoded).allSatisfy { $0.isNumber })
+    #expect(codec.confirmationCode(for: "leading-zero-10") == "072087")
     let lowerBoundary = try codec.encode(package(expiresAt: now.addingTimeInterval(-30)))
     let upperBoundary = try codec.encode(package(expiresAt: now.addingTimeInterval(330)))
     #expect(try codec.decode(lowerBoundary, now: now).readerID == reader)

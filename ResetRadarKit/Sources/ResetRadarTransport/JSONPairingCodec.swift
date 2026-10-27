@@ -46,12 +46,8 @@ public struct JSONPairingCodec: PairingCodec {
 
     public func confirmationCode(for encoded: String) -> String {
         let digest = SHA256.hash(data: Data(encoded.utf8))
-        let hex = digest.prefix(8).map { String(format: "%02x", $0) }.joined()
-        return stride(from: 0, to: hex.count, by: 4).map { offset in
-            let start = hex.index(hex.startIndex, offsetBy: offset)
-            let end = hex.index(start, offsetBy: 4)
-            return String(hex[start..<end])
-        }.joined(separator: "-")
+        let value = digest.prefix(4).reduce(UInt32.zero) { ($0 << 8) | UInt32($1) }
+        return String(format: "%06u", value % 1_000_000)
     }
 
     private func validate(_ package: PairingPackage) throws(PairingCodecError) {

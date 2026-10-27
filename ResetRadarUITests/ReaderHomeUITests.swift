@@ -78,7 +78,7 @@ final class ReaderHomeUITests: XCTestCase {
             unavailable, "Account #2, Codex, Five-hour, No percentage available, Unavailable")
         XCTAssertFalse(unavailable.contains("0%"))
         XCTAssertTrue(app.element("ring.3.weekly").label.hasSuffix("Waiting for Update"))
-        XCTAssertTrue(app.element("ring.3.fiveHour").label.contains("33.5% used"))
+        XCTAssertTrue(app.element("ring.3.fiveHour").label.contains("33% used"))
         XCTAssertEqual(app.element("accountDetails.1").label, "Account Details")
         try assertRowReadingOrder(app, number: 1, alias: "Work")
 
@@ -106,6 +106,15 @@ final class ReaderHomeUITests: XCTestCase {
 
         if !isPad { app.navigationBars.buttons.element(boundBy: 0).tap() }
         XCTAssertTrue(app.element("accountRow.1").appears(timeout: 10))
+        assertRefreshFeedback(app)
+    }
+
+    @MainActor
+    private func assertRefreshFeedback(_ app: XCUIApplication) {
+        if !isPad {
+            XCTAssertFalse(app.element("homeRefresh").exists)
+            return
+        }
         app.element("homeRefresh").tap()
         let workRefresh = app.element("refreshLine.1")
         XCTAssertTrue(

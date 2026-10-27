@@ -66,6 +66,8 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [phase-1/milestone-16-watch-sequence.md](phase-1/milestone-16-watch-sequence.md) | P1-M16 WatchSync, iPhone and Watch wiring, complication, signing, and validation order. Active. |
 | [phase-1/milestone-16-security-review.md](phase-1/milestone-16-security-review.md) | P1-M16 row-by-row failure and trust-boundary evidence table. Active. |
 | [phase-1/milestone-16-validation.md](phase-1/milestone-16-validation.md) | P1-M16 integrated handoff, automated evidence, and remaining paired-device proof. Active. |
+| [phase-1/milestone-17-gui-polish-overview.md](phase-1/milestone-17-gui-polish-overview.md) | P1-M17 experience, pairing, synchronization, and presentation scope. Active. |
+| [phase-1/milestone-17-gui-polish-sequence.md](phase-1/milestone-17-gui-polish-sequence.md) | P1-M17 implementation and validation order. Active. |
 | [research/cloudflare-relay-spike-runbook.md](research/cloudflare-relay-spike-runbook.md) | Active owner-run P1-M9 deployment, smoke, 30-minute sample, fault, release, and teardown procedure. |
 | [phase-1/owner-decisions.md](phase-1/owner-decisions.md) | Owner-approved P1-M1 product, security, scheduling, synchronization, and distribution decisions that constrain P1-M2. |
 | [research/initial-research-on-feasibility.md](research/initial-research-on-feasibility.md) | P1-M1 feasibility study: service limits, reset-time sources, iOS capabilities, prior art, and owner-approved scope. Active. |

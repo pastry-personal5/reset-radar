@@ -1,5 +1,6 @@
 import Foundation
 import ResetRadarDomain
+import ResetRadarUI
 import SwiftUI
 
 /// A Mac Home cell resolved by account and default duration, never by snapshot array position.
@@ -7,6 +8,7 @@ struct MacAllowanceDisplay: Equatable {
     let state: PresentationState
     let usedPercent: Double?
     let fractionDigits: Int?
+    let product: ProductID?
 
     static func resolve(
         account: AccountMetadata, window: AccountWindow.StandardWindow,
@@ -17,11 +19,13 @@ struct MacAllowanceDisplay: Equatable {
         let (resolution, _) = AccountWindowResolver.resolve(
             accountWindow, in: snapshot, now: now)
         guard case .window(let value) = resolution else { return unavailable }
-        return resolve(window: value, source: snapshot.source(for: account.id), now: now)
+        return resolve(
+            window: value, source: snapshot.source(for: account.id), product: account.product,
+            now: now)
     }
 
     static func resolve(
-        window: AllowanceWindow, source: AccountSource?, now: Date
+        window: AllowanceWindow, source: AccountSource?, product: ProductID? = nil, now: Date
     ) -> Self {
         let state = PresentationPolicy.derive(
             window: window, source: source, now: now
@@ -30,21 +34,16 @@ struct MacAllowanceDisplay: Equatable {
         case .current, .stale:
             return Self(
                 state: state, usedPercent: window.observation?.usedPercent,
-                fractionDigits: window.observation?.fractionDigits)
+                fractionDigits: window.observation?.fractionDigits, product: product)
         case .resetAwaitingRefresh, .unavailable:
-            return Self(state: state, usedPercent: nil, fractionDigits: nil)
+            return Self(state: state, usedPercent: nil, fractionDigits: nil, product: product)
         }
     }
 
     var percentageText: String? {
         guard let usedPercent else { return nil }
-        let value: String
-        if let fractionDigits {
-            value = usedPercent.formatted(.number.precision(.fractionLength(fractionDigits)))
-        } else {
-            value = usedPercent.formatted(.number.precision(.fractionLength(0...2)))
-        }
-        return "\(value)%"
+        return PercentageUsedFormatter.text(
+            usedPercent, product: product, fractionDigits: fractionDigits)
     }
 
     var statusText: String {
@@ -57,7 +56,7 @@ struct MacAllowanceDisplay: Equatable {
     }
 
     static let unavailable = Self(
-        state: .unavailable, usedPercent: nil, fractionDigits: nil)
+        state: .unavailable, usedPercent: nil, fractionDigits: nil, product: nil)
 }
 
 struct MacAllowanceRing: View {
