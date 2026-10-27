@@ -6,6 +6,12 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-27 — Codex — Replaced `make ipa`'s Xcode export step with direct packaging of the
+  verified, signed Release archive. Xcode-managed iOS profiles can omit the paired Watch UDID,
+  causing `-exportArchive` to reject an otherwise valid archive. The new step does not re-sign
+  the app or change the approved Sideloadly Normal Install flow; the generated IPA passed
+  unpacked signature verification and contains the iOS widget and Watch app.
+
 - 2026-10-27 — Codex — Restored the Watch simulator test plan to `make test`, `make test-apple`,
   and the complete gate for P1-M16. The reference Watch destination now runs alongside the Mac,
   iPhone, and iPad suites; this restores automated coverage but does not replace paired-device

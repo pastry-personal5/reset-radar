@@ -152,10 +152,13 @@ Keychain entry, relay token, or usage reading in a command transcript or reposit
 The app contains status-only notification and Live Activity surfaces in M14. Widget, notification,
 Live Activity, and Watch delivery preservation are M15/M16 evidence and must not be claimed here.
 
-### Verified Xcode 27.1 IPA export
+### Signed archive IPA packaging
 
 Run from the repository root after step 2. The temporary directory holds signing material; keep
-the archive, IPA, and Xcode logs out of the repository and out of shared evidence.
+the archive, IPA, and Xcode logs out of the repository and out of shared evidence. Xcode 27.1's
+`-exportArchive` can reject otherwise valid Xcode-managed profiles when they do not include the
+paired Watch UDID. Package the already signed archive app instead; this does not re-sign it or
+change the approved Sideloadly Normal Install distribution flow.
 
 ```sh
 install_workdir=$(mktemp -d /private/tmp/reset-radar-install.XXXXXX)
@@ -163,23 +166,15 @@ xcodebuild archive \
   -project ResetRadar.xcodeproj -scheme ResetRadar -configuration Release \
   -destination 'generic/platform=iOS' \
   -archivePath "$install_workdir/ResetRadar.xcarchive" -allowProvisioningUpdates
-cat > "$install_workdir/ExportOptions.plist" <<'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>method</key><string>debugging</string>
-  <key>signingStyle</key><string>automatic</string>
-  <key>stripSwiftSymbols</key><false/>
-</dict></plist>
-PLIST
-xcodebuild -exportArchive \
-  -archivePath "$install_workdir/ResetRadar.xcarchive" \
-  -exportPath "$install_workdir/export" \
-  -exportOptionsPlist "$install_workdir/ExportOptions.plist" \
-  -allowProvisioningUpdates
+archive_app="$install_workdir/ResetRadar.xcarchive/Products/Applications/ResetRadar.app"
+codesign --verify --deep --strict "$archive_app"
+mkdir "$install_workdir/Payload"
+ditto "$archive_app" "$install_workdir/Payload/ResetRadar.app"
+ditto -c -k --sequesterRsrc --keepParent "$install_workdir/Payload" \
+  "$install_workdir/ResetRadar.ipa"
 ```
 
-The result is `"$install_workdir/export/ResetRadar.ipa"`. On 2026-10-26 the archive and IPA
+The result is `"$install_workdir/ResetRadar.ipa"`. On 2026-10-26 the archive and IPA
 contained the main app, iOS widget, Watch app, and Watch widget; their bundle IDs matched the
 project, the iOS app and widget carried the expected App Group and Keychain entitlements, and
 the app's Info.plist Keychain group matched its signature. The extracted app's signature passed

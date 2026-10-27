@@ -64,26 +64,17 @@ ipa: generate
 	else \
 		workdir=$$(mktemp -d /private/tmp/reset-radar-ipa.XXXXXX); \
 		trap 'rm -rf "$$workdir"' EXIT; \
-		export_options="$$workdir/ExportOptions.plist"; \
-		printf '%s\n' \
-			'<?xml version="1.0" encoding="UTF-8"?>' \
-			'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
-			'<plist version="1.0"><dict>' \
-			'<key>method</key><string>debugging</string>' \
-			'<key>signingStyle</key><string>automatic</string>' \
-			'<key>stripSwiftSymbols</key><false/>' \
-			'</dict></plist>' > "$$export_options"; \
 		xcodebuild -quiet archive \
 			-project ResetRadar.xcodeproj -scheme ResetRadar -configuration Release \
 			-destination 'generic/platform=iOS' \
 			-archivePath "$$workdir/ResetRadar.xcarchive" -allowProvisioningUpdates; \
-		xcodebuild -quiet -exportArchive \
-			-archivePath "$$workdir/ResetRadar.xcarchive" \
-			-exportPath "$$workdir/export" \
-			-exportOptionsPlist "$$export_options" \
-			-allowProvisioningUpdates; \
+		archive_app="$$workdir/ResetRadar.xcarchive/Products/Applications/ResetRadar.app"; \
+		codesign --verify --deep --strict "$$archive_app"; \
+		mkdir -p "$$workdir/Payload"; \
+		ditto "$$archive_app" "$$workdir/Payload/ResetRadar.app"; \
+		ditto -c -k --sequesterRsrc --keepParent "$$workdir/Payload" "$$workdir/ResetRadar.ipa"; \
 		mkdir -p "$$(dirname "$$package_path")"; \
-		mv "$$workdir/export/ResetRadar.ipa" "$$package_path"; \
+		cp "$$workdir/ResetRadar.ipa" "$$package_path"; \
 		printf '%s\n' "Created IPA: $$package_path"; \
 	fi
 

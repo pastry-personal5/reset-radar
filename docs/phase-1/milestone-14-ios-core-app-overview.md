@@ -109,9 +109,11 @@ are recorded in [owner decisions](owner-decisions.md#p1-m14-decisions):
   2026-10-27: [the guide](../user-guide-for-sideloading.md) distinguishes the successful initial
   iPhone install from open renewal and extension checks, and its example image uses opaque
   redactions plus a neutral replacement background.
-- [ ] The root Makefile provides a phony `ipa` target that creates the signed iPhone package at
-  `.build/ipa/ResetRadar.ipa` using the verified Release archive and `debugging` export flow, but
-  preserves an existing package. Evidence pending.
+- [x] The root Makefile provides a phony `ipa` target that creates the signed iPhone package at
+  `.build/ipa/ResetRadar.ipa` by verifying and packaging the signed Release archive without
+  re-signing it, while preserving an existing package. Evidence on 2026-10-27: the signed archive
+  package completed successfully; unpacked contents include the iOS widget and Watch app, and
+  `codesign --verify --deep --strict` passed without an export-profile check.
 - [x] The root Makefile provides phony `iphone`, `ipad`, and `watch` targets that generate the
   project and build the corresponding Development scheme for each reference simulator without
   enabling the suspended Watch test run. Evidence on 2026-10-27: `make -qp` reports all three as
