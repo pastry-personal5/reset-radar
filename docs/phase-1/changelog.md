@@ -6,6 +6,13 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-27 — Owner — Raised the minimum deployment targets for iOS, iPadOS, and watchOS to
+  27.0. The approved reference-device models remain unchanged; their simulator destinations and
+  the complete contribution gate now require compatible runtimes at or above the new floor.
+  Xcode accepts the new targets and the watchOS 27.0 suite passes, but the installed iOS 27.0
+  runtime cannot create the approved iPhone 17 Pro Max or iPad Air 11-inch (M2). Choosing
+  replacement reference models remains an owner decision.
+
 - 2026-10-27 — Owner/Codex — Isolated reusable Mac, iOS, and Watch DerivedData paths in the
   Make targets, declared test targets' directly imported local package products, and removed four
   Swift build warnings. Generation, formatting, strict lint, imports, relay CI, Mac and Watch

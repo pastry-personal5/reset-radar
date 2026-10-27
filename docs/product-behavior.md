@@ -9,7 +9,7 @@ Product scope: what the app does and what it deliberately does not do.
 - Reset Radar is for the owner's personal use only.
 - The first version is signed with the owner's free Apple account and sideloaded. It is not distributed through the App Store or TestFlight.
 - Sideloadly is the supported iPhone, iPad, and embedded-watch installation and seven-day refresh path.
-- Supported minimums are iOS and iPadOS 26.1, watchOS 26.6, and macOS 26.7.1. The reference devices are listed in [Platform targets](architecture.md#platform-targets). LiveContainer is not a supported runtime because it cannot register the app's WidgetKit extension.
+- Supported minimums are iOS, iPadOS, and watchOS 27.0, and macOS 26.7.1. The reference devices are listed in [Platform targets](architecture.md#platform-targets). LiveContainer is not a supported runtime because it cannot register the app's WidgetKit extension.
 - Installation must retain the widget and watch targets and pass physical-device checks for app-group sharing, local notifications, widgets, paired-watch installation and synchronization, and refresh without data loss. See [personal-use-sideloading.md](research/personal-use-sideloading.md).
 
 ## Usage tracking

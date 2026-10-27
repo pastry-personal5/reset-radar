@@ -4,8 +4,8 @@ options:
   createIntermediateGroups: true
   generateEmptyDirectories: true
   deploymentTarget:
-    iOS: "26.1"
-    watchOS: "26.6"
+    iOS: "27.0"
+    watchOS: "27.0"
     macOS: "26.7.1"
 configs:
   Development: debug

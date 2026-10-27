@@ -10,7 +10,7 @@ This file is the overall plan. Each milestone gets its own overview file when it
 
 - Research findings are written down and the product scope in [product-behavior.md](../product-behavior.md) is filled in from them.
 - The software architecture is documented and every related "Undecided" item in [AGENTS.md](../../AGENTS.md) is resolved or consciously deferred.
-- An Xcode project targeting iOS and iPadOS 26.1+, watchOS 26.6+, and macOS 26.7.1+ builds with the `ResetRadar`, `ResetRadarMac`, and `ResetRadarWatch` schemes, and the full gate passes with empty-but-real app, watch app, and test targets.
+- An Xcode project targeting iOS, iPadOS, and watchOS 27.0+, and macOS 26.7.1+ builds with the `ResetRadar`, `ResetRadarMac`, and `ResetRadarWatch` schemes, and the full gate passes with empty-but-real app, watch app, and test targets.
 - The Mac collector, relay, and both provider adapters work end to end on synthetic and real data; the iOS, iPad, and Watch apps, widgets, and Live Activities display it. Open work in [P1-M2 open work](../archive/p1-m2-open-work.md) is verified by its owning milestones.
 - The owner records one full seven-day Sideloadly refresh cycle after the initial free-signed iPhone and Watch installation, including preservation of the Watch app, complication configuration, and Watch cache. This elapsed-time check may finish after P1-M16 is `Done`; Phase 1 remains open until it is recorded.
 

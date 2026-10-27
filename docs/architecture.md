@@ -149,12 +149,12 @@ These are existing local products, not new external dependencies.
 
 | Platform | Minimum OS and deployment target | Reference device | Simulator destination |
 |---|---|---|---|
-| iPhone | iOS 26.1 | iPhone 17 Pro Max | `platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1` |
-| iPad | iPadOS 26.1 (same universal target) | iPad Air 11-inch (M2) | `platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1` |
-| Apple Watch | watchOS 26.6 | Apple Watch Series 11 (42mm) | `platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)` |
+| iPhone | iOS 27.0 | iPhone 17 Pro Max | `platform=iOS Simulator,name=iPhone 17 Pro Max,OS=27.0` |
+| iPad | iPadOS 27.0 (same universal target) | iPad Air 11-inch (M2) | `platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=27.0` |
+| Apple Watch | watchOS 27.0 | Apple Watch Series 11 (42mm) | `platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)` |
 | Mac | macOS 26.7.1 | MacBook Pro, Apple M5 Max, 128 GB | `platform=macOS` |
 
-Building requires an Xcode whose SDKs are at least iOS 26.1, watchOS 26.6, and macOS 26.7, plus iOS and watchOS simulator runtimes at or above the minimums. Scaffolding confirms that Xcode and the Swift package accept the patch-level deployment targets. If either does not, the build setting uses the minor version (26.6 or 26.7), and the patch minimum remains the supported floor, validated on the reference devices. The iOS and iPadOS floor is the minor version 26.1, the oldest installable simulator runtime that creates both reference devices; it is proven only in the simulator, because the physical reference devices run a newer release.
+Building requires an Xcode whose SDKs are at least iOS 27.0, watchOS 27.0, and macOS 26.7, plus iOS and watchOS simulator runtimes at or above the minimums. The iOS and iPadOS apps share the universal iOS 27.0 deployment target. The owner raised the iOS, iPadOS, and watchOS floors to 27.0 on 2026-10-27; validation on compatible reference-device simulators supersedes the earlier 26.x deployment evidence. The installed iOS 27.0 runtime cannot create the approved iPhone 17 Pro Max or iPad Air 11-inch (M2), so the iOS simulator gate remains blocked until the owner chooses compatible replacement models or a compatible runtime becomes available.
 
 Every macOS target and configuration is Apple-silicon-only: `ARCHS` resolves to `arm64`,
 `x86_64` is excluded, and Intel Macs are unsupported. The contribution gate builds the unsigned
@@ -427,8 +427,8 @@ Scripts/lint-swift-format.sh
 swiftlint --strict
 Scripts/check-imports.sh
 xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1' \
-  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1'
+xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=27.0' \
+  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=27.0'
 xcodebuild test -scheme ResetRadarWatch \
   -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'
 npm --prefix relay ci

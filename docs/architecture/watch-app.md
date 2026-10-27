@@ -97,7 +97,7 @@ color alone; families with room show the middle-truncated alias.
 
 | Item | Value |
 |---|---|
-| Deployment target | watchOS 26.6 (see [Platform targets](../architecture.md#platform-targets)) |
+| Deployment target | watchOS 27.0 (see [Platform targets](../architecture.md#platform-targets)) |
 | App Group | The same identifier as iOS, giving the Watch app and complication their own container on the Watch |
 | Bundle identifier | Prefixed by the iOS app's identifier |
 | Excluded | No network or Keychain access for relay data |

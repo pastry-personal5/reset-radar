@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "ResetRadarKit",
-    platforms: [.iOS("26.1"), .watchOS("26.6"), .macOS("26.7.1")],
+    platforms: [.iOS("27.0"), .watchOS("27.0"), .macOS("26.7.1")],
     products: [
         .library(name: "ResetRadarDomain", targets: ["ResetRadarDomain"]),
         .library(name: "ResetRadarApplication", targets: ["ResetRadarApplication"]),

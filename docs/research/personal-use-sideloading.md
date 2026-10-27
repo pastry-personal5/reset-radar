@@ -63,7 +63,7 @@ The project must produce and validate this workflow:
 2. Inspect the IPA before installation and confirm the widget plug-in and embedded watch app are present.
 3. In Sideloadly, use the owner's free Apple account, keep app extensions enabled, and do not inject tweaks or change the app name, icon, minimum iOS version, or bundle identifiers.
 4. Install over USB for the first pairing, enable the required developer trust/developer mode prompts on the iPhone, and launch the app.
-5. Confirm local notifications, shared app-group data, the Home Screen widget, and the Lock Screen widget on a physical iOS 26+ device.
+5. Confirm local notifications, shared app-group data, the Home Screen widget, and the Lock Screen widget on a physical iOS 27.0+ device.
 6. Install and launch the companion on the paired Apple Watch; confirm iPhone-to-watch snapshot transfer, local cache behavior, reset-time display, and stale/offline presentation.
 7. Enable Sideloadly's refresh daemon and Wi-Fi refresh, then prove one refresh cycle without losing app data, widget configuration, watch installation, or watch state.
 8. Inspect the installed signatures and entitlements for the app, widget, and watch targets. Record the exact repeatable commands in the contribution guide.
@@ -82,7 +82,7 @@ Keychain entry, relay token, or usage reading in a command transcript or reposit
 
 1. In Xcode 27.1, use **Xcode → Settings → Apple Accounts** and select **Personal Team**. Do not
    search that pane for a Team ID; it does not show one. Connect the iPhone by USB, unlock it, trust
-   the Mac, and check that it runs iOS 26.1 or newer. Finder may list an iPhone over Wi-Fi, so a
+   the Mac, and check that it runs iOS 27.0 or newer. Finder may list an iPhone over Wi-Fi, so a
    Finder sidebar entry alone does not prove USB detection; confirm the iPhone appears in Xcode's
    device destination and later in Sideloadly's **iDevice** selector. Xcode shows no provisioned
    device until the owner completes device setup. Keep credentials and device identifiers out of

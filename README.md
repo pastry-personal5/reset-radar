@@ -12,7 +12,8 @@ The Collector Mac reads coding-allowance data from Codex and Claude Code without
 The project is in its Foundation phase. The Mac collector, local package, Cloudflare relay,
 iPhone/iPad reader, scheduling surfaces, and Apple Watch app are implemented; their remaining
 physical-device validation is still in progress. It is designed for personal sideloading with a
-free Apple account, not App Store or TestFlight distribution. The Mac main window and Settings
+free Apple account, not App Store or TestFlight distribution. The mobile apps require iOS,
+iPadOS, or watchOS 27.0 or later. The Mac main window and Settings
 share a Global Messages pane for collector and setup status, including the reason publication
 stops safely. Mac Settings offers a Codex source table with login-shell executable discovery and a
 Claude Code connection card; review the selected `CODEX_HOME` in the

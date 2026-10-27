@@ -307,6 +307,9 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
 - [ ] Apple build and test targets use reusable platform-isolated DerivedData caches; the reference
   simulator suites complete without cross-platform module-cache warnings or a stuck Xcode
   finalization process.
+- [ ] The iOS, iPadOS, and watchOS deployment floors are 27.0, the binding platform and setup
+  documentation agrees, and the complete contribution-guide gate passes against compatible
+  simulator runtimes at or above that floor.
 
 ## Implementation evidence
 
@@ -328,3 +331,10 @@ reproduced Xcode 27.1 stalling before XCTest launch while finalizing the test lo
 `invalidDigitCount(94232)`. The installed Xcode 26.1.1 fails the current Swift source and does not
 support the Watch deployment floor, so it is not a valid fallback. The simulator-test and visual
 inspection checklist items remain unchecked.
+
+The 2026-10-27 deployment-floor update generated successfully with iOS, iPadOS, and watchOS 27.0
+settings. Format, strict lint, imports, the relay suites, and the watchOS 27.0 suite passed. The
+iOS gate cannot start because the approved iPhone 17 Pro Max and iPad Air 11-inch (M2) simulator
+types exist only on iOS 26.1 on this Mac and are rejected by the new floor; compatible replacement
+models require an owner decision. The Mac suite also retained one unrelated existing failure in
+`ClaudeCodeConfiguratorRestoreTests.interruptedCompletionRefusesAMissingComposeArtifact()`.

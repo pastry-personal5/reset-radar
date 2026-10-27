@@ -31,12 +31,12 @@ redacted events and retain at most eight UTC days. Do not copy the logs into the
 
 ## Setup and development
 
-- An Apple-silicon Mac running macOS 26.7.1 or newer, with an Xcode whose SDKs are at least iOS 26.1, watchOS 26.6, and macOS 26.7, and iOS and watchOS simulator runtimes at or above the minimum OS versions in [Platform targets](architecture.md#platform-targets). Select that Xcode with `xcode-select` and accept its license before building. Mac targets are arm64-only; Intel development and `x86_64` slices are unsupported.
+- An Apple-silicon Mac running macOS 26.7.1 or newer, with an Xcode whose SDKs are at least iOS 27.0, watchOS 27.0, and macOS 26.7, and iOS and watchOS simulator runtimes at or above the minimum OS versions in [Platform targets](architecture.md#platform-targets). Select that Xcode with `xcode-select` and accept its license before building. Mac targets are arm64-only; Intel development and `x86_64` slices are unsupported.
 - swiftlint, for example `brew install swiftlint`.
 - swift-format, bundled with the Swift toolchain.
 - XcodeGen 2.46.0 exactly, for example `brew install xcodegen`; `Scripts/generate-project.sh` refuses any other version.
 - Node.js 26 and npm 11 for the TypeScript Cloudflare relay and its validation harness.
-- Simulators: an iOS 26.1 runtime with the iPhone 17 Pro Max and iPad Air 11-inch (M2), and a watchOS runtime at or above 26.6 with the Apple Watch Series 11 (42mm). The iOS destinations name the runtime because `name=` alone resolves to the newest installed runtime, which cannot host these devices.
+- Simulators: an iOS 27.0-or-newer runtime and a watchOS 27.0-or-newer runtime with the Apple Watch Series 11 (42mm). The approved iPhone 17 Pro Max and iPad Air 11-inch (M2) types are unavailable in the installed iOS 27.0 runtime, so the iOS simulator gate is blocked pending an owner decision on compatible reference models; do not substitute models implicitly.
 
 ```sh
 Scripts/generate-project.sh                                                                # generate the ignored Xcode project

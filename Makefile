@@ -14,8 +14,8 @@ help:
 		'imports        Check Swift module import boundaries' \
 		'mac-arch-check Verify Release Mac binaries are arm64-only' \
 		'test-mac       Run macOS tests' \
-		'test-ios       Run iPhone 17 Pro Max iOS 26.1 tests' \
-		'test-ipad      Run iPad Air 11-inch (M2) iOS 26.1 tests' \
+		'test-ios       Run iPhone 17 Pro Max iOS 27.0 tests' \
+		'test-ipad      Run iPad Air 11-inch (M2) iOS 27.0 tests' \
 		'test-ios-ipad  Build once and run the iPhone and iPad tests concurrently' \
 		'test-watch     Run the Watch tests on the reference simulator' \
 		'relay-install  Install the relay dependencies from its lockfile' \
@@ -37,8 +37,8 @@ run-mac: generate
 		-destination 'platform=macOS' -derivedDataPath .build/mac-run
 	@open .build/mac-run/Build/Products/Development/ResetRadarMac.app
 
-IPHONE_DESTINATION := platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.1
-IPAD_DESTINATION := platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=26.1
+IPHONE_DESTINATION := platform=iOS Simulator,name=iPhone 17 Pro Max,OS=27.0
+IPAD_DESTINATION := platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=27.0
 WATCH_DESTINATION := platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)
 IPA_PACKAGE := .build/ipa/ResetRadar.ipa
 MAC_TEST_DERIVED_DATA := .build/derived-data/mac-tests
