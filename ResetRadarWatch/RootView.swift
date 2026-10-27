@@ -13,7 +13,61 @@ struct RootView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            homeList
+                .navigationDestination(for: WatchSelection.self) { selection in
+                    WatchAccountDetails(selection: selection, environment: environment)
+                }
+                .confirmationDialog(
+                    "Erase Watch Data?", isPresented: $environment.showEraseConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Erase Watch Data", role: .destructive) {
+                        Task { await environment.erase() }
+                    }
+                } message: {
+                    Text(
+                        "Cached allowance data will be removed until you choose Reset Watch Pairing."
+                    )
+                }
+                .confirmationDialog(
+                    "Reset Watch Pairing?", isPresented: $environment.showResetConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Reset Watch Pairing", role: .destructive) {
+                        Task { await environment.resetPairing() }
+                    }
+                } message: {
+                    Text("This permits new usage from the currently paired iPhone installation.")
+                }
+                .confirmationDialog(
+                    "Use New iPhone Installation?",
+                    isPresented: $environment.showInstallationConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Replace Watch Data", role: .destructive) {
+                        Task { await environment.confirmPendingInstallation() }
+                    }
+                } message: {
+                    Text(pendingInstallationDescription)
+                }
+                .alert(
+                    "Watch Sync Problem",
+                    isPresented: Binding(
+                        get: { environment.operationMessage != nil },
+                        set: { if !$0 { environment.operationMessage = nil } })
+                ) {
+                    Button("OK") { environment.operationMessage = nil }
+                } message: {
+                    Text(environment.operationMessage ?? "Try again.")
+                }
+        }
+    }
+
+    /// Home is one scrollable list: account rows lead, while refresh stays deliberately at its
+    /// bottom so it never displaces allowance data into a pinned control.
+    private var homeList: some View {
+        List {
+            Section("Accounts") {
                 if environment.unavailable {
                     ContentUnavailableView(
                         "Reset Radar Can’t Open Its Data",
@@ -25,62 +79,12 @@ struct RootView: View {
                         description: Text(
                             "Open Reset Radar on your iPhone to refresh this Watch."))
                 } else {
-                    accountMatrix
+                    ForEach(environment.home.accounts, id: \.account.id) { row in
+                        WatchAccountRow(row: row)
+                            .listRowInsets(
+                                EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
+                    }
                 }
-            }
-            .navigationDestination(for: WatchSelection.self) { selection in
-                WatchAccountDetails(selection: selection, environment: environment)
-            }
-            .confirmationDialog(
-                "Erase Watch Data?", isPresented: $environment.showEraseConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Erase Watch Data", role: .destructive) {
-                    Task { await environment.erase() }
-                }
-            } message: {
-                Text(
-                    "Cached allowance data will be removed until you choose Reset Watch Pairing.")
-            }
-            .confirmationDialog(
-                "Reset Watch Pairing?", isPresented: $environment.showResetConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Reset Watch Pairing", role: .destructive) {
-                    Task { await environment.resetPairing() }
-                }
-            } message: {
-                Text("This permits new usage from the currently paired iPhone installation.")
-            }
-            .confirmationDialog(
-                "Use New iPhone Installation?",
-                isPresented: $environment.showInstallationConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Replace Watch Data", role: .destructive) {
-                    Task { await environment.confirmPendingInstallation() }
-                }
-            } message: {
-                Text(pendingInstallationDescription)
-            }
-            .alert(
-                "Watch Sync Problem",
-                isPresented: Binding(
-                    get: { environment.operationMessage != nil },
-                    set: { if !$0 { environment.operationMessage = nil } })
-            ) {
-                Button("OK") { environment.operationMessage = nil }
-            } message: {
-                Text(environment.operationMessage ?? "Try again.")
-            }
-        }
-    }
-
-    private var accountMatrix: some View {
-        List {
-            ForEach(environment.home.accounts, id: \.account.id) { row in
-                WatchAccountRow(row: row)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
             }
             if ReaderVocabulary.isSyncProblem(environment.watchState.transportStatus) {
                 Section("Sync Problem") {
