@@ -8,6 +8,10 @@ private struct WatchSelection: Hashable {
     let window: AccountWindow.StandardWindow
 }
 
+private enum WatchDestination: Hashable {
+    case advancedActions
+}
+
 struct RootView: View {
     @ObservedObject var environment: WatchEnvironment
 
@@ -17,27 +21,11 @@ struct RootView: View {
                 .navigationDestination(for: WatchSelection.self) { selection in
                     WatchAccountDetails(selection: selection, environment: environment)
                 }
-                .confirmationDialog(
-                    "Erase Watch Data?", isPresented: $environment.showEraseConfirmation,
-                    titleVisibility: .visible
-                ) {
-                    Button("Erase Watch Data", role: .destructive) {
-                        Task { await environment.erase() }
+                .navigationDestination(for: WatchDestination.self) { destination in
+                    switch destination {
+                    case .advancedActions:
+                        WatchAdvancedActions(environment: environment)
                     }
-                } message: {
-                    Text(
-                        "Cached allowance data will be removed until you choose Reset Watch Pairing."
-                    )
-                }
-                .confirmationDialog(
-                    "Reset Watch Pairing?", isPresented: $environment.showResetConfirmation,
-                    titleVisibility: .visible
-                ) {
-                    Button("Reset Watch Pairing", role: .destructive) {
-                        Task { await environment.resetPairing() }
-                    }
-                } message: {
-                    Text("This permits new usage from the currently paired iPhone installation.")
                 }
                 .confirmationDialog(
                     "Use New iPhone Installation?",
@@ -63,11 +51,11 @@ struct RootView: View {
         }
     }
 
-    /// Home is one scrollable list: account rows lead, while refresh stays deliberately at its
-    /// bottom so it never displaces allowance data into a pinned control.
+    /// Home is one scrollable list: account rows lead, followed by refresh and navigation to
+    /// local data controls, so neither action displaces allowance data into a pinned control.
     private var homeList: some View {
         List {
-            Section("Accounts") {
+            Section {
                 if environment.unavailable {
                     ContentUnavailableView(
                         "Reset Radar Can’t Open Its Data",
@@ -101,16 +89,6 @@ struct RootView: View {
                 }
             }
             Section {
-                Button("Erase Watch Data", role: .destructive) {
-                    environment.requestEraseConfirmation()
-                }
-                if environment.watchState.localEraseHold {
-                    Button("Reset Watch Pairing") { environment.requestResetConfirmation() }
-                }
-            } footer: {
-                Text("These controls affect only data stored on this Watch.")
-            }
-            Section {
                 Button {
                     Task { await environment.refresh() }
                 } label: {
@@ -121,6 +99,15 @@ struct RootView: View {
                 .accessibilityLabel("Refresh from iPhone")
                 .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
             }
+            Section {
+                NavigationLink(value: WatchDestination.advancedActions) {
+                    Text("Advanced")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityHint("Open advanced Watch data actions")
+                .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
+            }
         }
     }
 
@@ -129,6 +116,46 @@ struct RootView: View {
         guard !accounts.isEmpty else { return "The new installation has no allowance data." }
         return "Replace this Watch cache with data for "
             + accounts.map(\.effectiveDisplayLabel).joined(separator: ", ") + "?"
+    }
+}
+
+private struct WatchAdvancedActions: View {
+    @ObservedObject var environment: WatchEnvironment
+
+    var body: some View {
+        List {
+            Section {
+                Button("Erase Watch Data", role: .destructive) {
+                    environment.requestEraseConfirmation()
+                }
+                if environment.watchState.localEraseHold {
+                    Button("Reset Watch Pairing") { environment.requestResetConfirmation() }
+                }
+            } footer: {
+                Text("These controls affect only data stored on this Watch.")
+            }
+        }
+        .navigationTitle("Advanced Action")
+        .confirmationDialog(
+            "Erase Watch Data?", isPresented: $environment.showEraseConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Erase Watch Data", role: .destructive) {
+                Task { await environment.erase() }
+            }
+        } message: {
+            Text("Cached allowance data will be removed until you choose Reset Watch Pairing.")
+        }
+        .confirmationDialog(
+            "Reset Watch Pairing?", isPresented: $environment.showResetConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Reset Watch Pairing", role: .destructive) {
+                Task { await environment.resetPairing() }
+            }
+        } message: {
+            Text("This permits new usage from the currently paired iPhone installation.")
+        }
     }
 }
 

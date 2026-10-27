@@ -155,9 +155,10 @@ appearances. The palette never carries usage or source state; status still uses 
 symbol and accessibility text. Every ring's accessibility description includes the complete
 alias, product, window, Percentage Used, reset, and freshness. Selecting a ring opens compact
 Account Details for that account with the selected window emphasized and the same accent.
-Watch Home has no navigation title. The Account List appears first, followed by the local data
-controls, with a full-width **Refresh** text button as the final scrollable list row instead of a
-pinned or top-toolbar control.
+Watch Home has no navigation title or **Accounts** section heading. The Account List appears
+first, followed by a full-width **Refresh** text button and then an **Advanced** button. Advanced
+opens the **Advanced Action** screen, which contains the local data controls; neither control is
+pinned or a top-toolbar item.
 
 The Watch app also offers an owner-confirmed **Erase Watch Data** action. It clears the local cache and prevents later usage delivery until the owner chooses **Reset Watch Pairing**. A complication may keep its previously rendered frame until watchOS processes a reload or the owner removes it.
 
