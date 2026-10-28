@@ -59,12 +59,12 @@ struct CodexSourceSetupTests {
                 codexHome: URL(fileURLWithPath: "/Users/synthetic/.codex-b"),
                 executablePath: nil),
             .init(
-                codexHome: URL(fileURLWithPath: "/Users/synthetic/.codex-ignored"),
+                codexHome: URL(fileURLWithPath: "/Users/synthetic/.codex-c"),
                 executablePath: nil),
         ])
         let contexts = await selections.contexts()
         let context = try #require(contexts.first)
-        #expect(contexts.count == AccountCatalog.maximumCodexAccounts)
+        #expect(contexts.count == 3)
         #expect(Set(context.environment.keys) == CodexProcessLaunchConfiguration.allowedEnvironment)
         #expect(context.environment["CODEX_HOME"] == "/Users/synthetic/.codex-a")
         #expect(context.explicitExecutablePath == "/opt/homebrew/bin/codex")

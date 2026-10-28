@@ -79,7 +79,7 @@ flowchart TB
 ## Codex app-server
 
 **Discovery.** A login item starts with a minimal `PATH`, and an npm-installed `codex` is a Node
-script that also needs `node`. `CodexConfigurator` resolves each of at most two selected profiles,
+script that also needs `node`. `CodexConfigurator` resolves each selected profile,
 with the owner present, trying in order:
 
 1. a path the owner chose;

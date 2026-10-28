@@ -78,13 +78,13 @@ public enum AccountCatalogError: Error, Equatable, Sendable {
     case duplicateNumber
     case duplicateDisplayLabel
     case invalidNumber
+    /// Retained for binary compatibility. Catalog validation no longer emits this case.
     case tooManyCodexAccounts
     case tooManyClaudeCodeAccounts
 }
 
 /// The complete bounded account catalog carried by a schema-2 snapshot.
 public struct AccountCatalog: Codable, Hashable, Sendable {
-    public static let maximumCodexAccounts = 2
     public static let maximumClaudeCodeAccounts = 1
     public let accounts: [AccountMetadata]
 
@@ -95,9 +95,6 @@ public struct AccountCatalog: Codable, Hashable, Sendable {
         guard Set(accounts.map { Array($0.effectiveDisplayLabel.utf8) }).count == accounts.count
         else {
             throw .duplicateDisplayLabel
-        }
-        guard accounts.count(where: { $0.product == .codex }) <= Self.maximumCodexAccounts else {
-            throw .tooManyCodexAccounts
         }
         guard
             accounts.count(where: { $0.product == .claudeCode })

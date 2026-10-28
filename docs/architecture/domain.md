@@ -101,7 +101,7 @@ its diagnostic.
 | `ProductID` | Closed set: `codex` and `claudeCode`. Windows for an unknown product are ignored with a diagnostic. |
 | `SourceKind` | `codexAppServer` or `claudeCodeStatusLine`. |
 | `AccountID` | Random opaque 128-bit Reset Radar identifier for one configured row. It survives profile replacement and provider sign-in changes until confirmed removal. |
-| `AccountMetadata` | Account ID, product, global positive account number, and optional alias. The catalog permits at most two Codex rows and one Claude Code row. |
+| `AccountMetadata` | Account ID, product, global positive account number, and optional alias. The catalog permits any number of Codex rows and one Claude Code row. |
 | `AccountWindow` | Account ID plus the standard `fiveHour` or `weekly` discriminator. The stable key for Home rings, medium widget windows, Watch complication configuration, and five-hour Live Activities. |
 | `WindowID` | Composite of Account ID, product, provider account scope when available, provider limit ID, and duration discriminator; never an array position. It identifies one concrete provider window and changes when the provider scope changes. |
 | `WindowSelection` | A versioned tagged value containing one standard `AccountWindow` or one additional concrete `WindowID`. Per-device notification opt-in, small and Lock Screen widget configuration, and the read-only App Intent use it. Its canonical identity encoding is length-delimited and stable for preference/entity keys and adapter-side digests; it is not a transport wire-profile change. A missing additional ID is unavailable, and the saved choice resumes only if the exact ID returns; it never falls back to a sibling window. |

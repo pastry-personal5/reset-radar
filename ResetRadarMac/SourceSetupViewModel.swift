@@ -27,7 +27,7 @@ actor CodexDiscoverySelections: CodexDiscoveryContextProviding {
     }
 
     func update(_ selections: [Selection]) {
-        self.selections = Array(selections.prefix(AccountCatalog.maximumCodexAccounts))
+        self.selections = selections
     }
 
     func contexts() -> [CodexDiscoveryContext] {
@@ -108,7 +108,7 @@ final class SourceSetupViewModel: ObservableObject {
 
     func discoverCodex() async {
         var values = [CodexDiscoverySelections.Selection]()
-        for path in codexHomes.prefix(AccountCatalog.maximumCodexAccounts) {
+        for path in codexHomes {
             guard path == path.trimmingCharacters(in: .whitespacesAndNewlines) else {
                 cancelPendingSetup()
                 message = "Remove leading or trailing whitespace from the Home Folder."

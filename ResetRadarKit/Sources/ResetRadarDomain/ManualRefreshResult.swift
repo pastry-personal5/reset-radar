@@ -61,14 +61,13 @@ public struct ManualRefreshAccountResult: Codable, Hashable, Sendable {
 }
 
 public enum ManualRefreshResultError: Error, Equatable, Sendable {
+    /// Retained for binary compatibility. Result validation no longer emits this case.
     case tooManyOutcomes
     case duplicateAccount
     case targetMismatch
 }
 
 public struct ManualRefreshResult: Codable, Hashable, Sendable {
-    public static let maximumAccountOutcomes = 2
-
     public let readerID: ReaderID
     public let requestID: RequestID
     public let completedAt: Date
@@ -87,7 +86,6 @@ public struct ManualRefreshResult: Codable, Hashable, Sendable {
         readerID: ReaderID, requestID: RequestID, completedAt: Date,
         target: ManualRefreshTarget, accountResults: [ManualRefreshAccountResult]
     ) throws(ManualRefreshResultError) {
-        guard accountResults.count <= Self.maximumAccountOutcomes else { throw .tooManyOutcomes }
         guard Set(accountResults.map(\.accountID)).count == accountResults.count else {
             throw .duplicateAccount
         }

@@ -55,6 +55,7 @@ public struct RandomCodexAccountIDGenerator: CodexAccountIDGenerating, Sendable 
 public enum CodexConfiguratorError: Error, Equatable, Sendable {
     case unknownOption
     case invalidIntent
+    /// Retained for binary compatibility. Configuration no longer emits this case.
     case accountLimitReached
     case stalePreview
     case executableChanged
@@ -245,10 +246,7 @@ public actor CodexConfigurator: SourceConfigurator {
         let catalog = try await store.loadCatalog()
         switch intent {
         case .add:
-            guard
-                catalog.accounts.count(where: { $0.product == .codex })
-                    < AccountCatalog.maximumCodexAccounts
-            else { throw CodexConfiguratorError.accountLimitReached }
+            break
         case .replace(let accountID):
             guard catalog.account(id: accountID)?.product == .codex else {
                 throw CodexConfiguratorError.invalidIntent

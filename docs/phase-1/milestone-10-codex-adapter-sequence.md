@@ -94,7 +94,7 @@ Write failing Domain and Application tests before changing contracts. Add a rand
 account-scoped read models, a `ReadReceipt` that distinguishes a performed physical read from an
 immediately deferred backoff result, and inner `UsageSnapshot` schema 2. A catalog is valid only
 when IDs and global account numbers are unique, effective display labels do not exactly repeat,
-every source/window refers to a same-product account, and it contains at most two Codex accounts
+every source/window refers to a same-product account, and it contains any number of Codex accounts
 and one Claude Code account. The smallest unused positive number is assigned only on successful
 apply.
 
@@ -130,7 +130,7 @@ Implement these ProviderAdapters seams, with exact public names finalized during
 - `CodexConfigurator: SourceConfigurator`: inspect, enumerate/select as approved, preview the
   exact executable and complete allowlisted environment (four required values plus optional
   `CODEX_HOME`), apply only that unchanged preview after confirmation and revalidation, atomically
-  add or replace at most two Codex accounts, and remove only the confirmed Reset Radar account
+  add or replace Codex accounts without a fixed count limit, and remove only the confirmed Reset Radar account
   configuration. Replacement keeps the row ID, number, and alias while clearing old scoped
   windows; removal deletes metadata and makes the number reusable.
 - `CodexExecutableMetadata`: bounded `--version` read plus Codex and applicable Node file identity
@@ -142,8 +142,8 @@ Implement these ProviderAdapters seams, with exact public names finalized during
 Discovery tests cover an explicit choice, sparse login-item environment, missing `node`, missing
 or non-executable files, unsafe owner/mode, symlink/replacement behavior, an empty or relative
 `PATH` component, native and `/usr/bin/env node` launchers, missing/reordered/replaced `node`,
-multiline/oversized discovery and version output, timeout, absent and explicit `CODEX_HOME`, two
-profiles, a rejected third profile, preview substitution and rediscovery drift, write interruption,
+multiline/oversized discovery and version output, timeout, absent and explicit `CODEX_HOME`, three
+or more profiles, preview substitution and rediscovery drift, write interruption,
 parent/file permissions, isolated incompatible config versions, confirmed replacement/removal,
 alias validation, and account-number reuse. No test reads a real provider home.
 
@@ -360,7 +360,7 @@ notification is documented for M12 operational observation and does not masquera
 
 ## Review focus
 
-1. Each of at most two owner-confirmed profile/environments reaches only its own process launch;
+1. Each owner-confirmed profile/environment reaches only its own process launch;
    no ambient, sibling, or previously selected profile can supply a response after replacement.
 2. Byte and structural bounds are enforced before semantic decoding, and every exit path drains or
    closes pipes without hanging or retaining raw data. Duplicate JSON keys, decoded escape growth,

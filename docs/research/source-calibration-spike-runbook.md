@@ -92,8 +92,9 @@ idle observations do not depend on an undocumented terminal-resize trigger. It v
 `cost.total_api_duration_ms` increases after a response and stays unchanged on timer-driven idle
 reruns. It never generates a turn itself.
 
-This validates the installed versions and the proposed source rules. M10 requires both approved
-Codex profiles because the first version tracks up to two accounts concurrently. The procedure
+This validates the installed versions and the proposed source rules. M10's live evidence uses two
+approved Codex profiles to exercise concurrent profile isolation; that sample size is not a
+product account limit. The procedure
 does not prove compatibility with a future release, the production adapter implementation,
 source installation/restore behavior, relay publication, mobile ingestion, or UI behavior.
 

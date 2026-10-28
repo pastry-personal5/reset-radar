@@ -18,7 +18,7 @@ Product scope: what the app does and what it deliberately does not do.
 - Every window can display a timestamped percentage used, such as separate five-hour and weekly allowances, beside its reset time.
 - Usage percentages and reset instants are acquired automatically. Manual percentage entry and manual reset rules are not supported.
 - A Mac collector obtains Codex coding-allowance percentages from the installed Codex app-server and Claude Code coding-allowance percentages from Claude Code's derived status-line state, then sends credential-free snapshots to paired iPhones and iPads. This does not promise automatic coverage of every general ChatGPT or Claude web/mobile allowance. Private consumer endpoints and copied credentials are excluded.
-- The first version supports at most two concurrently configured Codex accounts and one Claude
+- The first version supports any number of concurrently configured Codex accounts and one Claude
   Code account. Reset Radar assigns each a stable opaque local identifier, global Account #N, and
   optional Mac-authored alias; provider account identifiers never become display labels.
 - The app always identifies the percentage source and freshness. It never derives usage from elapsed time.

@@ -17,7 +17,7 @@ The iOS app root contains a five-item **Main Toolbar** at the bottom. Its destin
 On iPad, the same root uses the system's adaptive tab bar or sidebar presentation with the same
 five destinations in the same order.
 
-Home contains one vertically scrolling **Account List** with at most two Codex accounts and one
+Home contains one vertically scrolling **Account List** with any number of Codex accounts and one
 Claude Code account. Each configured account owns one **Account Row** containing its displayed
 alias in a top-leading label, product, five-hour Allowance Ring, weekly Allowance Ring, and Account
 Details action. Rows use localized natural order by alias with the stable account number as

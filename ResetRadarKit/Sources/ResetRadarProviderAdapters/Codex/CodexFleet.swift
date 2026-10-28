@@ -32,8 +32,8 @@ public actor CodexFleet {
     public init(accounts: [CodexFleetAccount]) throws {
         let ids = Set(accounts.map(\.accountID))
         let numbers = Set(accounts.map(\.accountNumber))
-        guard accounts.count <= 2, ids.count == accounts.count,
-            numbers.count == accounts.count, accounts.allSatisfy({ $0.accountNumber > 0 }),
+        guard ids.count == accounts.count, numbers.count == accounts.count,
+            accounts.allSatisfy({ $0.accountNumber > 0 }),
             accounts.allSatisfy({ $0.source.accountID == $0.accountID })
         else { throw CodexFleetError.invalidAccounts }
         let pair = AsyncStream<SourceSnapshot>.makeStream()

@@ -145,6 +145,10 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
   registration-status line from that card, including unavailable/error wording.
 - On Watch Home, Refresh uses the same non-prominent bordered visual treatment as Advanced while
   retaining its full-width label, tap target, and “Refresh from iPhone” accessibility label.
+- Codex has no fixed configured-account count limit. Sources Settings retains its Add row after
+  any number of configured Codex accounts, and catalog, collection, publication, Home-wide
+  refresh, reader, Watch, widget, and menu surfaces continue to derive rows from the complete
+  catalog. Existing identity, alias, configuration, and duplicate-provider-scope safeguards remain.
 
 ## In scope
 
@@ -189,6 +193,8 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
   presentation tests: give Claude Code configured/setup content the Codex list hierarchy and
   align Codex Alias/Home Folder fields plus their explicitly named save/removal actions without
   changing configuration, alias, preview, confirmation, restoration, or removal semantics.
+- Codex catalog, configuration, fleet, and Home-wide refresh-result contracts: remove the fixed
+  two-account checks while retaining overall file/envelope bounds and all per-account validation.
 - `ResetRadarMac/SettingsViews.swift` and focused Mac presentation tests: expand Settings sidebar
   button hit areas to the usable sidebar width and replace General's persistent Launch at Login
   registration-status text with a standard accessible information-button overlay.
@@ -214,7 +220,8 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
   prefill or transmit account, pairing, relay, diagnostic, or other local data, or star/fork a
   repository without the owner's action in GitHub.
 - A new provider configuration workflow, direct Home Folder replacement that bypasses preview and
-  confirmation, altered Claude Code settings-file safeguards, alias rules, account caps, or
+  confirmation, altered Claude Code settings-file safeguards, alias rules, the Claude Code
+  account cap, or
   removal/restore behavior.
 - A change to the actual Launch at Login registration, authorization, retry, or recovery
   behavior; the General change is presentation and explanatory copy only.
@@ -223,6 +230,14 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
 
 ## Completion checklist
 
+- [x] Remove the fixed Codex account-count limit across catalog validation, source setup,
+  collection, manual-refresh results, and maintained product/UX documentation; macOS Sources
+  continues to offer an Add row after any number of configured Codex accounts, while duplicate
+  identity, number, display-label, and provider-scope safeguards remain enforced. Evidence: 24
+  focused Domain/ProviderAdapters tests and the delegated complete `make gate` passed on
+  2026-10-28, covering Mac, iPhone, iPad, Watch, and relay targets. The three former limit error
+  cases remain unreachable compatibility symbols so incremental Apple test binaries retain their
+  enum layout.
 - [ ] Give the Mac app its own rasterized radar icon asset at every required macOS size; verify
   that the Mac Development app bundle contains the compiled icon and inspect its appearance.
 - [ ] Review the M17 alias, pairing, reader-profile, relay-roster, and presentation paths against

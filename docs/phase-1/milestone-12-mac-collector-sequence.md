@@ -46,7 +46,7 @@ Test first, then implement `MacEnvironment`, `SingleInstanceLock` (second instan
 
 ## Task 5: Owner flows and Settings (Checkpoint C)
 
-Test view models first, then add plain Settings sections: Sources (up to two Codex discoveries, Claude Code guided setup through `ConfigureSources` with preview and confirmed removal, unsafe commands untouched), Relay & Pairing (digests, `SetUpRelay` wipe-and-bind with interruption recovery, QR pairing with five-second activation polling and expiry revocation, warned Copy fallback with conditional pasteboard cleanup), paired devices (Revoke, Destroy Relay with paused publication on failure), and Keychain recovery copy for both causes.
+Test view models first, then add plain Settings sections: Sources (Codex discoveries with no fixed account-count limit, Claude Code guided setup through `ConfigureSources` with preview and confirmed removal, unsafe commands untouched), Relay & Pairing (digests, `SetUpRelay` wipe-and-bind with interruption recovery, QR pairing with five-second activation polling and expiry revocation, warned Copy fallback with conditional pasteboard cleanup), paired devices (Revoke, Destroy Relay with paused publication on failure), and Keychain recovery copy for both causes.
 
 ## Task 6: Login item and lifecycle docs
 

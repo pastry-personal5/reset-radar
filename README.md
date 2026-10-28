@@ -16,7 +16,8 @@ free Apple account, not App Store or TestFlight distribution. The mobile apps re
 iPadOS, or watchOS 27.0 or later. The Mac main window and Settings
 share a Global Messages pane for collector and setup status, including the reason publication
 stops safely. Mac Settings offers a Codex source table with login-shell executable discovery and a
-Claude Code connection card; review the selected `CODEX_HOME` in the
+Claude Code connection card. The table keeps its Add row after any number of configured Codex
+accounts; review each selected `CODEX_HOME` in the
 [installation guide](docs/mac-installation-and-recovery.md#configure-sources).
 The Mac collector supports Apple silicon only; every Mac build is arm64-only and Intel Macs are unsupported.
 Mac Settings groups each section's controls into titled cards above Global Messages.

@@ -4,7 +4,7 @@ import ResetRadarProviderAdapters
 import ResetRadarTestSupport
 import Testing
 
-@Suite("Codex two-account fleet")
+@Suite("Codex account fleet")
 struct CodexFleetTests {
     private let firstID = AccountID(data: Data(repeating: 0x11, count: 16))!
     private let secondID = AccountID(data: Data(repeating: 0x22, count: 16))!
@@ -44,16 +44,19 @@ struct CodexFleetTests {
     func distinctScopes() async throws {
         let first = source(accountID: firstID, providerID: "first")
         let second = source(accountID: secondID, providerID: "second")
+        let third = source(accountID: thirdID, providerID: "third")
         let fleet = try CodexFleet(accounts: [
             CodexFleetAccount(accountID: firstID, accountNumber: 1, source: first.source),
             CodexFleetAccount(accountID: secondID, accountNumber: 2, source: second.source),
+            CodexFleetAccount(accountID: thirdID, accountNumber: 3, source: third.source),
         ])
         await fleet.start()
         let results = await fleet.refreshAll()
-        #expect(results.count == 2)
+        #expect(results.count == 3)
         #expect(results.values.allSatisfy { $0.performedSuccessfully })
         #expect(first.session.rateLimitReads == 2)
         #expect(second.session.rateLimitReads == 2)
+        #expect(third.session.rateLimitReads == 2)
         await fleet.stop()
     }
 
@@ -84,11 +87,10 @@ struct CodexFleetTests {
         await fleet.stop()
     }
 
-    @Test("fleet rejects duplicate local identity, duplicate number, and a third account")
+    @Test("fleet rejects duplicate local identity and duplicate number")
     func invalidFleet() {
         let first = source(accountID: firstID, providerID: "first").source
         let second = source(accountID: secondID, providerID: "second").source
-        let third = source(accountID: thirdID, providerID: "third").source
         #expect(throws: CodexFleetError.invalidAccounts) {
             try CodexFleet(accounts: [
                 CodexFleetAccount(accountID: firstID, accountNumber: 1, source: first),
@@ -99,13 +101,6 @@ struct CodexFleetTests {
             try CodexFleet(accounts: [
                 CodexFleetAccount(accountID: firstID, accountNumber: 1, source: first),
                 CodexFleetAccount(accountID: secondID, accountNumber: 1, source: second),
-            ])
-        }
-        #expect(throws: CodexFleetError.invalidAccounts) {
-            try CodexFleet(accounts: [
-                CodexFleetAccount(accountID: firstID, accountNumber: 1, source: first),
-                CodexFleetAccount(accountID: secondID, accountNumber: 2, source: second),
-                CodexFleetAccount(accountID: thirdID, accountNumber: 3, source: third),
             ])
         }
     }

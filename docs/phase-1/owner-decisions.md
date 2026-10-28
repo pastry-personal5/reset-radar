@@ -161,6 +161,9 @@ The owner made these decisions on 2026-10-19 while reviewing the [software archi
   the relay without forcing a provider response. The reader-global one-minute request limit stays
   in force. This path requires its own synthetic security, quota, and latency evidence before real
   data uses it.
+- **Codex account count.** As of 2026-10-28, Reset Radar has no fixed configured Codex account
+  limit. Every selected profile retains an isolated child, configuration, schedule, result, and
+  duplicate-provider-scope check. The one-account Claude Code constraint remains unchanged.
 - **Mac secrets.** The Mac stores relay secrets in the login keychain. Every Release build is signed with one Personal Team Apple Development identity, ad-hoc Release builds are rejected, and Keychain calls are non-interactive. See [Mac Keychain access](../research/mac-keychain-access.md).
 - **Platform targets.**
 

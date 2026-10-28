@@ -35,14 +35,16 @@ struct AccountCatalogTests {
         _ = try AccountCatalog(validating: [composed, decomposed])
     }
 
-    @Test("catalog enforces identity, numbering, labels, and product caps")
+    @Test("catalog enforces identity, numbering, labels, and the Claude Code product cap")
     func invariants() throws {
         let first = metadata(byte: 1, product: .codex, number: 1)
         let second = metadata(byte: 2, product: .codex, number: 3)
         let claude = metadata(byte: 3, product: .claudeCode, number: 4)
-        let catalog = try AccountCatalog(validating: [first, second, claude])
+        let third = metadata(byte: 4, product: .codex, number: 5)
+        let catalog = try AccountCatalog(validating: [first, second, claude, third])
         #expect(catalog.smallestUnusedNumber == 2)
         #expect(catalog.account(id: first.id) == first)
+        #expect(catalog.accounts.filter { $0.product == .codex }.count == 3)
 
         #expect(throws: AccountCatalogError.duplicateID) {
             try AccountCatalog(
@@ -61,14 +63,10 @@ struct AccountCatalogTests {
                         alias: try AccountAlias(validating: "shared")),
                 ])
         }
-        #expect(throws: AccountCatalogError.tooManyCodexAccounts) {
-            try AccountCatalog(
-                validating: [first, second, metadata(byte: 4, product: .codex, number: 5)])
-        }
         #expect(throws: AccountCatalogError.tooManyClaudeCodeAccounts) {
             try AccountCatalog(
                 validating: [
-                    claude, metadata(byte: 4, product: .claudeCode, number: 5),
+                    claude, metadata(byte: 5, product: .claudeCode, number: 6),
                 ])
         }
     }

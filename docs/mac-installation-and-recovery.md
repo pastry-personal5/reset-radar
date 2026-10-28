@@ -70,14 +70,14 @@ Reset Radar never reads provider credential files or uses API-key mode.
 1. In **Settings → Sources → Codex**, select **Add** in the empty table row. Enter an Alias and
    one absolute Home Folder (`CODEX_HOME`); when discovery needs it, enter an absolute `codex`
    executable path. Select **Discover**. The folder must exist and have no leading or trailing
-   whitespace. The table supports two Codex sources.
+   whitespace. The table has no fixed Codex source-count limit.
 2. Each offered Codex option shows its `CODEX_HOME` above the executable path. Select **Preview**
    for the intended home and confirm that the same home, executable, and every allowlisted
    environment value appear under **Confirm exact change**. Select **Confirm and Apply** only if
    they are correct. The alias is saved with the newly configured source. Use the next Add row
    for a second home. Use **Save Home Folder** on a configured row to correct its folder through the
    same preview and confirmation while keeping its alias and account. Each confirmation rebuilds
-   the collector immediately.
+   the collector immediately. Repeat the Add-row flow for every additional Codex home.
 3. In the **Claude Code** card, choose **Set Up Claude Code Connection**, then **Preview**.
    Inspect the displayed `~/.claude/settings.json` path and helper path before selecting
    **Confirm and Apply**. The

@@ -9,7 +9,8 @@ the owner-facing Sources settings layout.
 ## Scope
 
 - Present Codex sources in a card with Alias and Home Folder columns, an empty add row, and an
-  editable new row; keep discovery, exact-change preview, confirmation, and the two-account cap.
+  editable new row; keep discovery, exact-change preview, and confirmation. M17 later removed the
+  original two-account cap and kept the Add row available after every configured account.
 - Present Claude Code connection actions in their own card, preserving guided setup and restore.
 - Polish Account List and Details, rings, sidebar, menu-bar status, and remaining Settings
   styling while retaining the M12 collector behavior.

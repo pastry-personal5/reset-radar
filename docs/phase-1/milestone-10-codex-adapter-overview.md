@@ -2,7 +2,7 @@
 
 Status: Active
 
-Implement the macOS-only, two-account Codex app-server half of
+Implement the macOS-only, multi-account Codex app-server half of
 `ResetRadarProviderAdapters` and the account-aware contracts it requires. The
 [sequence](milestone-10-codex-adapter-sequence.md) orders the shared account model, revised UX
 contracts, configuration, bounded JSON-RPC, normalization, scheduling, synthetic tests, and the
@@ -10,7 +10,7 @@ owner-present signed-in calibration.
 
 ## Goal
 
-Up to two explicitly selected Codex profiles can be read concurrently through separate
+Any number of explicitly selected Codex profiles can be read concurrently through separate
 first-party `codex app-server --listen stdio://` processes without Reset Radar reading or copying
 a provider credential. Each locally configured account has a stable opaque identifier, global
 account number, optional Mac-authored alias, independent source state, and isolated schedule.
@@ -97,10 +97,10 @@ composition into the Mac collector.
 
 ## In scope
 
-- Owner-confirmed launch configurations for at most two active Codex profiles, persisted with
+- Owner-confirmed launch configurations for any number of active Codex profiles, persisted with
   owner-only permissions and isolated so one corrupt or unsafe configuration does not stop the
   other account.
-- A global account catalog supporting two Codex accounts and one future Claude Code account:
+- A global account catalog supporting any number of Codex accounts and one future Claude Code account:
   opaque `AccountID`, smallest-unused stable account number, optional alias of at most 32 UTF-8
   bytes, exact effective-display-label uniqueness, localized display ordering, confirmed removal,
   and replacement that retains the row identity and alias.
@@ -175,7 +175,7 @@ composition into the Mac collector.
 
 The owner resolved the implementation choices on 2026-10-24. These are binding:
 
-1. **Accounts and identity.** Support two concurrent Codex accounts and one Claude Code account.
+1. **Accounts and identity.** Support any number of concurrent Codex accounts and one Claude Code account.
    Global `Account #N` numbering uses the smallest unused positive number and stays with the row
    until confirmed removal. A replacement or provider sign-in change retains the local row ID,
    number, and alias but clears windows from the prior provider scope. Two profiles resolving to
@@ -238,13 +238,14 @@ The owner resolved the implementation choices on 2026-10-24. These are binding:
   `reporting` in the Release snapshot.
 - [ ] Entry criteria hold with recorded owner decisions, baseline evidence, and no unrelated
   work attributed to M10.
-- [ ] Owner-confirmed discovery selects at most two approved executable/profile environments,
+- [ ] Owner-confirmed discovery selects approved executable/profile environments without a fixed
+  count limit,
   persists only required launch material with symlink-safe owner-only permissions, rejects stale
-  or altered previews, unsafe `PATH` entries, executable/interpreter substitution, and a third
-  Codex account, and never falls back to an ambient profile. One corrupt account configuration
-  does not prevent the other account from running.
+  or altered previews, unsafe `PATH` entries, and executable/interpreter substitution, and never
+  falls back to an ambient profile. One corrupt account configuration does not prevent sibling
+  accounts from running.
 - [ ] The account catalog assigns unique random IDs and smallest-unused global account numbers,
-  enforces the approved alias rules and product caps, preserves identity across replacement,
+enforces the approved alias rules and the single-Claude-Code-row cap, preserves identity across replacement,
   confirms removal before deleting metadata, and publishes alias changes immediately without
   advancing an observation. A removed number is reusable.
 - [ ] `UsageSnapshot` schema 2, sources, windows, Home/Details read models, notification and
@@ -367,7 +368,7 @@ gaps:
 
 The review originally found no reason to make M9 a dependency or broaden M10 into multi-account
 behavior. The later owner interview supersedes only that product-scope conclusion: M10 now owns
-the two-account Codex contracts, revised UX specifications, and offline refresh-v2 changes, while
+the multi-account Codex contracts, revised UX specifications, and offline refresh-v2 changes, while
 still excluding Claude acquisition, platform SwiftUI screens, deployment, and real publication.
 The first two plan-validation results below predate that revision and remain baseline evidence;
 the final result validates the owner-revised plan and binding documentation.

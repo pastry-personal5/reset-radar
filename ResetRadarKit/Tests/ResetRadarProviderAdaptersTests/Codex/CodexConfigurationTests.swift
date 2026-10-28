@@ -189,8 +189,8 @@ struct CodexConfigurationTests {
         }
     }
 
-    @Test("changed executable and a third Codex account fail closed")
-    func driftAndCap() async throws {
+    @Test("changed executable fails closed and three Codex accounts can be configured")
+    func driftAndMultipleAccounts() async throws {
         try await withConfigurationDirectory { root, executable in
             let runner = ConfigurationCommandRunner()
             let store = ProviderAccountCatalogStore(directoryURL: root)
@@ -202,7 +202,9 @@ struct CodexConfigurationTests {
                 contexts: FixedCodexDiscoveryContexts([context]),
                 locator: CodexExecutableLocator(runner: runner),
                 metadataReader: CodexExecutableMetadataReader(runner: runner), store: store,
-                identifiers: SequenceAccountIDGenerator([accountID(0xD1), accountID(0xD2)]))
+                identifiers: SequenceAccountIDGenerator([
+                    accountID(0xD1), accountID(0xD2), accountID(0xD3),
+                ]))
             let option = try #require(try await configurator.discover().first)
             let stale = try await configurator.preview(optionID: option.id, intent: .add)
             try Data("changed-native".utf8).write(to: executable)
@@ -212,16 +214,14 @@ struct CodexConfigurationTests {
             try FileManager.default.setAttributes(
                 [.posixPermissions: 0o700], ofItemAtPath: executable.path)
 
-            for _ in 0..<2 {
+            for _ in 0..<3 {
                 let rediscovered = try #require(try await configurator.discover().first)
                 let preview = try await configurator.preview(
                     optionID: rediscovered.id, intent: .add)
                 try await configurator.apply(preview)
             }
-            let third = try #require(try await configurator.discover().first)
-            await #expect(throws: CodexConfiguratorError.accountLimitReached) {
-                _ = try await configurator.preview(optionID: third.id, intent: .add)
-            }
+            let catalog = try await store.loadCatalog()
+            #expect(catalog.accounts.filter { $0.product == .codex }.count == 3)
         }
     }
 

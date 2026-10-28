@@ -6,6 +6,12 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-28 — Owner — Removed the fixed configured Codex account limit. The catalog, isolated
+  app-server fleet, Sources Add row, and Home-wide per-account refresh outcomes now accept any
+  number of Codex rows within existing bounded files and encrypted envelopes. Claude Code remains
+  limited to one account; identity, alias, configuration, and duplicate-provider safeguards are
+  unchanged.
+
 - 2026-10-28 — Codex — Fixed reader-test deadlocks from parallel harnesses replacing the
   `WCSession.default` delegate by injecting an isolated fake Watch link per harness. Confirmed
   coding-agent sandbox denial of CoreSimulator and user-cache access, added a bounded service preflight, serialized

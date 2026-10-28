@@ -27,7 +27,7 @@ The iOS app shows a five-item **Main Toolbar** along the bottom edge. Every tool
 On iPad, the Main Toolbar uses the system's adaptive tab bar or sidebar presentation. Its
 destinations, order, icons, Home, and Settings are the same as on iPhone.
 
-Selecting Home shows a vertically scrolling **Account List**. Reset Radar supports at most two
+Selecting Home shows a vertically scrolling **Account List**. Reset Radar supports any number of
 Codex accounts and one Claude Code account in the first version. Each configured account occupies
 one inset, rounded **Account Row**, and rows use localized natural order by their displayed
 alias. The displayed alias is the custom Account Alias when present and the stable `Account #N`

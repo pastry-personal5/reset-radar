@@ -130,7 +130,7 @@ struct SourcesSettingsView: View {
 
     private var codexCard: some View {
         SettingsCard(title: "Codex") {
-            Text("Configure up to two accounts, each with its own home folder.")
+            Text("Configure accounts, each with its own home folder.")
                 .foregroundStyle(.secondary)
             codexTable
             if isAddingCodex {
@@ -172,7 +172,7 @@ struct SourcesSettingsView: View {
 
             if isAddingCodex {
                 codexDraftRow
-            } else if codexAccounts.count < AccountCatalog.maximumCodexAccounts {
+            } else {
                 codexAddRow
             }
         }

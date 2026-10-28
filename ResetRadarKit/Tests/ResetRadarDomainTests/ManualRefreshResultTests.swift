@@ -25,6 +25,19 @@ import Testing
         #expect(try WireCoding.decoder().decode(ManualRefreshResult.self, from: data) == value)
     }
 
+    @Test func allCodexCarriesMoreThanTwoAccountOutcomes() throws {
+        let results = (1...5).map { value in
+            ManualRefreshAccountResult(
+                accountID: AccountID(data: bytes(16, UInt8(value)))!, outcome: .codexRead)
+        }
+        let value = try ManualRefreshResult(
+            readerID: readerA, requestID: requestID(1), completedAt: at(0), target: .allCodex,
+            accountResults: results)
+        #expect(value.accountResults == results)
+        let data = try WireCoding.encoder().encode(value)
+        #expect(try WireCoding.decoder().decode(ManualRefreshResult.self, from: data) == value)
+    }
+
     @Test func retainedExactlyAt120sExpiredAfter() {
         #expect(ManualRefreshResults.retained([make(readerA, 1)], now: at(120)).count == 1)
         #expect(ManualRefreshResults.retained([make(readerA, 1)], now: at(120.001)).isEmpty)
