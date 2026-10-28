@@ -48,43 +48,50 @@ struct SettingsCard<Content: View>: View {
 struct CodexSourceRow: View {
     let account: AccountMetadata
     let homeFolder: String?
-    @ObservedObject var model: SourceSetupViewModel
-    let changeHome: () -> Void
+    @ObservedObject var home: HomeViewModel
+    let changeHome: (String) -> Void
     let remove: () -> Void
     @State private var alias: String
+    @State private var homeFolderDraft: String
 
     init(
-        account: AccountMetadata, homeFolder: String?, model: SourceSetupViewModel,
-        changeHome: @escaping () -> Void, remove: @escaping () -> Void
+        account: AccountMetadata, homeFolder: String?, home: HomeViewModel,
+        changeHome: @escaping (String) -> Void, remove: @escaping () -> Void
     ) {
         self.account = account
         self.homeFolder = homeFolder
-        self.model = model
+        self.home = home
         self.changeHome = changeHome
         self.remove = remove
         _alias = State(initialValue: account.alias?.value ?? "")
+        _homeFolderDraft = State(initialValue: homeFolder ?? "")
     }
 
     var body: some View {
         HStack(spacing: 12) {
             TextField("Alias", text: $alias)
+                .textFieldStyle(.roundedBorder)
                 .frame(width: 190)
-            Text(homeFolder ?? "Unavailable")
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .textSelection(.enabled)
+            TextField("Home Folder", text: $homeFolderDraft)
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: .infinity)
                 .help(homeFolder ?? "Home Folder unavailable")
             HStack {
-                Button("Save Home Folder", action: changeHome)
+                Button("Save Home Folder") { changeHome(homeFolderDraft) }
                 Button("Save Alias") {
-                    Task { await model.updateAlias(accountID: account.id, input: alias) }
+                    Task { await home.updateAlias(accountID: account.id, input: alias) }
                 }
                 Button("Remove", role: .destructive, action: remove)
             }
             .frame(width: 260, alignment: .trailing)
         }
         .onChange(of: account.alias?.value) { _, value in alias = value ?? "" }
+        .onChange(of: homeFolder) { _, value in homeFolderDraft = value ?? "" }
+        if let delivery = home.aliasDelivery(for: account.id) {
+            Text(delivery.rawValue)
+                .font(.caption)
+                .foregroundStyle(delivery == .failed ? .orange : .secondary)
+        }
     }
 }
 
@@ -117,13 +124,13 @@ struct SourceLaunchDetails: View {
 
 struct ConfiguredSourceRow: View {
     let account: AccountMetadata
-    @ObservedObject var model: SourceSetupViewModel
+    @ObservedObject var home: HomeViewModel
     let remove: () -> Void
     @State private var alias: String
 
-    init(account: AccountMetadata, model: SourceSetupViewModel, remove: @escaping () -> Void) {
+    init(account: AccountMetadata, home: HomeViewModel, remove: @escaping () -> Void) {
         self.account = account
-        self.model = model
+        self.home = home
         self.remove = remove
         _alias = State(initialValue: account.alias?.value ?? "")
     }
@@ -139,9 +146,15 @@ struct ConfiguredSourceRow: View {
             }
             HStack {
                 TextField("Alias", text: $alias)
+                    .textFieldStyle(.roundedBorder)
                 Button("Save Alias") {
-                    Task { await model.updateAlias(accountID: account.id, input: alias) }
+                    Task { await home.updateAlias(accountID: account.id, input: alias) }
                 }
+            }
+            if let delivery = home.aliasDelivery(for: account.id) {
+                Text(delivery.rawValue)
+                    .font(.caption)
+                    .foregroundStyle(delivery == .failed ? .orange : .secondary)
             }
         }
     }

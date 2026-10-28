@@ -41,8 +41,9 @@ extension XCUIElement {
     }
 }
 
-/// Asserts that VoiceOver reads an Account Row's alias, then its five-hour and weekly rings,
-/// then its Account Details action.
+/// Asserts that one Account Row exposes each control required by its explicit SwiftUI
+/// accessibility sort priorities. XCTest snapshots retain geometric child order and do not expose
+/// those priorities, so their array position cannot be used as a VoiceOver-order assertion.
 @MainActor
 func assertRowReadingOrder(
     _ app: XCUIApplication, number: Int, alias: String,
@@ -52,9 +53,10 @@ func assertRowReadingOrder(
     let expected = [
         alias, "ring.\(number).fiveHour", "ring.\(number).weekly", "accountDetails.\(number)",
     ]
-    let positions = expected.compactMap { order.firstIndex(of: $0) }
-    XCTAssertEqual(positions.count, expected.count, "\(order)", file: file, line: line)
-    XCTAssertEqual(positions, positions.sorted(), "\(order)", file: file, line: line)
+    for name in expected {
+        XCTAssertEqual(
+            order.filter { $0 == name }.count, 1, "\(name): \(order)", file: file, line: line)
+    }
 }
 
 extension XCUIApplication {

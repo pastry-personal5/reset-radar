@@ -223,6 +223,15 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
 
 ## Completion checklist
 
+- [ ] Give the Mac app its own rasterized radar icon asset at every required macOS size; verify
+  that the Mac Development app bundle contains the compiled icon and inspect its appearance.
+- [ ] Review the M17 alias, pairing, reader-profile, relay-roster, and presentation paths against
+  their approved invariants; repair concrete findings and record static evidence without running
+  the deferred test gate.
+- [x] Finish the remaining Mac Relay & Pairing, Paired Devices, and About presentation against
+  the approved state, copy, and row behavior; inspect the resulting source and formatting.
+  Evidence: the 2026-10-28 Mac Development build, strict SwiftLint and swift-format checks,
+  and source review of the durable-state card, reader list, and About sections.
 - [x] Record the owner-approved M17 experience scope, affected presentation and synchronization
   seams, reset-selection
   rule, non-goals, and validation boundary. Evidence: this overview and its implementation
@@ -230,7 +239,7 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
 - [ ] Implement and verify M17 from revision `02ae6ed`. Starting worktree evidence on 2026-10-27:
   only the M17 planning additions in `docs/README.md`, `docs/phase-1/changelog.md`,
   `docs/phase-1/phase-1.md`, and the two new M17 plan files were present. Reference destinations
-  are iPhone 17 Pro Max at ordinary and accessibility text sizes, iPad Air 11-inch (M2), Mac in
+  are iPhone 18 Pro Max at ordinary and accessibility text sizes, iPad Air 11-inch (M4), Mac in
   light/dark/increased-contrast appearances, and Apple Watch Series 11 (42mm).
 - [ ] iPhone and Mac Account Rows optically center their leading identity and trailing Account
   Details action against their rings at ordinary sizes, retain accessible reflow at large sizes,
@@ -310,8 +319,66 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
 - [ ] The iOS, iPadOS, and watchOS deployment floors are 27.0, the binding platform and setup
   documentation agrees, and the complete contribution-guide gate passes against compatible
   simulator runtimes at or above that floor.
+- [ ] The owner-approved iPhone 18 Pro Max and iPad Air 11-inch (M4) iOS 27.0 simulator
+  destinations resolve uniquely, and their build and combined test targets complete without a
+  stuck Xcode finalization process.
+- [x] Potentially blocking Make build, test, simulator, and relay commands have a configurable
+  wall-clock watchdog that terminates their process group and reports a distinct timeout status.
+- [x] Diagnose the iPhone, iPad, and Watch pipeline stalls from revision `91ca7eb` with
+  the existing uncommitted M17 work preserved; verify sandbox/service access, cache and result
+  paths, bounded cancellation and parallel Make scheduling, then run the complete gate and
+  record reproducible evidence for the repaired pipeline.
 
 ## Implementation evidence
+
+The 2026-10-28 pipeline investigation reproduced sandbox denial of the user's Clang/SwiftPM
+caches and CoreSimulator logs/service. Host-access builds for the approved iPhone, iPad, and Watch
+destinations passed in approximately 12–14 seconds each; the full Watch action also passed.
+`make simulator-preflight` reports the sandbox service denial in approximately 0.3 seconds.
+Changing cache paths cannot grant launchd service access. The workspace and temporary results
+are on separate APFS volumes of the same disk; the prior external-disk explanation was not
+established. SDK-record `invalidDigitCount(94232)` warnings also occurred in successful actions
+and do not by themselves identify a hang.
+
+A non-quiet `ReaderDeliveryTests` action then reproduced the actual test deadlock: parallel
+harness instances each installed a different delegate on `WCSession.default`; scene activation
+waited for callbacks no longer routed to that harness. The app-host process remained alive
+inside unfinished Swift tests, rather than Xcode merely finalizing completed results. Adding an
+optional injected `WatchLink` and giving each `ReaderHarness` its own `FakeWatchLink` made all
+ten existing delivery tests finish in 0.149 seconds, with xcodebuild exit 0. The notification
+scheduler experiment was removed. A new concurrent-activation regression also verifies that
+Forget Mac on one harness cannot clear another harness's Watch payload. Live composition still
+creates the framework bridge once per app environment; iPad continues to omit the Watch stage.
+
+Static review found two independent orchestration defects: `make -j gate` could race its
+prerequisites, and the watchdog could leave descendants running when their leader exited or the
+wrapper received SIGTERM. Make now orders its goals, the watchdog handles cancellation and
+remaining descendants, and failed Xcode actions retain their log and result path. The iOS runner
+uses a complete bounded action per destination without per-method retries. A stale alias-error
+test expectation was aligned with the existing application-layer error mapping. The watchdog
+regression suite passes ten checks, including descendants retaining an output pipe after both
+timeout and normal leader exit. Existing worktree formatting, lint, and Mac compilation blockers
+were also corrected so the complete gate can exercise all platforms.
+
+Final verification on 2026-10-28: the delegated `make -j4 gate` completed with recorded exit
+status **0** (`/private/tmp/reset-radar-final-gate.exit`, with its adjacent `.log`). It passed
+generation, swift-format, strict SwiftLint, import boundaries, all ten pipeline regressions,
+the arm64-only Mac architecture check and Mac tests, the complete iPhone and iPad test plans,
+the Watch test plan, 29 Workers Vitest tests and 31 Node tests, relay type checking, and deployment
+dry-run. The reference builds also passed independently. The complete iOS plans passed in two
+successive gate runs using existing platform caches; no cache purge, simulator erase, per-method
+splitting, or timeout retry was needed. Xcode still emits SDK-record warnings on successful runs.
+This closes the pipeline investigation, not the remaining visual and physical-device milestones.
+
+On 2026-10-28, a follow-up M17 pass completed the Mac relay lifecycle and reader-list
+presentation, restored pending setup digests after relaunch, unified Mac alias editing and reset
+selection paths, tightened reader-profile identity checks, and corrected About copy and links.
+XcodeGen generation, strict SwiftLint, swift-format, import boundaries, Mac, iPhone, and Watch
+Development builds, and relay TypeScript type checking passed. Synthetic iPhone 18 Pro Max and
+iPad Air 11-inch (M4) screens were directly inspected: iPhone Home has centered identity groups
+and no toolbar Refresh, iPad Home retains toolbar Refresh, and Account Details shows the
+Executive Summary before the standard windows. Automated tests were intentionally skipped at
+the owner's request, so the complete gate and milestone-completion items remain unchecked.
 
 On 2026-10-27 the focused Swift package suite passed 280 tests in 38 suites, the Mac suite passed
 51 tests in 10 suites, the relay passed 29 Workers Vitest tests plus 31 Node tests and strict

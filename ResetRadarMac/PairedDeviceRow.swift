@@ -1,3 +1,4 @@
+import AppKit
 import ResetRadarApplication
 import SwiftUI
 
@@ -8,13 +9,18 @@ struct PairedDeviceRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: symbol).foregroundStyle(color)
             VStack(alignment: .leading, spacing: 3) {
-                Text(entry.name ?? fallbackName).font(.body.weight(.medium))
+                Text(displayName).font(.body.weight(.medium))
                 Text(entry.shortID).font(.caption.monospaced()).foregroundStyle(.secondary)
-                Text(statusText).font(.caption).foregroundStyle(color)
+                Label(statusText, systemImage: symbol)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(color)
                 if let date = entry.date, let label = entry.dateLabel {
                     Text("\(label) \(date.formatted(date: .abbreviated, time: .shortened))")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if case .missingOnRelay = entry.status {
+                    Text("This reader was removed from the relay elsewhere.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if entry.profileUnavailable {
@@ -25,14 +31,17 @@ struct PairedDeviceRow: View {
             Spacer()
             Button("Revoke", role: .destructive) { confirming = true }
         }
-        .confirmationDialog("Revoke this reader?", isPresented: $confirming) {
+        .accessibilityElement(children: .contain)
+        .confirmationDialog("Revoke \(displayName)?", isPresented: $confirming) {
             Button("Revoke", role: .destructive, action: revoke)
+        } message: {
+            Text("Reader \(entry.shortID) will no longer receive updates.")
         }
     }
 
-    private var fallbackName: String {
+    private var displayName: String {
         if case .pending = entry.status { return "Awaiting iPhone or iPad" }
-        return "iPhone or iPad"
+        return entry.name ?? "iPhone or iPad"
     }
 
     private var statusText: String {
@@ -55,10 +64,10 @@ struct PairedDeviceRow: View {
 
     private var color: Color {
         switch entry.status {
-        case .activated: .green
-        case .pending: .orange
-        case .missingOnRelay: .red
-        case .unknownOnThisMac: .secondary
+        case .activated: Color(nsColor: .systemGreen)
+        case .pending: Color(nsColor: .systemOrange)
+        case .missingOnRelay: Color(nsColor: .systemRed)
+        case .unknownOnThisMac: Color(nsColor: .secondaryLabelColor)
         }
     }
 }

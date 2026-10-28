@@ -15,11 +15,17 @@ private func noAccountRefresh(_ accountID: AccountID?) async -> [AccountRefreshR
 
 @MainActor
 final class HomeViewModel: ObservableObject {
-    enum AliasDeliveryState: String, Equatable {
+    enum AliasDeliveryState: String, Equatable, Sendable {
         case publishing = "Saved locally — publishing"
         case available = "Saved and available to devices"
         case failed = "Saved locally — couldn’t publish"
         case localOnly = "Saved locally"
+    }
+
+    struct AliasDeliveryTransition: Sendable {
+        let accountID: AccountID
+        let label: String
+        let state: AliasDeliveryState
     }
     @Published private(set) var accounts = [AccountMetadata]()
     @Published private(set) var snapshot: UsageSnapshot?
@@ -29,7 +35,8 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var isRefreshing = false
     @Published private(set) var loadFailed = false
     @Published private(set) var notificationAuthorization = NotificationAuthorization.notDetermined
-    @Published private(set) var aliasDelivery: AliasDeliveryState?
+    @Published private(set) var aliasDeliveries = [AccountID: AliasDeliveryState]()
+    @Published private(set) var aliasDeliveryTransition: AliasDeliveryTransition?
 
     private let catalog: any AccountCatalogStore
     private let snapshots: any LocalSnapshotCommitting
@@ -154,33 +161,75 @@ final class HomeViewModel: ObservableObject {
         do {
             let update = try await aliases.update(accountID: accountID, input: input)
             if let updates { await updates.aliasDidChange() } else { await load() }
-            if let snapshot = update.snapshot {
-                _ = await reminders.run(onIOS: false)
-                guard let publisher, let state = try? await publisher.load(),
-                    state.lifecycle == .active
-                else {
-                    aliasDelivery = .localOnly
-                    message = nil
-                    return
-                }
-                aliasDelivery = .publishing
-                await publication.observeMetadataDelivery { [weak self] outcome in
-                    await MainActor.run {
-                        guard let self else { return }
-                        self.aliasDelivery = Self.aliasState(for: outcome)
-                    }
-                }
-                let outcome = await publication.collected(
-                    CollectResult(snapshot: snapshot, change: update.change))
-                aliasDelivery = Self.aliasState(for: outcome)
-            } else {
-                aliasDelivery = .localOnly
-            }
+            await publishAlias(update, accountID: accountID)
             message = nil
+        } catch UpdateAccountAliasError.snapshotCommitFailed {
+            setAliasDelivery(.failed, for: accountID)
+            message =
+                "The alias was saved locally, but the local snapshot could not be updated. "
+                + "Retry the edit."
+        } catch UpdateAccountAliasError.localSaveFailed {
+            clearAliasDelivery(for: accountID, includingFailure: true)
+            message = "The alias could not be saved locally. Retry when local storage is available."
+        } catch UpdateAccountAliasError.accountNotFound {
+            clearAliasDelivery(for: accountID, includingFailure: true)
+            message = "This account is no longer configured."
         } catch {
-            aliasDelivery = nil
+            clearAliasDelivery(for: accountID, includingFailure: true)
             message = "The alias must be unique, visible text no longer than 32 bytes."
         }
+    }
+
+    private func publishAlias(_ update: AccountAliasUpdate, accountID: AccountID) async {
+        guard let snapshot = update.snapshot else {
+            setAliasDelivery(.localOnly, for: accountID)
+            return
+        }
+        _ = await reminders.run(onIOS: false)
+        guard let publisher else {
+            setAliasDelivery(.localOnly, for: accountID)
+            return
+        }
+        guard let state = try? await publisher.load() else {
+            setAliasDelivery(.failed, for: accountID)
+            return
+        }
+        guard state.lifecycle == .active else {
+            setAliasDelivery(.localOnly, for: accountID)
+            return
+        }
+        setAliasDelivery(.publishing, for: accountID)
+        await publication.observeMetadataDelivery(account: update.account) { [weak self] outcome in
+            await MainActor.run {
+                self?.setAliasDelivery(Self.aliasState(for: outcome), for: accountID)
+            }
+        }
+        let outcome = await publication.collected(
+            CollectResult(snapshot: snapshot, change: update.change))
+        let deliveryState = Self.aliasState(for: outcome)
+        if aliasDelivery(for: accountID) != .available || deliveryState == .available {
+            setAliasDelivery(deliveryState, for: accountID)
+        }
+    }
+
+    func aliasDelivery(for accountID: AccountID) -> AliasDeliveryState? {
+        aliasDeliveries[accountID]
+    }
+
+    func clearAliasDelivery(for accountID: AccountID, includingFailure: Bool = false) {
+        guard let state = aliasDeliveries[accountID],
+            includingFailure || state == .available || state == .localOnly
+        else { return }
+        aliasDeliveries.removeValue(forKey: accountID)
+    }
+
+    private func setAliasDelivery(_ state: AliasDeliveryState, for accountID: AccountID) {
+        guard aliasDeliveries[accountID] != state else { return }
+        aliasDeliveries[accountID] = state
+        let label =
+            accounts.first(where: { $0.id == accountID })?.effectiveDisplayLabel ?? "Account"
+        aliasDeliveryTransition = AliasDeliveryTransition(
+            accountID: accountID, label: label, state: state)
     }
 
     private static func aliasState(for outcome: PublishOutcome) -> AliasDeliveryState {

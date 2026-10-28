@@ -148,13 +148,21 @@ struct PairingSyncView: View {
             Button("Save Device Name") {
                 Task { await environment.saveDeviceName(deviceName) }
             }
-            Button("Use Device Name") { Task { await environment.useDeviceName() } }
+            Button("Use Device Name") {
+                Task {
+                    await environment.useDeviceName()
+                    deviceName = environment.readerProfile?.name.value ?? ""
+                }
+            }
             LabeledContent("Sharing", value: profileDeliveryText)
             if environment.readerProfile?.delivery == .failed {
                 Button("Retry") { Task { await environment.retryDeviceProfile() } }
             }
         }
         .onAppear { deviceName = environment.readerProfile?.name.value ?? "" }
+        .onChange(of: environment.readerProfile?.name.value) { oldValue, newValue in
+            if deviceName == (oldValue ?? "") { deviceName = newValue ?? "" }
+        }
     }
 
     private var profileDeliveryText: String {

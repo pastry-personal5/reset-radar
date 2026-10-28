@@ -49,6 +49,22 @@ public struct UsageSnapshot: Codable, Hashable, Sendable {
         sources.first { $0.accountID == accountID }
     }
 
+    /// Copies only one account alias, preserving the collected observation and every other
+    /// account's metadata. `nil` means this snapshot does not yet contain the account.
+    public func replacingAlias(
+        for accountID: AccountID, with alias: AccountAlias?
+    ) throws(UsageSnapshotError) -> UsageSnapshot? {
+        guard accounts.contains(where: { $0.id == accountID }) else { return nil }
+        return try UsageSnapshot(
+            publisherID: publisherID, generatedAt: generatedAt,
+            heartbeatSeconds: heartbeatSeconds,
+            accounts: accounts.map { account in
+                account.id == accountID ? account.replacingAlias(alias) : account
+            },
+            sources: sources, windows: windows, diagnostics: diagnostics,
+            manualRefreshResults: manualRefreshResults)
+    }
+
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, publisherID, generatedAt, heartbeatSeconds, accounts, sources, windows
         case diagnostics, manualRefreshResults

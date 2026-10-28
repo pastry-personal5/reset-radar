@@ -149,12 +149,12 @@ These are existing local products, not new external dependencies.
 
 | Platform | Minimum OS and deployment target | Reference device | Simulator destination |
 |---|---|---|---|
-| iPhone | iOS 27.0 | iPhone 17 Pro Max | `platform=iOS Simulator,name=iPhone 17 Pro Max,OS=27.0` |
-| iPad | iPadOS 27.0 (same universal target) | iPad Air 11-inch (M2) | `platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=27.0` |
+| iPhone | iOS 27.0 | iPhone 18 Pro Max | `platform=iOS Simulator,name=iPhone 18 Pro Max,OS=27.0` |
+| iPad | iPadOS 27.0 (same universal target) | iPad Air 11-inch (M4) | `platform=iOS Simulator,name=iPad Air 11-inch (M4),OS=27.0` |
 | Apple Watch | watchOS 27.0 | Apple Watch Series 11 (42mm) | `platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)` |
 | Mac | macOS 26.7.1 | MacBook Pro, Apple M5 Max, 128 GB | `platform=macOS` |
 
-Building requires an Xcode whose SDKs are at least iOS 27.0, watchOS 27.0, and macOS 26.7, plus iOS and watchOS simulator runtimes at or above the minimums. The iOS and iPadOS apps share the universal iOS 27.0 deployment target. The owner raised the iOS, iPadOS, and watchOS floors to 27.0 on 2026-10-27; validation on compatible reference-device simulators supersedes the earlier 26.x deployment evidence. The installed iOS 27.0 runtime cannot create the approved iPhone 17 Pro Max or iPad Air 11-inch (M2), so the iOS simulator gate remains blocked until the owner chooses compatible replacement models or a compatible runtime becomes available.
+Building requires an Xcode whose SDKs are at least iOS 27.0, watchOS 27.0, and macOS 26.7, plus iOS and watchOS simulator runtimes at or above the minimums. The iOS and iPadOS apps share the universal iOS 27.0 deployment target. The owner raised the iOS, iPadOS, and watchOS floors to 27.0 on 2026-10-27; validation on compatible reference-device simulators supersedes the earlier 26.x deployment evidence. On 2026-10-28 the owner selected the iPhone 18 Pro Max and iPad Air 11-inch (M4) as the compatible iOS 27.0 reference destinations.
 
 Every macOS target and configuration is Apple-silicon-only: `ARCHS` resolves to `arm64`,
 `x86_64` is excluded, and Intel Macs are unsupported. The contribution gate builds the unsigned
@@ -422,15 +422,11 @@ Failure of the cost, plaintext, credential, cellular, deletion, or recovery boun
 The complete gate is:
 
 ```sh
-Scripts/generate-project.sh
-Scripts/lint-swift-format.sh
-swiftlint --strict
-Scripts/check-imports.sh
-xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
-xcodebuild test -scheme ResetRadar -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=27.0' \
-  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=27.0'
-xcodebuild test -scheme ResetRadarWatch \
-  -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'
-npm --prefix relay ci
-npm --prefix relay test && npm --prefix relay run typecheck && npm --prefix relay run deploy:dry-run
+make gate
 ```
+
+The Make targets use the platform destinations above, isolated reusable DerivedData, disabled
+test coverage collection, local temporary result bundles, sequential iPhone/iPad execution, and a
+separate Xcode action for every iOS package bundle and enumerated app/UI test identifier. A
+configurable wall-clock watchdog bounds potentially blocking build, test, simulator, and relay
+commands.

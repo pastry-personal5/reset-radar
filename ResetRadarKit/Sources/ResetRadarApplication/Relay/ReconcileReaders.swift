@@ -41,6 +41,7 @@ public enum ReconcileReadersOutcome: Sendable, Equatable {
     case reconciled([RosterEntry])
     case failed(RelayOutcome)
     case secretsUnavailable
+    case storageFailed
     case notActive
 }
 
@@ -64,21 +65,13 @@ public actor ReconcileReaders {
     }
 
     public func run() async -> ReconcileReadersOutcome {
-        guard let state = try? await publisher.load(), state.lifecycle == .active,
-            let endpoint = state.endpoint
-        else { return .notActive }
+        let state: PublisherState
+        do {
+            state = try await publisher.load()
+        } catch { return .storageFailed }
+        guard state.lifecycle == .active, let endpoint = state.endpoint else { return .notActive }
         guard let admin = try? await secrets.read(.adminToken) else { return .secretsUnavailable }
-        let listed: RelayResponse<[RelayReader]>
-        if profileCipher != nil {
-            let profileResponse = await relay.listReadersV2(endpoint: endpoint, adminToken: admin)
-            if case .outcome(.unsupportedVersion) = profileResponse {
-                listed = await relay.listReaders(endpoint: endpoint, adminToken: admin)
-            } else {
-                listed = profileResponse
-            }
-        } else {
-            listed = await relay.listReaders(endpoint: endpoint, adminToken: admin)
-        }
+        let listed = await listReaders(endpoint: endpoint, admin: admin)
         let remote: [RelayReader]
         switch listed {
         case .value(let readers): remote = readers
@@ -89,24 +82,40 @@ public actor ReconcileReaders {
         let contentKey = try? await secrets.read(.contentKey)
         let profiles = Dictionary(
             uniqueKeysWithValues: remote.compactMap { reader in
-                profile(reader, key: contentKey).map { (reader.id, $0) }
+                profile(reader, key: contentKey, publisherID: state.publisherID)
+                    .map { (reader.id, $0) }
             })
-        await promoteActivated(remote, profiles: profiles, now: now)
+        do {
+            try await promoteActivated(remote, profiles: profiles, now: now)
+        } catch { return .storageFailed }
         for pending in state.pendingRegistrations
         where pending.expiresAt <= now && !activated.contains(pending.readerID) {
             _ = await RelayRevocation.revoke(
                 pending.readerID, publisher: publisher, secrets: secrets, relay: relay)
         }
-        guard let merged = try? await publisher.load() else { return .notActive }
+        guard let merged = try? await publisher.load() else { return .storageFailed }
         return .reconciled(roster(local: merged, remote: remote, profiles: profiles))
+    }
+
+    private func listReaders(endpoint: URL, admin: SecretValue) async -> RelayResponse<
+        [RelayReader]
+    > {
+        guard profileCipher != nil else {
+            return await relay.listReaders(endpoint: endpoint, adminToken: admin)
+        }
+        let profileResponse = await relay.listReadersV2(endpoint: endpoint, adminToken: admin)
+        if case .value = profileResponse { return profileResponse }
+        let fallback = await relay.listReaders(endpoint: endpoint, adminToken: admin)
+        if case .value = fallback { return fallback }
+        return profileResponse
     }
 
     private func promoteActivated(
         _ remote: [RelayReader], profiles: [ReaderID: ReaderProfile], now: Date
-    ) async {
+    ) async throws {
         let activated = Set(remote.filter(\.activated).map(\.id))
         let legacyNames = profileCipher == nil
-        try? await publisher.transact { state in
+        try await publisher.transact { state in
             for pending in state.pendingRegistrations where activated.contains(pending.readerID) {
                 let relayReader = remote.first { $0.id == pending.readerID }
                 let profile = profiles[pending.readerID]
@@ -144,10 +153,14 @@ public actor ReconcileReaders {
         }
     }
 
-    private func profile(_ reader: RelayReader, key: SecretValue?) -> ReaderProfile? {
-        guard let profileCipher, let key, let envelope = reader.profileEnvelope,
+    private func profile(
+        _ reader: RelayReader, key: SecretValue?, publisherID: PublisherID?
+    ) -> ReaderProfile? {
+        guard let profileCipher, let key, let publisherID,
+            let envelope = reader.profileEnvelope,
             let opened = try? profileCipher.open(envelope, expected: nil, key: key),
-            opened.header.readerID == reader.id
+            opened.header.readerID == reader.id,
+            opened.header.publisherID == publisherID
         else { return nil }
         return opened.profile
     }
@@ -163,9 +176,10 @@ public actor ReconcileReaders {
             entries.append(
                 RosterEntry(
                     readerID: reader.id,
-                    name: device?.name ?? pending?.name ?? profiles[reader.id]?.displayName.value,
+                    name: reader.activated
+                        ? (profiles[reader.id]?.displayName.value ?? device?.name) : nil,
                     status: reader.activated
-                        ? (device == nil ? .unknownOnThisMac : .activated)
+                        ? (device == nil && pending == nil ? .unknownOnThisMac : .activated)
                         : .pending(expiresAt: pending?.expiresAt ?? clock.now),
                     date: reader.activated
                         ? (reader.activatedAt ?? device?.pairedAt) : pending?.expiresAt,
@@ -184,6 +198,21 @@ public actor ReconcileReaders {
                     profileUnavailable: device.profileUnavailable == true,
                     deviceClass: device.deviceClass))
         }
+        entries.sort { left, right in
+            let leftRank = Self.rank(left.status)
+            let rightRank = Self.rank(right.status)
+            return leftRank == rightRank
+                ? left.readerID.hex < right.readerID.hex : leftRank < rightRank
+        }
         return entries
+    }
+
+    private static func rank(_ status: RosterEntry.Status) -> Int {
+        switch status {
+        case .activated: 0
+        case .pending: 1
+        case .missingOnRelay: 2
+        case .unknownOnThisMac: 3
+        }
     }
 }

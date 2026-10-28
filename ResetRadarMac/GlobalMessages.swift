@@ -84,16 +84,15 @@ final class GlobalMessageCenter: ObservableObject {
     func observe(_ flows: OwnerFlowModels) {
         subscriptions.removeAll()
         observe(flows.home.$message)
-        flows.home.$aliasDelivery
-            .removeDuplicates()
+        flows.home.$aliasDeliveryTransition
             .compactMap { $0 }
-            .sink { [weak self] state in
+            .sink { [weak self] transition in
                 Task { @MainActor in
                     self?.post(
-                        state.rawValue,
-                        tone: state == .available
+                        "\(transition.label): \(transition.state.rawValue)",
+                        tone: transition.state == .available
                             ? .success
-                            : (state == .failed ? .attention : .information))
+                            : (transition.state == .failed ? .attention : .information))
                 }
             }
             .store(in: &subscriptions)

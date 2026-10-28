@@ -14,6 +14,12 @@ actor PublicationDriver {
         @Sendable (UsageSnapshot, ChangeClass, PublishTrigger) async -> PublishOutcome
     typealias ReportOutcome = @Sendable (PublicationStatusEvent) async -> Void
 
+    private struct MetadataDelivery {
+        let accountID: AccountID
+        let alias: AccountAlias?
+        let observer: @Sendable (PublishOutcome) async -> Void
+    }
+
     private let clock: any AppClock
     private let loadSnapshot: LoadSnapshot
     private let publish: Publish
@@ -23,7 +29,7 @@ actor PublicationDriver {
     private var suspended = false
     private var lastChange = ChangeClass.none
     private var lastReportedBlock: PublishOutcome?
-    private var metadataObserver: (@Sendable (PublishOutcome) async -> Void)?
+    private var metadataDeliveries = [AccountID: MetadataDelivery]()
 
     init(
         clock: any AppClock, loadSnapshot: @escaping LoadSnapshot, publish: @escaping Publish,
@@ -64,9 +70,11 @@ actor PublicationDriver {
     }
 
     func observeMetadataDelivery(
+        account: AccountMetadata,
         _ observer: @escaping @Sendable (PublishOutcome) async -> Void
     ) {
-        metadataObserver = observer
+        metadataDeliveries[account.id] = MetadataDelivery(
+            accountID: account.id, alias: account.alias, observer: observer)
     }
 
     func stop() {
@@ -94,7 +102,18 @@ actor PublicationDriver {
         if case .published = outcome {
             await reportOutcome(.published(date: clock.now))
         }
-        if change == .metadataOnly { await metadataObserver?(outcome) }
+        let delivered = metadataDeliveries.values.filter { delivery in
+            snapshot.accounts.contains {
+                $0.id == delivery.accountID && $0.alias == delivery.alias
+            }
+        }
+        for delivery in delivered {
+            guard metadataDeliveries[delivery.accountID]?.alias == delivery.alias else { continue }
+            if case .published = outcome {
+                metadataDeliveries.removeValue(forKey: delivery.accountID)
+            }
+            await delivery.observer(outcome)
+        }
         return outcome
     }
 

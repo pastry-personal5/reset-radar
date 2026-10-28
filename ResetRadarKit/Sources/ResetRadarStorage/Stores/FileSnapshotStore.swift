@@ -27,4 +27,16 @@ public final class FileSnapshotStore: LocalSnapshotCommitting {
     public func commitLocal(_ snapshot: UsageSnapshot) async throws {
         try await file.transact { $0.snapshot = snapshot }
     }
+
+    public func updateAccountAlias(
+        _ id: AccountID, to alias: AccountAlias?
+    ) async throws -> UsageSnapshot? {
+        try await file.transact { stored in
+            guard let previous = stored.snapshot,
+                let updated = try previous.replacingAlias(for: id, with: alias)
+            else { return nil }
+            stored.snapshot = updated
+            return updated
+        }
+    }
 }

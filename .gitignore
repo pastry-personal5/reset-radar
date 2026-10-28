@@ -13,3 +13,4 @@ relay/worker-configuration.d.ts
 .generated/
 
 default.profraw
+__pycache__/

@@ -94,7 +94,9 @@ struct SettingsRootView: View {
         case .general:
             GeneralSettingsView(model: models.general, recovery: models.recovery, home: models.home)
         case .sources:
-            SourcesSettingsView(model: models.sources, rebuildCollector: rebuildCollector)
+            SourcesSettingsView(
+                model: models.sources, home: models.home,
+                rebuildCollector: rebuildCollector)
         case .relay:
             RelaySettingsView(
                 relay: models.relay, pairing: models.pairing, devices: models.devices,
@@ -194,6 +196,11 @@ private struct RelaySettingsView: View {
         .task { await relay.load() }
         .onAppear { pairing.pairingViewAppeared() }
         .onDisappear { pairing.pairingViewDisappeared() }
+        .onChange(of: pairing.encodedPackage) { previous, current in
+            if previous != nil && current == nil {
+                Task { await devices.refresh() }
+            }
+        }
         .confirmationDialog(
             "Copying exposes pairing credentials to the system clipboard.",
             isPresented: $showCopyWarning
@@ -214,12 +221,21 @@ private struct RelaySettingsView: View {
     }
 
     private var relaySetup: some View {
-        SettingsCard(title: "Relay setup") {
+        SettingsCard(title: "Relay Setup") {
             LabeledContent("State", value: relayStateText)
-            if let endpoint = relay.endpoint, relay.lifecycle == .active {
+            if relay.lifecycle == .active {
+                Label("Configured", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            }
+            Text(relayStateExplanation)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .wrapsInMainPane()
+            if let endpoint = relay.endpoint {
                 LabeledContent("Endpoint", value: endpoint.absoluteString)
                     .textSelection(.enabled)
-            } else {
+            }
+            if relay.lifecycle == .notConfigured {
                 TextField("https://name.account.workers.dev", text: $relay.origin)
                     .textFieldStyle(.roundedBorder)
                 Button("Prepare Relay") { Task { await relay.prepare() } }
@@ -231,9 +247,20 @@ private struct RelaySettingsView: View {
                 LabeledContent("ADMIN_TOKEN_DIGEST", value: admin).textSelection(.enabled)
             }
             if relay.isPending {
+                if relay.writeDigest == nil || relay.adminDigest == nil {
+                    Button("Retry Prepare Relay") { Task { await relay.prepare() } }
+                }
                 Button("Activate Relay") {
                     Task {
                         if await relay.activate() { await rebuildCollector() }
+                    }
+                }
+            }
+            if relay.lifecycle == .destroyPending {
+                Button("Retry Destroy Relay", role: .destructive) {
+                    Task {
+                        await devices.destroyRelay(confirmed: true)
+                        await relay.load()
                     }
                 }
             }
@@ -242,11 +269,16 @@ private struct RelaySettingsView: View {
 
     private var pairingSetup: some View {
         SettingsCard(title: "Pair an iPhone or iPad") {
-            Button("Create QR Pairing Code") { Task { await pairing.begin() } }
+            Button("Pair an iPhone or iPad") { Task { await pairing.begin() } }
             if let encoded = pairing.encodedPackage {
                 PairingCodeView(encoded: encoded)
                 if let code = pairing.confirmationCode {
                     LabeledContent("Confirmation code", value: code)
+                }
+                if let expiresAt = pairing.expiresAt {
+                    LabeledContent("Expires") {
+                        Text(expiresAt.formatted(date: .abbreviated, time: .shortened))
+                    }
                 }
                 Button("Copy pairing package…") { showCopyWarning = true }
             }
@@ -254,14 +286,44 @@ private struct RelaySettingsView: View {
     }
 
     private var pairedDevices: some View {
-        SettingsCard(title: "Paired devices") {
+        SettingsCard(title: "Paired Devices") {
             Button("Refresh") { Task { await devices.refresh() } }
-            ForEach(devices.roster, id: \.readerID) { entry in
-                PairedDeviceRow(entry: entry) {
-                    Task { await devices.revokeReader(entry.readerID) }
+            if devices.roster.isEmpty {
+                ContentUnavailableView(
+                    "No paired devices", systemImage: "iphone.gen3",
+                    description: Text("Create a QR pairing code to pair an iPhone or iPad.")
+                )
+                .frame(maxWidth: .infinity)
+            } else {
+                List {
+                    ForEach(devices.roster, id: \.readerID) { entry in
+                        PairedDeviceRow(entry: entry) {
+                            Task { await devices.revokeReader(entry.readerID) }
+                        }
+                    }
                 }
+                .listStyle(.inset)
+                .frame(height: min(440, max(100, CGFloat(devices.roster.count) * 100)))
+            }
+            if let message = devices.message {
+                Text(message).font(.callout).foregroundStyle(.secondary)
             }
             Button("Destroy Relay…", role: .destructive) { showDestroyConfirmation = true }
+        }
+    }
+
+    private var relayStateExplanation: String {
+        switch relay.lifecycle {
+        case .notConfigured:
+            "Set up the relay before pairing an iPhone or iPad."
+        case .setupPending:
+            relay.writeDigest == nil || relay.adminDigest == nil
+                ? "Relay setup is pending. Retry preparation to restore the deployment digests."
+                : "Add both deployment digests as Worker secrets, then activate this relay."
+        case .active:
+            "The relay is configured on this Mac."
+        case .destroyPending:
+            "Publication is stopped while relay destruction is pending. Retry to finish removal."
         }
     }
 
@@ -314,31 +376,6 @@ private struct DiagnosticsSettingsView: View {
         }
         .navigationTitle("Diagnostics")
         .task { await model.refresh() }
-    }
-}
-
-private struct AboutSettingsView: View {
-    @Environment(\.openURL) private var openURL
-    private let repository = URL(string: "https://github.com/pastry-personal5/reset-radar")!
-    private let issues = URL(string: "https://github.com/pastry-personal5/reset-radar/issues/new")!
-
-    var body: some View {
-        List {
-            Section("Reset Radar") {
-                Text(
-                    "See when Codex and Claude Code allowances reset, with private encrypted "
-                        + "synchronization from your Collector Mac.")
-            }
-            Section("License") {
-                Text("Apache License 2.0")
-            }
-            Section("Feedback") {
-                Button("GitHub") { openURL(repository) }
-                Button("Report an Issue") { openURL(issues) }
-                Button("Support Reset Radar") { openURL(repository) }
-            }
-        }
-        .navigationTitle("About")
     }
 }
 

@@ -4,15 +4,35 @@ Status: Active
 
 How to set up `reset-radar`, validate a change, write commit messages, and open a pull request.
 
-The documented local checks are also available as named targets in the root
-`Makefile`; run `make help` to list them and `make gate` for the complete gate. `make test`
-runs the macOS suite and then the iPhone, iPad, and Watch suites so they do not compete for Xcode
-and simulator services, beside the independent relay suite. The iPhone and iPad suites run in one
-`xcodebuild` invocation (`make test-ios-ipad`), which builds once and tests both simulators concurrently;
-`make test-ios` and `make test-ipad` run a single destination. Each suite retains its native
-bounded test scheduling. The Make targets keep reusable DerivedData caches isolated by platform,
-preventing iOS, Watch, and Mac simulator modules from contaminating one another while retaining
-incremental builds.
+The documented local checks are named targets in the root `Makefile`; run `make help` to
+list them and `make gate` for the complete gate. Make serializes its goals even with `-j` or
+inherited `MAKEFLAGS`: generation, Apple builds/tests, and relay dependency installation must
+finish before their consumers run. `make test` runs macOS, iPhone, iPad, Watch, then relay tests.
+`make test-ios-ipad` runs the two iOS destinations in order with a shared reusable DerivedData
+cache. Mac, iOS, and Watch caches remain separate to avoid cross-platform module reuse.
+
+Apple simulator targets start with `make simulator-preflight`, a bounded CoreSimulator service
+check. Run Apple validation in the logged-in host user session. A coding-agent filesystem sandbox
+cannot access CoreSimulator's launchd service or Xcode/SwiftPM's user caches; errors such as
+`Operation not permitted`, `Connection refused`, and missing runtimes in that environment require
+approved host execution. Changing `HOME`, redirecting only DerivedData, or erasing simulator data
+does not grant service access. Do not run independent gates against the same checkout at once.
+
+Potentially blocking Make commands have a 600-second wall-clock watchdog. Override it for a
+known-slow machine with `make COMMAND_TIMEOUT_SECONDS=900 gate`. The watchdog prints progress
+every 30 seconds, forwards cancellation, kills remaining descendants even when their leader exits,
+and returns 124 on timeout. `make pipeline-tests` checks deadline validation, exit codes, timeout,
+and cancellation without requiring Xcode. Failed Apple test actions retain their console log and
+result bundle at the printed `/private/tmp/reset-radar-xcode-test.*` path; successful actions remove
+that scratch directory. Test results use unique local paths and coverage collection is disabled.
+Neither setting is evidence that the workspace volume or coverage caused a stall.
+
+The iOS runner executes the complete test plan once per destination, with Xcode worker
+parallelism disabled. It has one deadline for the entire action and does not retry or split test
+methods to conceal a failure. Run `make test-ios` or `make test-ipad` for one reference device.
+Hosted reader tests inject a separate `FakeWatchLink` per harness. Never construct multiple
+live bridges around `WCSession.default` in parallel tests: replacing its singleton delegate can
+strand another harness's activation continuation and leave the test action waiting indefinitely.
 
 The iOS UI tests launch the Development app with `-ResetRadarSyntheticScenario <name>`, which uses
 an isolated temporary store, in-memory secrets, and an in-process synthetic relay. Development
@@ -36,19 +56,21 @@ redacted events and retain at most eight UTC days. Do not copy the logs into the
 - swift-format, bundled with the Swift toolchain.
 - XcodeGen 2.46.0 exactly, for example `brew install xcodegen`; `Scripts/generate-project.sh` refuses any other version.
 - Node.js 26 and npm 11 for the TypeScript Cloudflare relay and its validation harness.
-- Simulators: an iOS 27.0-or-newer runtime and a watchOS 27.0-or-newer runtime with the Apple Watch Series 11 (42mm). The approved iPhone 17 Pro Max and iPad Air 11-inch (M2) types are unavailable in the installed iOS 27.0 runtime, so the iOS simulator gate is blocked pending an owner decision on compatible reference models; do not substitute models implicitly.
+- Simulators: an iOS 27.0-or-newer runtime with the iPhone 18 Pro Max and iPad Air
+  11-inch (M4), and a watchOS 27.0-or-newer runtime with the Apple Watch Series 11 (42mm).
+  These exact reference destinations are owner-approved and used by the complete gate; do not
+  substitute models implicitly.
 
 ```sh
-Scripts/generate-project.sh                                                                # generate the ignored Xcode project
-xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'                       # run the tests
-make test-ios-ipad                                                                         # build once; test both iOS destinations concurrently
-xcodebuild test -scheme ResetRadarWatch \
-  -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'             # Watch app and package tests
-swift-format format --in-place --recursive <maintained roots in Scripts/swift-roots.txt>   # format
-Scripts/lint-swift-format.sh                                                               # check formatting
-swiftlint --strict                                                                         # lint
-Scripts/check-imports.sh                                                                   # enforce the dependency rule
-Scripts/check-mac-architecture.sh                                                          # build and inspect unsigned Release Mac binaries
+make generate         # generate the ignored Xcode project
+make test-mac         # bounded macOS tests
+make test-ios-ipad    # reference iPhone, then iPad
+make test-watch       # bounded Watch app and package tests
+make format           # format maintained Swift roots
+make format-check     # check formatting
+make lint             # strict SwiftLint
+make imports          # enforce the dependency rule
+make mac-arch-check   # build and inspect unsigned Release Mac binaries
 ```
 
 The relay exposes reproducible npm scripts for TypeScript checking, Workers Vitest tests, and a Wrangler deployment dry run that never contacts Cloudflare. Mac Release builds need an untracked `Config/Build/Local.xcconfig` copied from `Local.xcconfig.template`; Development builds and the gate do not. The architecture check makes an isolated unsigned Release build and verifies every Mach-O executable with `lipo`; it does not replace the signed Release scheme check. Do not run a real deployment until the synthetic-data procedure confirms Workers Free, disabled observability, and owner-present approval.
@@ -58,17 +80,7 @@ The relay exposes reproducible npm scripts for TypeScript checking, Workers Vite
 Before opening a pull request, run the full checks from the repository root:
 
 ```sh
-Scripts/generate-project.sh
-Scripts/lint-swift-format.sh
-swiftlint --strict
-Scripts/check-imports.sh
-Scripts/check-mac-architecture.sh
-xcodebuild test -scheme ResetRadarMac -destination 'platform=macOS'
-make test-ios-ipad
-xcodebuild test -scheme ResetRadarWatch \
-  -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)'
-npm --prefix relay ci
-npm --prefix relay test && npm --prefix relay run typecheck && npm --prefix relay run deploy:dry-run
+make gate
 ```
 
 The relay has no separate linter or formatter; adding one is a dependency decision that needs owner approval.

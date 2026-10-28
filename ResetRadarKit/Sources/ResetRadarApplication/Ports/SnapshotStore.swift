@@ -9,4 +9,6 @@ public protocol SnapshotStore: Sendable {
 /// Mac collection: replaces the collected snapshot without assigning a relay sequence.
 public protocol LocalSnapshotCommitting: SnapshotStore {
     func commitLocal(_ snapshot: UsageSnapshot) async throws
+    /// Atomically changes one alias against the latest committed snapshot when supported.
+    func updateAccountAlias(_ id: AccountID, to alias: AccountAlias?) async throws -> UsageSnapshot?
 }

@@ -60,7 +60,7 @@ struct UpdateAccountAliasTests {
         await #expect(throws: UpdateAccountAliasError.invalidAlias(.noVisibleContent)) {
             try await useCase.update(accountID: codexAccountID, input: " \u{301}")
         }
-        await #expect(throws: AccountCatalogError.duplicateDisplayLabel) {
+        await #expect(throws: UpdateAccountAliasError.duplicateDisplayLabel) {
             try await useCase.update(accountID: codexAccountID, input: "Shared")
         }
         #expect(store.commits.isEmpty)

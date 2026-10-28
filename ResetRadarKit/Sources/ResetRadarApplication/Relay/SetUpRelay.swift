@@ -105,6 +105,14 @@ public actor SetUpRelay {
         return .active
     }
 
+    /// Recreates the same deployment digests for a durable pending setup after app relaunch.
+    public func pendingDigests() async -> ProvisioningDigests? {
+        guard let state = try? await publisher.load(), state.lifecycle == .setupPending,
+            let endpoint = state.endpoint
+        else { return nil }
+        return await resumableDigests(state, endpoint: endpoint)
+    }
+
     /// The current local content under the new publisher ID; `nil` if the heartbeat is invalid.
     private func bindingSnapshot(publisherID: PublisherID) async -> UsageSnapshot? {
         let base = try? await snapshots.load()

@@ -230,6 +230,7 @@ public actor AcceptPairing {
                 state.etag = nil
                 state.awaitingActivation = false
                 state.transportStatus = .notPaired
+                state.readerProfile = nil
             }
         } catch {
             return
@@ -269,35 +270,45 @@ public actor ReportReaderProfile {
     ) async -> ReaderProfileUpdateOutcome {
         let name: ReaderProfileName
         do { name = try ReaderProfileName(validating: input) } catch { return .invalidName(error) }
+        let canReport: Bool?
         do {
-            try await reader.transact { state in
+            canReport = try await reader.transact { state -> Bool? in
+                guard state.pairing != nil else { return nil }
                 let revision = state.readerProfile?.revision ?? 0
                 state.readerProfile = ReaderProfileState(
                     name: name, namingMode: namingMode, deviceClass: deviceClass,
                     revision: revision, delivery: .waiting)
+                return !state.awaitingActivation
             }
         } catch { return .waiting }
+        guard let canReport else { return .notPaired }
+        guard canReport else { return .waiting }
         return await createAndSend()
     }
 
     /// Uses a previously persisted exact body, including after app relaunch.
     public func retry() async -> ReaderProfileUpdateOutcome {
         guard let state = try? await reader.load(), let pairing = state.pairing,
-            !state.awaitingActivation, let profile = state.readerProfile
+            let profile = state.readerProfile
         else { return .notPaired }
+        guard !state.awaitingActivation else { return .waiting }
         if let pending = profile.pendingEnvelope {
             return await send(pending, pairing: pairing)
         }
+        if profile.delivery == .available { return .available }
         return await createAndSend()
     }
 
     private func createAndSend() async -> ReaderProfileUpdateOutcome {
         guard let state = try? await reader.load(), let pairing = state.pairing,
-            !state.awaitingActivation, let profileState = state.readerProfile,
-            let key = try? await secrets.read(.contentKey)
+            let profileState = state.readerProfile
         else { return .notPaired }
+        guard !state.awaitingActivation else { return .waiting }
+        guard let key = try? await secrets.read(.contentKey) else {
+            return await markFailed(.protocolFailure, expected: profileState)
+        }
         guard profileState.revision < 9_007_199_254_740_991 else {
-            return await markFailed(.protocolFailure)
+            return await markFailed(.protocolFailure, expected: profileState)
         }
         let revision = profileState.revision + 1
         let header = ReaderProfileHeader(
@@ -306,7 +317,7 @@ public actor ReportReaderProfile {
         let profile = ReaderProfile(
             displayName: profileState.name, deviceClass: profileState.deviceClass)
         guard let body = try? cipher.seal(profile, header: header, key: key) else {
-            return await markFailed(.protocolFailure)
+            return await markFailed(.protocolFailure, expected: profileState)
         }
         do {
             let stored = try await reader.transact { state -> Bool in
@@ -348,10 +359,11 @@ public actor ReportReaderProfile {
     }
 
     private func markFailed(
-        _ outcome: RelayOutcome, envelope: Data? = nil
+        _ outcome: RelayOutcome, envelope: Data? = nil, expected: ReaderProfileState? = nil
     ) async -> ReaderProfileUpdateOutcome {
         let applied = try? await reader.transact { state -> Bool in
             if let envelope, state.readerProfile?.pendingEnvelope != envelope { return false }
+            if let expected, state.readerProfile != expected { return false }
             state.readerProfile?.delivery = .failed
             return true
         }

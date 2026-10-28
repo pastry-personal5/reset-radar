@@ -123,7 +123,8 @@ final class ReaderEnvironment: ObservableObject {
         hasWatchStage = deps.hasWatchStage
         let reloader = WidgetCenterReloader()
         let visible = VisibleSnapshot(snapshots: deps.snapshots, reader: deps.reader)
-        let (bridge, forward) = Self.makeWatchComponents(deps)
+        let (bridge, watchLink) = Self.makeWatchLink(deps)
+        let forward = Self.makeWatchForward(watchLink, dependencies: deps)
         let scheduling = ReaderScheduling(
             dependencies: deps, visible: visible, reloader: reloader, watch: forward)
         notifications = scheduling.notifications
@@ -151,7 +152,7 @@ final class ReaderEnvironment: ObservableObject {
         forgetMac = ForgetMac(
             reader: deps.reader, secrets: deps.secrets,
             notifications: scheduling.notifications, activities: scheduling.activities,
-            reloader: reloader, watch: bridge.map { PhoneSideWatchLink(session: $0) })
+            reloader: reloader, watch: watchLink)
         reportProfile = ReportReaderProfile(
             reader: deps.reader, secrets: deps.secrets, relay: deps.relay,
             cipher: deps.profileCipher)
@@ -165,16 +166,31 @@ final class ReaderEnvironment: ObservableObject {
         observeSystemTimeChanges()
     }
 
-    private static func makeWatchComponents(
+    private static func makeWatchLink(
         _ dependencies: ReaderDependencies
-    ) -> (WCSessionBridge?, ForwardToWatch?) {
-        let bridge = dependencies.hasWatchStage ? WCSessionBridge() : nil
-        let forward = bridge.map {
+    ) -> (WCSessionBridge?, (any WatchLink)?) {
+        guard dependencies.hasWatchStage else { return (nil, nil) }
+        let bridge: WCSessionBridge?
+        let link: any WatchLink
+        if let injected = dependencies.watchLink {
+            bridge = nil
+            link = injected
+        } else {
+            let liveBridge = WCSessionBridge()
+            bridge = liveBridge
+            link = PhoneSideWatchLink(session: liveBridge)
+        }
+        return (bridge, link)
+    }
+
+    private static func makeWatchForward(
+        _ link: (any WatchLink)?, dependencies: ReaderDependencies
+    ) -> ForwardToWatch? {
+        link.map {
             ForwardToWatch(
                 reader: dependencies.reader, preferences: dependencies.preferences,
-                watch: PhoneSideWatchLink(session: $0), clock: dependencies.clock)
+                watch: $0, clock: dependencies.clock)
         }
-        return (bridge, forward)
     }
 
     private func startWatch(
@@ -579,12 +595,13 @@ extension ReaderEnvironment {
     }
 
     func useDeviceName() async {
-        proposedDeviceName = UIDevice.current.name
         let deviceClass: ReaderDeviceClass =
             UIDevice.current.userInterfaceIdiom == .pad
             ? .tablet : .phone
+        let deviceName = automaticDeviceName(for: deviceClass)
+        proposedDeviceName = deviceName
         let outcome = await reportProfile.update(
-            name: UIDevice.current.name, namingMode: .automatic, deviceClass: deviceClass)
+            name: deviceName, namingMode: .automatic, deviceClass: deviceClass)
         pairingMessage = profileMessage(outcome)
         await reload()
     }
@@ -595,17 +612,32 @@ extension ReaderEnvironment {
     }
 
     private func refreshAutomaticProfileIfNeeded() async {
-        guard let state = try? await reader.load(), let profile = state.readerProfile else {
+        guard let state = try? await reader.load(), state.pairing != nil else {
             return
         }
-        if profile.namingMode == .automatic, profile.name.value != UIDevice.current.name {
-            let deviceClass: ReaderDeviceClass =
-                UIDevice.current.userInterfaceIdiom == .pad
-                ? .tablet : .phone
+        let deviceClass: ReaderDeviceClass =
+            UIDevice.current.userInterfaceIdiom == .pad ? .tablet : .phone
+        let deviceName = automaticDeviceName(for: deviceClass)
+        let automaticNameChanged =
+            state.readerProfile?.namingMode == .automatic
+            && state.readerProfile?.name.value != deviceName
+        if state.readerProfile == nil {
             _ = await reportProfile.update(
-                name: UIDevice.current.name, namingMode: .automatic, deviceClass: deviceClass)
+                name: deviceName, namingMode: .automatic, deviceClass: deviceClass)
+        } else if automaticNameChanged {
+            _ = await reportProfile.update(
+                name: deviceName, namingMode: .automatic, deviceClass: deviceClass)
         } else {
             _ = await reportProfile.retry()
+        }
+    }
+
+    private func automaticDeviceName(for deviceClass: ReaderDeviceClass) -> String {
+        let name = UIDevice.current.name
+        guard (try? ReaderProfileName(validating: name)) == nil else { return name }
+        switch deviceClass {
+        case .tablet: return "iPad"
+        case .phone: return "iPhone"
         }
     }
 

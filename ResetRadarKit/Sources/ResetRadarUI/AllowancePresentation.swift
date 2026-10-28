@@ -39,13 +39,21 @@ public struct NextReset: Equatable, Sendable {
 
 public enum NextResetDerivation {
     public static func derive(from sections: [WindowSection], now: Date) -> NextReset? {
-        AccountWindow.StandardWindow.allCases.compactMap { standard in
-            guard
-                let section = sections.first(where: { $0.id == .standard(standard) }),
-                !section.ambiguous,
-                let date = section.details?.window.resetsAt,
-                date > now
+        func date(for standard: AccountWindow.StandardWindow) -> Date? {
+            guard let section = sections.first(where: { $0.id == .standard(standard) }),
+                !section.ambiguous
             else { return nil }
+            return section.details?.window.resetsAt
+        }
+        return derive(fiveHour: date(for: .fiveHour), weekly: date(for: .weekly), now: now)
+    }
+
+    public static func derive(fiveHour: Date?, weekly: Date?, now: Date) -> NextReset? {
+        [
+            (AccountWindow.StandardWindow.fiveHour, fiveHour),
+            (.weekly, weekly),
+        ].compactMap { standard, date -> NextReset? in
+            guard let date, date > now else { return nil }
             return NextReset(date: date, window: standard)
         }.min { left, right in
             if left.date == right.date { return left.window == .fiveHour }

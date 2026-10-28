@@ -137,6 +137,10 @@ ticker, and manual-refresh driver.
   selects an isolated temporary store, in-memory secrets, and an in-process relay that seals
   synthetic snapshots with the real envelope cipher. A hosted unit-test launch builds no live graph.
   Release builds contain neither mode.
+- **Hosted-test Watch boundary.** `ReaderDependencies.watchLink` accepts an isolated link for each
+  reader harness. The same link handles activation, forwarding, and Forget Mac. Without an
+  injected link, the live iPhone graph owns one `WCSessionBridge`; iPad omits the Watch stage.
+  Parallel tests must not replace delegates on the shared `WCSession.default`.
 
 ## Refresh drivers
 

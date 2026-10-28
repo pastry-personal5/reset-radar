@@ -6,6 +6,18 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-28 — Codex — Fixed reader-test deadlocks from parallel harnesses replacing the
+  `WCSession.default` delegate by injecting an isolated fake Watch link per harness. Confirmed
+  coding-agent sandbox denial of CoreSimulator and user-cache access, added a bounded service preflight, serialized
+  Make goals under `-j`, repaired watchdog cancellation/descendant cleanup, retained failed Xcode
+  artifacts, and replaced per-method timeout retries with complete iOS test actions. Evidence
+  and remaining checks are recorded in the [M17 overview](milestone-17-gui-polish-overview.md).
+
+- 2026-10-28 — Owner — Replaced the iPhone 17 Pro Max and iPad Air 11-inch (M2)
+  reference simulator destinations with the iPhone 18 Pro Max and iPad Air 11-inch (M4). The
+  replacement models are available in the installed iOS 27.0 runtime and unblock the iOS and
+  iPadOS contribution-gate actions; deployment floors and product behavior are unchanged.
+
 - 2026-10-27 — Owner — Raised the minimum deployment targets for iOS, iPadOS, and watchOS to
   27.0. The approved reference-device models remain unchanged; their simulator destinations and
   the complete contribution gate now require compatible runtimes at or above the new floor.

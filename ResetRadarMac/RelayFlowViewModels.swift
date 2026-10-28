@@ -25,7 +25,6 @@ final class RelaySetupViewModel: ObservableObject {
     private let runningTeamIdentifier: () -> String?
     private let recordTeamIdentifier: (String) -> Void
     private let publisher: (any PublisherStore)?
-
     init(
         setup: SetUpRelay, publication: PublicationDriver,
         refreshManualRequests: @escaping @MainActor () async -> Void = {},
@@ -50,7 +49,14 @@ final class RelaySetupViewModel: ObservableObject {
         lifecycle = state.lifecycle
         endpoint = state.endpoint
         isPending = state.lifecycle == .setupPending
-        if origin.isEmpty { origin = state.endpoint?.absoluteString ?? "" }
+        origin = state.endpoint?.absoluteString ?? origin
+        if state.lifecycle == .setupPending, let digests = await setup.pendingDigests() {
+            writeDigest = hexadecimal(digests.writeToken)
+            adminDigest = hexadecimal(digests.adminToken)
+        } else {
+            writeDigest = nil
+            adminDigest = nil
+        }
     }
 
     func prepare() async {
@@ -139,7 +145,6 @@ final class PairingViewModel: ObservableObject {
     private var expiryTask: Task<Void, Never>?
     private var expirationDeadline: Date?
     private var viewVisible = false
-
     init(
         pairing: PairReader, pasteboard: any PairingPasteboard = SystemPairingPasteboard(),
         refreshManualRequests: @escaping @MainActor () async -> Void = {}
@@ -185,8 +190,7 @@ final class PairingViewModel: ObservableObject {
         clearOffer()
     }
 
-    /// Poll only while the pairing UI is visible; its independent deadline task still revokes an
-    /// unclaimed reader and clears any pairing material copied to the pasteboard.
+    /// Poll only while visible; a separate deadline task revokes an unclaimed reader.
     func pairingViewAppeared() {
         viewVisible = true
         guard encodedPackage != nil else { return }
@@ -311,6 +315,8 @@ final class DevicesViewModel: ObservableObject {
             message = nil
         case .secretsUnavailable:
             message = "Keychain secrets are unavailable."
+        case .storageFailed:
+            message = "The paired-device list could not be saved locally. Retry."
         case .failed, .notActive:
             message = "The paired-device list is unavailable."
         }

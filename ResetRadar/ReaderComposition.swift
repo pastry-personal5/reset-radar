@@ -24,6 +24,8 @@ struct ReaderDependencies {
     var notificationGate: any NotificationReconcileGate
     /// False on iPad, which has no Watch stage.
     var hasWatchStage: Bool
+    /// Tests replace the process-wide WCSession with one isolated link per reader.
+    var watchLink: (any WatchLink)?
 }
 
 /// Resolves the live object graph's storage root and Keychain access group.

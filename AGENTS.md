@@ -13,6 +13,11 @@ Start with the [documentation index](docs/README.md). Product scope lives in [pr
 - Work only on a clear task in the active milestone. Read its plan, relevant design docs, and applicable "Undecided" items first.
 - Before implementation, add a verifiable checklist item to the milestone overview; check it only when evidence exists.
 - Keep code, tests, and affected docs together. Run the complete gate in the [contribution guide](docs/contribution-guide.md).
+- Run Apple simulator validation with approved host access when a coding-agent sandbox blocks
+  CoreSimulator or user caches. Use the bounded Make targets and `make simulator-preflight`;
+  do not rewrite `HOME`, erase simulator data, or purge caches to bypass service permissions.
+  `make pipeline-tests` covers timeout/cancellation behavior. Keep independent gates against
+  this checkout sequential; failed Xcode actions retain the diagnostic path they print.
 - Before P1-M3 creates the executable scaffold, defer a structurally inapplicable gate check only by recording the command, blocker, and P1-M3 target. Report every other failure and leave the item unchecked. P1-M3 must pass the complete gate.
 - Ask before building on an undecided item, changing dependencies or build tools, deleting user data, or broadly restructuring the repository. Other work within the approved task and milestone may proceed.
 - Follow the active phase and milestone order in [roadmap.md](docs/roadmap.md) unless its plan says otherwise.

@@ -65,6 +65,19 @@ public final class FakeSnapshotStore: LocalSnapshotCommitting, @unchecked Sendab
             $0.commits.append(snapshot)
         }
     }
+
+    public func updateAccountAlias(
+        _ id: AccountID, to alias: AccountAlias?
+    ) async throws -> UsageSnapshot? {
+        try state.withLock { state in
+            guard let snapshot = state.snapshot,
+                let updated = try snapshot.replacingAlias(for: id, with: alias)
+            else { return nil }
+            state.snapshot = updated
+            state.commits.append(updated)
+            return updated
+        }
+    }
 }
 
 public actor FakeAccountCatalogStore: AccountCatalogStore {

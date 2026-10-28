@@ -5,6 +5,7 @@ import SwiftUI
 
 struct SourcesSettingsView: View {
     @ObservedObject var model: SourceSetupViewModel
+    @ObservedObject var home: HomeViewModel
     let rebuildCollector: @MainActor () async -> Void
     @State private var isAddingCodex = false
     @State private var replacementAccount: AccountMetadata?
@@ -24,6 +25,12 @@ struct SourcesSettingsView: View {
             codexCard
             SettingsCard(title: "Claude Code") {
                 VStack(alignment: .leading, spacing: 0) {
+                    Text("Connection")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .frame(height: 36)
+                    Divider()
                     Text(
                         "Reset Radar edits ~/.claude/settings.json directly after you review "
                             + "and confirm the exact status-line change."
@@ -40,14 +47,21 @@ struct SourcesSettingsView: View {
                         }
                     }
                     .padding(12)
+                    Divider()
                     sourceOptions(for: .claudeCode)
-                        .padding(.horizontal, 12)
+                        .padding(12)
                     if let account = model.configuredAccounts.first(where: {
                         $0.product == .claudeCode
                     }) {
                         Divider()
+                        Text("Configured Account")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 12)
+                            .frame(height: 36)
+                        Divider()
                         ConfiguredSourceRow(
-                            account: account, model: model,
+                            account: account, home: home,
                             remove: { confirmRemoval(of: account) }
                         )
                         .padding(12)
@@ -76,6 +90,11 @@ struct SourcesSettingsView: View {
         }
         .navigationTitle("Sources")
         .task { await model.loadConfiguredAccounts() }
+        .onDisappear {
+            for account in model.configuredAccounts {
+                home.clearAliasDelivery(for: account.id)
+            }
+        }
         .confirmationDialog(
             "Restore the prior Claude Code status-line setting?",
             isPresented: $showRestoreConfirmation
@@ -142,8 +161,8 @@ struct SourcesSettingsView: View {
                 CodexSourceRow(
                     account: account,
                     homeFolder: model.codexHomeFolders[account.id],
-                    model: model,
-                    changeHome: { beginChangingHome(of: account) },
+                    home: home,
+                    changeHome: { beginChangingHome(of: account, proposedHome: $0) },
                     remove: { confirmRemoval(of: account) }
                 )
                 .padding(.horizontal, 12)
@@ -195,10 +214,12 @@ struct SourcesSettingsView: View {
                     .frame(width: 190, alignment: .leading)
             } else {
                 TextField("Alias", text: $codexAlias)
+                    .textFieldStyle(.roundedBorder)
                     .focused($codexAliasFocused)
                     .frame(width: 190)
             }
             TextField("Absolute Home Folder", text: $codexHome)
+                .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: .infinity)
                 .onChange(of: codexHome) { _, _ in
                     if isAddingCodex { model.cancelPendingSetup() }
@@ -220,11 +241,9 @@ struct SourcesSettingsView: View {
 }
 
 extension SourcesSettingsView {
-    private func beginChangingHome(of account: AccountMetadata) {
+    private func beginChangingHome(of account: AccountMetadata, proposedHome: String) {
         replacementAccount = account
-        codexHome =
-            model.codexHomeFolders[account.id]?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        codexHome = proposedHome
         codexAlias = ""
         model.codexExecutable = ""
         model.cancelPendingSetup()

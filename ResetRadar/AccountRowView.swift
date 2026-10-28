@@ -65,9 +65,11 @@ struct AccountRowView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .accessibilityLabel(row.account.effectiveDisplayLabel)
+                .accessibilitySortPriority(5)
             Text(ReaderVocabulary.productName(row.source.product))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .accessibilitySortPriority(1)
         }
     }
 
@@ -93,6 +95,7 @@ struct AccountRowView: View {
                 )
                 .accessibilityHint("Opens Account Details for this window")
                 .accessibilityIdentifier("ring.\(row.account.number).\(window.rawValue)")
+                .accessibilitySortPriority(window == .fiveHour ? 4 : 3)
             }
         }
     }
@@ -115,5 +118,6 @@ struct AccountRowView: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Account Details")
         .accessibilityIdentifier("accountDetails.\(row.account.number)")
+        .accessibilitySortPriority(2)
     }
 }

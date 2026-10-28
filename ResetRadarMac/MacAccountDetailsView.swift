@@ -126,15 +126,14 @@ struct MacAccountDetailsView: View {
     }
 
     private func nextReset(in details: [MacDetailWindow], now: Date) -> NextReset? {
-        details.compactMap { detail -> NextReset? in
-            guard case .standard(let standard) = detail.id, !detail.ambiguous,
-                let date = detail.window?.resetsAt, date > now
+        func date(_ standard: AccountWindow.StandardWindow) -> Date? {
+            guard let detail = details.first(where: { $0.id == .standard(standard) }),
+                !detail.ambiguous
             else { return nil }
-            return NextReset(date: date, window: standard)
-        }.min { left, right in
-            if left.date == right.date { return left.window == .fiveHour }
-            return left.date < right.date
+            return detail.window?.resetsAt
         }
+        return NextResetDerivation.derive(
+            fiveHour: date(.fiveHour), weekly: date(.weekly), now: now)
     }
 
     private var header: some View {
@@ -146,7 +145,10 @@ struct MacAccountDetailsView: View {
                             TextField("Account Alias", text: $alias)
                                 .onSubmit { saveAlias() }
                             Button("Save") { saveAlias() }
-                            Button("Cancel") { editingAlias = false }
+                            Button("Cancel") {
+                                editingAlias = false
+                                model.clearAliasDelivery(for: account.id)
+                            }
                         }
                     } else {
                         Button(account.effectiveDisplayLabel) {
@@ -169,7 +171,7 @@ struct MacAccountDetailsView: View {
             if let message = model.message {
                 Text(message).font(.callout).foregroundStyle(.secondary)
             }
-            if let delivery = model.aliasDelivery {
+            if let delivery = model.aliasDelivery(for: account.id) {
                 Text(delivery.rawValue)
                     .font(.callout)
                     .foregroundStyle(delivery == .failed ? .orange : .secondary)
@@ -217,9 +219,11 @@ struct MacAccountDetailsView: View {
         Task {
             await model.updateAlias(accountID: account.id, input: alias)
             let saveFinished =
-                model.aliasDelivery == .available || model.aliasDelivery == .localOnly
+                model.aliasDelivery(for: account.id) == .available
+                || model.aliasDelivery(for: account.id) == .localOnly
             if model.message == nil && saveFinished {
                 editingAlias = false
+                model.clearAliasDelivery(for: account.id)
             }
         }
     }

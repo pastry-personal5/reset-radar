@@ -21,7 +21,8 @@ Claude Code connection card; review the selected `CODEX_HOME` in the
 The Mac collector supports Apple silicon only; every Mac build is arm64-only and Intel Macs are unsupported.
 Mac Settings groups each section's controls into titled cards above Global Messages.
 The Mac Home account list and selected details refresh as the collector commits new readings;
-alias edits from Home or Sources update both open views.
+alias edits from Home or Sources update both open views and show local-save and relay-delivery
+feedback separately.
 Claude Code setup verifies its local helper, then directly edits `~/.claude/settings.json` from
 Settings after an exact preview and confirmation. It preserves a safe existing status-line
 command, including a trusted `bash $HOME/<script>` form, and explains when composition is blocked.
@@ -33,6 +34,9 @@ pauses and Settings explains how to recover. Home's Main Sidebar and Account Det
 information, and account-specific Refresh. A setup banner points to the next source, relay, or
 pairing action while keeping configured accounts visible.
 Local Mac readings do not require relay setup; the relay publishes them to other devices.
+Relay & Pairing shows the relay's durable setup state and a Paired Devices list with each reader's
+status, short ID, pairing date when known, and a confirmed Revoke action. About offers GitHub
+feedback links and opens the repository if you want to support Reset Radar there.
 
 On iPhone and iPad, Reset Radar pairs with the Collector Mac by scanning its QR code or pasting
 its Pairing Package, after you compare the Pairing Confirmation Code on both devices. Home lists
@@ -77,3 +81,6 @@ Licensed under the Apache-2.0 license. See [LICENSE](LICENSE).
 ## Contributing
 
 See the [contribution guide](docs/contribution-guide.md). AI coding agents must also follow [AGENTS.md](AGENTS.md).
+Use `make gate` for bounded, sequential validation of the reference iPhone, iPad, Watch, Mac,
+and relay targets. Simulator checks require host CoreSimulator access; sandbox failures report
+an actionable preflight error.

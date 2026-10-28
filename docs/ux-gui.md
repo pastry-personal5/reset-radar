@@ -33,8 +33,8 @@ one inset, rounded **Account Row**, and rows use localized natural order by thei
 alias. The displayed alias is the custom Account Alias when present and the stable `Account #N`
 default otherwise. A stable account number breaks an equivalent-sort tie.
 
-An Account Row is one compact horizontal card. Its small alias label is pinned to the top-leading
-corner, with Codex or Claude Code as quieter secondary text in the same leading identity area.
+An Account Row is one compact horizontal card. Its small alias and quieter Codex or Claude Code
+label form a leading identity group centered vertically against the rings at ordinary text sizes.
 The five-hour and weekly **Allowance Rings** follow horizontally, and a circular, neutral,
 tintable bitmap arrow button ends the row with the accessible label “Account Details.” Percentage
 Used stays inside each ring and its window name remains visible.
@@ -169,8 +169,10 @@ accessibility text. Stale or unavailable data must remain visibly distinct from 
 ## Account Details
 
 Each configured account has one Account Details destination. It identifies the alias and product,
-then shows the five-hour and weekly windows first, followed by every other valid provider-reported
-window. The ring selected from Home receives initial visual emphasis.
+then shows an Executive Summary for the next known future standard-window reset, followed by the
+five-hour and weekly windows and every other valid provider-reported window. The summary shows the
+local absolute time and the five-hour or weekly limit, without a percentage or data state. The
+ring selected from Home receives initial visual emphasis.
 
 For each window, show:
 

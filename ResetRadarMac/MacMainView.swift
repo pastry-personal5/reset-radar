@@ -212,18 +212,16 @@ private struct MacAccountRow: View {
                         .onSubmit { saveAlias() }
                     Button("Save Alias") { saveAlias() }
                         .font(.caption)
-                    Button("Cancel") { editingAlias = false }
-                        .font(.caption)
+                    Button("Cancel") {
+                        editingAlias = false
+                        model.clearAliasDelivery(for: account.id)
+                    }
+                    .font(.caption)
                     if let aliasError {
                         Text(aliasError)
                             .font(.caption2)
                             .foregroundStyle(.red)
                             .fixedSize(horizontal: false, vertical: true)
-                    }
-                    if let delivery = model.aliasDelivery {
-                        Text(delivery.rawValue)
-                            .font(.caption2)
-                            .foregroundStyle(delivery == .failed ? .orange : .secondary)
                     }
                 } else {
                     Button(account.effectiveDisplayLabel) {
@@ -240,6 +238,11 @@ private struct MacAccountRow: View {
                 Text(account.product == .codex ? "Codex" : "Claude Code")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                if let delivery = model.aliasDelivery(for: account.id) {
+                    Text(delivery.rawValue)
+                        .font(.caption2)
+                        .foregroundStyle(delivery == .failed ? .orange : .secondary)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -285,9 +288,11 @@ private struct MacAccountRow: View {
             await model.updateAlias(accountID: account.id, input: alias)
             aliasError = model.message
             let saveFinished =
-                model.aliasDelivery == .available || model.aliasDelivery == .localOnly
+                model.aliasDelivery(for: account.id) == .available
+                || model.aliasDelivery(for: account.id) == .localOnly
             if aliasError == nil && saveFinished {
                 editingAlias = false
+                model.clearAliasDelivery(for: account.id)
             }
         }
     }

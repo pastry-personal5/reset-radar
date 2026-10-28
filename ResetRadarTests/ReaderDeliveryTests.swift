@@ -11,6 +11,26 @@ import Testing
 @Suite struct ReaderDeliveryTests {
     let harness = ReaderHarness()
 
+    @Test(.timeLimit(.minutes(1)))
+    func concurrentReaderActivationsKeepTheirWatchLinksIndependent() async throws {
+        let otherHarness = ReaderHarness()
+        try await harness.seedPaired()
+        try await otherHarness.seedPaired()
+        let first = harness.environment()
+        let second = otherHarness.environment()
+        async let firstActivation: Void = first.sceneBecameActive()
+        async let secondActivation: Void = second.sceneBecameActive()
+        _ = await (firstActivation, secondActivation)
+        first.sceneBecameInactive()
+        second.sceneBecameInactive()
+
+        #expect(harness.watchLink.contexts.last?.snapshot != nil)
+        #expect(otherHarness.watchLink.contexts.last?.snapshot != nil)
+        await first.forget()
+        #expect(harness.watchLink.contexts.last?.snapshot == nil)
+        #expect(otherHarness.watchLink.contexts.last?.snapshot != nil)
+    }
+
     @Test func aLaunchKeepsAnIntactPairingAndCommitsOnlyStrictlyNewerSnapshots() async throws {
         try await harness.seedPaired(committed: 5)
         let environment = harness.environment()

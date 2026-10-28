@@ -166,8 +166,8 @@ The owner made these decisions on 2026-10-19 while reviewing the [software archi
 
   | Device | Model | Minimum OS |
   |---|---|---|
-  | iPhone | iPhone 17 Pro Max | iOS 27.0 |
-  | iPad | iPad Air 11-inch (M2) | iPadOS 27.0 |
+  | iPhone | iPhone 18 Pro Max | iOS 27.0 |
+  | iPad | iPad Air 11-inch (M4) | iPadOS 27.0 |
   | Apple Watch | Apple Watch Series 11 (42mm) | watchOS 27.0 |
   | Mac | MacBook Pro, Apple M5 Max, 128 GB | macOS 26.7.1 |
 
@@ -175,7 +175,9 @@ The owner made these decisions on 2026-10-19 while reviewing the [software archi
   `arm64`; `x86_64` slices and Intel Mac support are excluded. See
   [Platform targets](../architecture.md#platform-targets).
   The owner raised the iOS, iPadOS, and watchOS minimums to 27.0 on 2026-10-27; this supersedes
-  the 26.x minimums recorded when scaffolding was completed.
+  the 26.x minimums recorded when scaffolding was completed. On 2026-10-28 the owner replaced
+  the incompatible iOS simulator references with the iPhone 18 Pro Max and iPad Air 11-inch
+  (M4), which are available in the installed iOS 27.0 runtime.
 
 ## P1-M14 decisions
 

@@ -3,6 +3,9 @@ import ResetRadarDomain
 public enum UpdateAccountAliasError: Error, Equatable, Sendable {
     case invalidAlias(AccountAliasError)
     case accountNotFound
+    case duplicateDisplayLabel
+    case localSaveFailed
+    case snapshotCommitFailed
 }
 
 public struct AccountAliasUpdate: Sendable, Equatable {
@@ -36,20 +39,23 @@ public actor UpdateAccountAlias {
                 throw UpdateAccountAliasError.invalidAlias(error)
             }
         }
-        let catalog = try await catalogStore.setAlias(accountID: accountID, alias: alias)
+        let catalog: AccountCatalog
+        do {
+            catalog = try await catalogStore.setAlias(accountID: accountID, alias: alias)
+        } catch AccountCatalogError.duplicateDisplayLabel {
+            throw UpdateAccountAliasError.duplicateDisplayLabel
+        } catch {
+            throw UpdateAccountAliasError.localSaveFailed
+        }
         guard let account = catalog.account(id: accountID) else {
             throw UpdateAccountAliasError.accountNotFound
         }
-        guard let previous = try await snapshots.load() else {
-            return AccountAliasUpdate(account: account, snapshot: nil, change: .metadataOnly)
+        let updated: UsageSnapshot?
+        do {
+            updated = try await snapshots.updateAccountAlias(accountID, to: alias)
+        } catch {
+            throw UpdateAccountAliasError.snapshotCommitFailed
         }
-        let updated = try UsageSnapshot(
-            publisherID: previous.publisherID, generatedAt: previous.generatedAt,
-            heartbeatSeconds: previous.heartbeatSeconds, accounts: catalog.accounts,
-            sources: previous.sources, windows: previous.windows,
-            diagnostics: previous.diagnostics,
-            manualRefreshResults: previous.manualRefreshResults)
-        try await snapshots.commitLocal(updated)
         return AccountAliasUpdate(account: account, snapshot: updated, change: .metadataOnly)
     }
 }

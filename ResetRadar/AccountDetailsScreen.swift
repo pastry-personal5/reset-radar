@@ -53,8 +53,10 @@ struct AccountDetailsScreen: View {
             LabeledContent("Product", value: ReaderVocabulary.productName(account.source.product))
             LabeledContent("Source", value: ReaderVocabulary.sourceState(account.source.state))
         }
-        if let nextReset = NextResetDerivation.derive(from: sections, now: .now) {
-            ExecutiveSummaryView(nextReset: nextReset)
+        TimelineView(.periodic(from: .now, by: 30)) { timeline in
+            if let nextReset = NextResetDerivation.derive(from: sections, now: timeline.date) {
+                ExecutiveSummaryView(nextReset: nextReset)
+            }
         }
         ForEach(sections) { section in
             Section {

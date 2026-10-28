@@ -60,9 +60,10 @@ Settings is a separate standard macOS scene. Closing the main window does not st
 the menu-bar companion owns one status item per account and commands to reopen the window,
 refresh all accounts, open Settings, or quit.
 
-The Global Messages Pane sits at the bottom of the detail area in both the main window and
-Settings, to the right of each window's sidebar. Both panes display the same session-local message
-history, independent of the selected account or Settings section.
+The Global Messages Pane spans below Account List and Account Details in Main, to the right of the
+Main Sidebar. In Settings it sits below the detail column, to the right of the Settings sidebar.
+Both panes display the same session-local message history, independent of the selected account or
+Settings section.
 
 ## Apple Watch app
 
@@ -83,11 +84,12 @@ complication read only the Watch's last valid local cache.
 Each configured account has one Account Details destination containing:
 
 1. Displayed alias, product identity, and acquisition availability.
-2. Window Details for the five-hour allowance.
-3. Window Details for the weekly allowance.
-4. Window Details for every additional valid provider-reported limit.
-5. Observation provenance and synchronization status.
-6. Account-scoped Refresh and diagnostics actions appropriate to the current platform.
+2. Executive Summary for the next known future standard-window reset, when available.
+3. Window Details for the five-hour allowance.
+4. Window Details for the weekly allowance.
+5. Window Details for every additional valid provider-reported limit.
+6. Observation provenance and synchronization status.
+7. Account-scoped Refresh and diagnostics actions appropriate to the current platform.
 
 Each Window Details section owns only the latest observation and current reset state. History,
 forecasts, pace analysis, and threshold configuration are not contained in Account Details.

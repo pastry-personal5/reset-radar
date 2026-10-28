@@ -51,6 +51,7 @@ final class ReaderHarness {
     let cipher = FakeEnvelopeCipher()
     let codec = FakePairingCodec()
     let random = FakeSecretGenerator()
+    let watchLink = FakeWatchLink()
     let clock: FakeAppClock
     let selection = MemorySelectionStore()
 
@@ -70,7 +71,8 @@ final class ReaderHarness {
                 relay: relay, cipher: cipher, codec: codec, random: random, clock: clock,
                 diagnostics: FakeDiagnosticsSink(), system: FixedSystemStatus(),
                 selection: selection, preferences: FakePreferenceStore(),
-                notificationGate: FakeNotificationReconcileGate(clock: clock), hasWatchStage: watch)
+                notificationGate: FakeNotificationReconcileGate(clock: clock), hasWatchStage: watch,
+                watchLink: watchLink)
         )
     }
 
