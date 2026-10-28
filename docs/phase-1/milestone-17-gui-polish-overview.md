@@ -230,6 +230,14 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
 
 ## Completion checklist
 
+- [x] Prevent the Mac menu-bar status refresh from recursively reentering SwiftUI's menu
+  renderer when the menu is open; preserve the 30-second freshness update and verify the Mac
+  tests, complete contribution-guide gate, and an open-menu runtime check. Evidence: the
+  crash stack repeats `MenuBehavior.menuHostDidChangeMenuItems` 8,419 times; the menu no longer
+  embeds a `TimelineView` and instead receives a common-mode 30-second timer. `make test-mac`
+  and the complete host-access `make gate` passed on 2026-10-28. The newly built Development app
+  launched with `--synthetic`; its menu showed the account status and all actions, remained
+  accessible after 35 seconds open, and the process stayed alive. The test app then quit normally.
 - [x] Remove the fixed Codex account-count limit across catalog validation, source setup,
   collection, manual-refresh results, and maintained product/UX documentation; macOS Sources
   continues to offer an Add row after any number of configured Codex accounts, while duplicate

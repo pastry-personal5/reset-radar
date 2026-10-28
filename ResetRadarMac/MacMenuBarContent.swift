@@ -1,4 +1,5 @@
 @preconcurrency import AppKit
+import Combine
 import ResetRadarDomain
 import SwiftUI
 
@@ -22,9 +23,10 @@ struct MacMenuAccountSummary {
 
 private struct MacMenuAccountLines: View {
     @ObservedObject var model: HomeViewModel
+    @State private var now = Date()
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { timeline in
+        Group {
             if model.loadFailed {
                 Text("Account data unavailable")
             } else if model.accounts.isEmpty {
@@ -33,9 +35,13 @@ private struct MacMenuAccountLines: View {
                 ForEach(model.accounts, id: \.id) { account in
                     Text(
                         MacMenuAccountSummary.line(
-                            account: account, snapshot: model.snapshot, now: timeline.date))
+                            account: account, snapshot: model.snapshot, now: now))
                 }
             }
+        }
+        .onAppear { now = Date() }
+        .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) {
+            now = $0
         }
     }
 }
