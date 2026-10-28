@@ -21,9 +21,9 @@
     "typecheck": "wrangler types && tsc --noEmit && tsc --noEmit --project test/tsconfig.json"
   },
   "devDependencies": {
-    "@cloudflare/vitest-plugin": "1.4.5",
+    "@cloudflare/vitest-plugin": "1.4.9",
     "typescript": "5.9.3",
-    "vitest": "4.1.11",
-    "wrangler": "4.151.2"
+    "vitest": "4.1.12",
+    "wrangler": "4.154.0"
   }
 }

@@ -87,6 +87,27 @@ async function objectStorage<T>(callback: (state: DurableObjectState) => T | Pro
   return runInDurableObject(stub, (_instance, state) => callback(state));
 }
 
+function requestReplacingReaderOnBodyRead(path: string, body: string): Promise<Response> {
+  const bytes = new TextEncoder().encode(body);
+  const stream = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      expect((await request(`/v1/readers/${readerOneID}`, "DELETE", tokens.admin)).status).toBe(204);
+      expect((await register(readerOneID, digests.readerTwo)).status).toBe(200);
+      expect((await activateReader(tokens.readerTwo)).status).toBe(200);
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  }, { highWaterMark: 0 });
+  return SELF.fetch(new Request(`https://relay.invalid${path}`, {
+    body: stream,
+    headers: {
+      Authorization: `Bearer ${tokens.reader}`,
+      "Content-Type": "application/json",
+    },
+    method: path === "/v2/reader-profile" ? "PUT" : "POST",
+  }));
+}
+
 describe("Relay Worker v1 snapshots and v2 refresh", () => {
   it("canonicalizes nested response objects recursively", () => {
     expect(canonicalJSON({ values: [{ z: 1, a: 2 }] })).toBe('{"values":[{"a":2,"z":1}]}');
@@ -447,6 +468,30 @@ describe("Relay Worker v1 snapshots and v2 refresh", () => {
     expect(body.readers[0]?.activatedAt).toBe("2023-11-14T22:13:20.000Z");
     expect(body.readers[0]?.profile?.revision).toBe(2);
     expect((await request("/v2/readers", "GET", tokens.reader)).status).toBe(401);
+  });
+
+  it("rejects a profile write when the reader token changes during body receipt", async () => {
+    expect((await register()).status).toBe(200);
+    expect((await activateReader()).status).toBe(200);
+    const profile = canonicalJSON({
+      ciphertext: "AQID", keyVersion: 1, nonce: "q6urq6urq6urq6ur",
+      profileVersion: 1, protocolVersion: 2,
+      publisherID: "2323232323232323232323232323232323232323232323232323232323232323",
+      readerID: readerOneID, revision: 1, tag: "u7u7u7u7u7u7u7u7u7u7uw",
+    });
+    expect((await requestReplacingReaderOnBodyRead("/v2/reader-profile", profile)).status).toBe(401);
+    const readers = JSON.parse(await (await request("/v2/readers", "GET", tokens.admin)).text()) as {
+      readers: Array<{ profile?: unknown; readerID: string }>;
+    };
+    expect(readers.readers).toEqual([{ activated: true, activatedAt: expect.any(String), readerID: readerOneID }]);
+  });
+
+  it("rejects a refresh request when the reader token changes during body receipt", async () => {
+    expect((await register()).status).toBe(200);
+    expect((await activateReader()).status).toBe(200);
+    expect((await requestReplacingReaderOnBodyRead("/v2/refresh-requests", postRefresh.requestBody)).status).toBe(401);
+    expect(await (await request("/v2/refresh-requests", "GET", tokens.writer)).text())
+      .toBe('{"protocolVersion":2,"requests":[]}');
   });
 
   it("keeps concurrent snapshot, registration, and mailbox transitions atomic", async () => {

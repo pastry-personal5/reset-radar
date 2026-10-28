@@ -12,6 +12,8 @@ public enum DestroyOutcome: Sendable, Equatable {
 /// Destroys the relay, then its local secrets and state, in that order, so an interrupted run
 /// can be repeated. The account-scope key is not a relay secret and is kept.
 public actor DestroyRelay {
+    private enum StateChanged: Error { case duringDeletion }
+
     private let publisher: any PublisherStore
     private let secrets: any SecretStore
     private let relay: any RelayGateway
@@ -29,12 +31,26 @@ public actor DestroyRelay {
 
     public func run() async -> DestroyOutcome {
         do {
-            try await publisher.transact { $0.lifecycle = .destroyPending }
+            try await publisher.transact { state in
+                if state.lifecycle != .destroyPending { state.remoteDeletionConfirmed = nil }
+                state.lifecycle = .destroyPending
+            }
         } catch {
             return .storageFailed
         }
         guard let state = try? await publisher.load() else { return .storageFailed }
-        if let outcome = await destroyRemote(state) { return outcome }
+        if state.remoteDeletionConfirmed != true {
+            if let outcome = await destroyRemote(state) { return outcome }
+            do {
+                try await publisher.transact { current in
+                    guard current.lifecycle == .destroyPending,
+                        current.endpoint == state.endpoint,
+                        current.publisherID == state.publisherID
+                    else { throw StateChanged.duringDeletion }
+                    current.remoteDeletionConfirmed = true
+                }
+            } catch { return .storageFailed }
+        }
         await publishing.invalidateSecrets()
         let readerIDs = state.devices.map(\.readerID) + state.pendingRegistrations.map(\.readerID)
         let names: [SecretName] =
@@ -55,15 +71,12 @@ public actor DestroyRelay {
         return .destroyed
     }
 
-    /// `nil` when the remote side is gone. A missing administration token after an interrupted
-    /// run means the remote delete already succeeded, since secrets are deleted only after it.
+    /// `nil` only after the relay confirms deletion or no endpoint was ever configured.
     private func destroyRemote(_ state: PublisherState) async -> DestroyOutcome? {
         guard let endpoint = state.endpoint else { return nil }
         let admin: SecretValue
         do {
             admin = try await secrets.read(.adminToken)
-        } catch SecretStoreError.notFound {
-            return nil
         } catch {
             return .secretsUnavailable
         }

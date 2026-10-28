@@ -80,8 +80,9 @@ private struct PrivacyView: View {
                     "Pairing secrets stay in this device’s Keychain and are not synchronized. "
                         + "Usage readings stay in Reset Radar’s local storage until Forget Mac.")
                 Text(
-                    "The relay stores only encrypted snapshots. Reset Radar shows percentage used "
-                        + "as each provider reports it and keeps no usage history.")
+                    "The relay stores encrypted snapshots and device profiles plus opaque "
+                        + "delivery metadata. Reset Radar shows percentage used as each provider "
+                        + "reports it and keeps no usage history.")
             }
         }
         .navigationTitle("Privacy & Data")

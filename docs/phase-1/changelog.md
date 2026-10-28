@@ -6,6 +6,11 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-28 — Owner/Codex — Approved exact relay development dependency updates after a
+  security audit: Vitest 4.1.12, Workers Vitest plugin 1.4.9, and Wrangler 4.154.0. The
+  previous test/deployment tool tree had seven npm advisories; production dependencies had none.
+  The deployment contract and lockfile now pin the approved versions.
+
 - 2026-10-28 — Owner — Removed the fixed configured Codex account limit. The catalog, isolated
   app-server fleet, Sources Add row, and Home-wide per-account refresh outcomes now accept any
   number of Codex rows within existing bounded files and encrypted envelopes. Claude Code remains

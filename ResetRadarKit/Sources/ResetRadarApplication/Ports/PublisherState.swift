@@ -54,5 +54,7 @@ public struct PublisherState: Codable, Sendable, Equatable {
     public var pendingRegistrations: [PendingRegistration] = []
     /// Handled manual-refresh IDs and when to forget them.
     public var handledRequests: [RequestID: Date] = [:]
+    /// Optional for stores written before remote deletion was durably acknowledged.
+    public var remoteDeletionConfirmed: Bool?
     public init() {}
 }

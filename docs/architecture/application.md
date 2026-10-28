@@ -188,7 +188,7 @@ in-flight or completed request. A backoff-deferred source receipt maps promptly 
 | `PairReader` | Register a pending reader, retain its relay-assigned deadline, produce the `PairingPackage` with the last accepted sequence as its floor, confirm activation through `pollActivation()`, and revoke through `revokeIfExpired()` at the deadline. |
 | `ReconcileReaders` | Merge local names with the relay list, and revoke expired pending readers at launch. |
 | `RevokeReader` | Revoke one reader. |
-| `DestroyRelay` | Persist a `destroyPending` state and pause publication, delete remote storage, then delete Keychain and in-memory secrets and local relay state. On remote failure, retain the local state for retry; a relaunch remains paused. |
+| `DestroyRelay` | Persist a `destroyPending` state and pause publication, delete remote storage, persist confirmation of that deletion, then delete Keychain and in-memory secrets and local relay state. On remote failure or a missing administration token without durable confirmation, retain the local state for retry; a relaunch remains paused. |
 
 ### Reader ingestion (iOS)
 

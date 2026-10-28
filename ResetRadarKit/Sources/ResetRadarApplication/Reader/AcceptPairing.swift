@@ -321,7 +321,8 @@ public actor ReportReaderProfile {
         }
         do {
             let stored = try await reader.transact { state -> Bool in
-                guard var current = state.readerProfile,
+                guard state.pairing == pairing, !state.awaitingActivation,
+                    var current = state.readerProfile,
                     current.revision == profileState.revision,
                     current.name == profileState.name,
                     current.namingMode == profileState.namingMode,
@@ -341,6 +342,9 @@ public actor ReportReaderProfile {
     private func send(
         _ body: Data, pairing: ReaderPairing
     ) async -> ReaderProfileUpdateOutcome {
+        guard let state = try? await reader.load(), state.pairing == pairing,
+            !state.awaitingActivation, state.readerProfile?.pendingEnvelope == body
+        else { return .waiting }
         guard let token = try? await secrets.read(.readToken) else {
             return await markFailed(.protocolFailure, envelope: body)
         }
@@ -348,7 +352,9 @@ public actor ReportReaderProfile {
             body, endpoint: pairing.endpoint, readToken: token)
         if case .accepted = outcome {
             let applied = try? await reader.transact { state -> Bool in
-                guard state.readerProfile?.pendingEnvelope == body else { return false }
+                guard state.pairing == pairing,
+                    state.readerProfile?.pendingEnvelope == body
+                else { return false }
                 state.readerProfile?.pendingEnvelope = nil
                 state.readerProfile?.delivery = .available
                 return true

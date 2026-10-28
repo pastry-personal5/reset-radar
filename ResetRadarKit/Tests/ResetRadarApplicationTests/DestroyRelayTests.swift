@@ -57,13 +57,47 @@ import Testing
     }
 
     @Test func repeatingAnInterruptedRunSucceeds() async {
-        rig.store.seed { $0.lifecycle = .destroyPending }
+        rig.store.seed {
+            $0.lifecycle = .destroyPending
+            $0.remoteDeletionConfirmed = true
+        }
         rig.secrets.setReadFailure(nil)
         for name in [SecretName.contentKey, .writeToken, .adminToken] {
             try? await rig.secrets.delete(name)
         }
         #expect(await make().run() == .destroyed)
         #expect(rig.relay.calls.isEmpty)
+        #expect(rig.store.state == PublisherState())
+    }
+
+    @Test func aMissingAdminTokenCannotPretendRemoteDeletionSucceeded() async throws {
+        try await rig.secrets.delete(.adminToken)
+        #expect(await make().run() == .secretsUnavailable)
+        #expect(rig.relay.calls.isEmpty)
+        #expect(rig.store.state.lifecycle == .destroyPending)
+        #expect(rig.store.state.remoteDeletionConfirmed != true)
+        #expect(rig.secrets.names.contains(.contentKey))
+    }
+
+    @Test func olderPublisherStateHasNoRemoteDeletionProof() throws {
+        let encoded = try JSONEncoder().encode(rig.store.state)
+        var legacy = try #require(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        legacy.removeValue(forKey: "remoteDeletionConfirmed")
+        let decoded = try JSONDecoder().decode(
+            PublisherState.self, from: JSONSerialization.data(withJSONObject: legacy))
+        #expect(decoded.remoteDeletionConfirmed == nil)
+    }
+
+    @Test func confirmedRemoteDeletionResumesAfterSecretCleanupFails() async throws {
+        rig.secrets.setWriteFailure(.interactionRequired)
+        #expect(await make().run() == .secretsUnavailable)
+        #expect(rig.store.state.remoteDeletionConfirmed == true)
+        #expect(rig.relay.calls(.destroyRelay).count == 1)
+        rig.secrets.setWriteFailure(nil)
+        try await rig.secrets.delete(.adminToken)
+        #expect(await make().run() == .destroyed)
+        #expect(rig.relay.calls(.destroyRelay).count == 1)
         #expect(rig.store.state == PublisherState())
     }
 

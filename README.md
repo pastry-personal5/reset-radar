@@ -10,7 +10,8 @@ The Apple apps are built in native Swift and SwiftUI for a focused, responsive e
 
 ### Privacy first
 
-Reset Radar never copies, stores, or sends provider credentials.
+Reset Radar never copies, stores, or sends provider credentials. Allowance snapshots and optional
+device profiles are encrypted before relay storage.
 
 ### 100 % Free of Charge
 

@@ -36,7 +36,7 @@ test("deployment contract accepts only the reviewed configuration", () => {
     assert.notDeepEqual(validateDeployment(config, { ...contract, requiredSecrets }, packageManifest), []);
   }
   const ranged = clone(packageManifest);
-  ranged.devDependencies.wrangler = "^4.151.2";
+  ranged.devDependencies.wrangler = "^4.154.0";
   assert.match(validateDeployment(config, contract, ranged).join(" "), /not pinned/);
   const extraDependency = clone(packageManifest);
   extraDependency.devDependencies.extra = "1.0.0";

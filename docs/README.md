@@ -9,6 +9,7 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [development-process.md](development-process.md) | Phases, milestones, IDs (`P1-M2`), definition of done, where plans live, and doc status values. |
 | [contribution-guide.md](contribution-guide.md) | Local setup, required validation, commit message style, and pull request conventions. |
 | [product-behavior.md](product-behavior.md) | Product scope: what the app does and what it deliberately does not do. |
+| [product-limitations.md](product-limitations.md) | Product privacy, availability, platform, installation, and implementation boundaries. |
 | [ux-terms.md](ux-terms.md) | Canonical UI terms for products, usage concepts, states, actions, and components, with code-facing identifiers. |
 | [ux-information-architecture.md](ux-information-architecture.md) | The Standard Layout: how the app's components contain one another. |
 | [ux-gui.md](ux-gui.md) | Current interface and owner-approved GUI behavior, with planned behavior kept separate. |
@@ -68,6 +69,7 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [phase-1/milestone-16-validation.md](phase-1/milestone-16-validation.md) | P1-M16 integrated handoff, automated evidence, and remaining paired-device proof. Active. |
 | [phase-1/milestone-17-gui-polish-overview.md](phase-1/milestone-17-gui-polish-overview.md) | P1-M17 experience, pairing, synchronization, and presentation scope. Active. |
 | [phase-1/milestone-17-gui-polish-sequence.md](phase-1/milestone-17-gui-polish-sequence.md) | P1-M17 implementation and validation order. Active. |
+| [phase-1/milestone-17-security-review.md](phase-1/milestone-17-security-review.md) | P1-M17 maintained-code security review, confirmed repairs, and validation evidence. Active. |
 | [research/cloudflare-relay-spike-runbook.md](research/cloudflare-relay-spike-runbook.md) | Active owner-run P1-M9 deployment, smoke, 30-minute sample, fault, release, and teardown procedure. |
 | [phase-1/owner-decisions.md](phase-1/owner-decisions.md) | Owner-approved P1-M1 product, security, scheduling, synchronization, and distribution decisions that constrain P1-M2. |
 | [research/initial-research-on-feasibility.md](research/initial-research-on-feasibility.md) | P1-M1 feasibility study: service limits, reset-time sources, iOS capabilities, prior art, and owner-approved scope. Active. |

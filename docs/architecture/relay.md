@@ -161,21 +161,22 @@ The `400 badRequest` row also covers conflicting reader registration, reuse of a
 | `429` or platform quota error | Worker quota code or manual-request rate limit; Cloudflare-generated quota form requires deployed conformance | The reader keeps its valid cache. A manual-request `429` reports that another request is pending or recently accepted; a recognized quota response sets `quotaLimited` and backs off. |
 | `5xx`, network, or TLS failure | Worker, Durable Object, or connectivity failure | `offline`; back off with jitter. |
 
-Error bodies are generic, at most 4 KiB, and never reveal whether a token, publisher, or reader exists. Snapshot responses stay within the 64 KiB upload limit. Other successful response bodies are at most 4 KiB. The relay never intentionally redirects. The platform-generated Free-limit mapping is pinned by the synthetic structured-response fixture and rechecked against current Cloudflare documentation during relay conformance.
+Error bodies are generic, at most 4 KiB, and never reveal whether a token, publisher, or reader exists. Snapshot responses stay within the 64 KiB upload limit. The `/v2/readers` list is capped at 8 KiB; other successful response bodies are at most 4 KiB. The relay never intentionally redirects. The platform-generated Free-limit mapping is pinned by the synthetic structured-response fixture and rechecked against current Cloudflare documentation during relay conformance.
 
 ### Authentication
 
-- **Where tokens are checked.** The Worker checks write and administration tokens against Worker-secret digests before calling the Durable Object. Read tokens are checked inside the Durable Object against stored digests: an invalid read token causes a lookup but never a write. Only an authenticated, activated reader may create a refresh request; revocation deletes its pending request in the same transaction. A pending reader may only preflight-read a snapshot or activate itself before its relay-assigned deadline.
+- **Where tokens are checked.** The Worker checks write and administration tokens against Worker-secret digests before calling the Durable Object. Read tokens are checked inside the Durable Object against stored digests: an invalid read token causes a lookup but never a write. Reader writes recheck the same token digest inside the committing transaction after body receipt, so a revoked token cannot write to a replacement registration with the same reader ID. Only an authenticated, activated reader may create a refresh request; revocation deletes its pending request in the same transaction. A pending reader may only preflight-read a snapshot or activate itself before its relay-assigned deadline.
 - **Order of checks.** Authentication precedes body parsing beyond the size check.
 - **Comparison.** Presented-token digests use constant-time comparison.
 - **Where tokens never appear.** URLs, configuration variables, response bodies, source, logs, or command-line arguments.
 
 ## State
 
-The Durable Object's SQLite database has three tables:
+The Durable Object's SQLite database has four tables:
 
 | Table | Columns |
 |---|---|
+| `relay_schema` (one row) | Internal schema version for atomic migration and fail-closed compatibility checks. |
 | `relay_state` (one row) | Latest envelope, its ETag and accepted time, bound publisher ID, last sequence, and protocol-state version. |
 | `readers` (at most three rows) | Reader ID, token digest, activated flag, nullable first activation time, pending expiry, nullable profile revision and opaque envelope, last accepted manual-refresh time and ID, and last completed request ID. |
 | `refresh_requests` (at most three live rows) | Reader ID, opaque request ID, target (`account` or `allCodex`), optional opaque Reset Radar account ID, and relay-assigned accepted and expiry times. Expired rows are removed during request operations; no alarm is needed. Deleting a completed request does not reset the reader-global rate limit in `readers`. |
@@ -183,7 +184,7 @@ The Durable Object's SQLite database has three tables:
 There is no product history. An expired pending reader is unauthorized immediately. Cleanup runs only after a request has passed its applicable authority check; an invalid read token causes no write. Authenticated registration removes expired pending rows before enforcing the cap, and expiry cannot revoke an already activated reader. The write and administration digests live as Worker secrets, not in the database. Cloudflare point-in-time recovery may retain provider-managed historical storage for its documented period, so deletion copy cannot promise immediate physical erasure from backups.
 
 Schema migrations preserve `relay_state`, reader registrations and tokens, activation state,
-snapshots, and live refresh requests. M17 adds nullable activation and profile columns in one
+snapshots, and live refresh requests. Nullable activation and profile columns are added in one
 SQLite transaction; migrated active readers therefore have no invented activation time. The
 internal version advances only after every table and column is available.
 
@@ -197,7 +198,7 @@ internal version advances only after every table and column is available.
   adapter backoff remains authoritative. Rejected, stale-target, or unauthenticated requests cannot
   trigger an unrelated source read.
 - **Pinned build.** A compatibility date and a tested Wrangler version.
-- **Releases.** Immutable versions. Because Cloudflare does not generate Version URLs for Durable Object Workers, the isolated synthetic M9 Worker promotes a candidate to 100%, privately verifies the active version, immediately smoke-tests it with synthetic ciphertext, and rolls back on failure. Rollback never assumes a storage rollback.
+- **Releases.** Immutable versions. Because Cloudflare does not generate Version URLs for Durable Object Workers, the isolated synthetic Worker promotes a candidate to 100%, privately verifies the active version, immediately smoke-tests it with synthetic ciphertext, and rolls back on failure. Rollback never assumes a storage rollback.
 - **Scripts.** `npm test` runs Workers Vitest; `npm run typecheck` runs `tsc --noEmit`. A provisioning script reads the write and administration digests from standard input and writes them as Worker secrets without echoing them.
 
 ## Tests
@@ -212,6 +213,7 @@ The relay tests cover:
 - an unknown route versus an authenticated first-publish `404`, and `304` only for an existing snapshot;
 - reader register, preflight read without activation, activation after local-save acknowledgement, idempotent activation retry even after a lost response and displayed expiry, pending expiry, list, revoke, and cap;
 - manual-request authentication, duplicate and last-completed-ID replay, per-reader rate limit, three-reader cap, expiry, revocation, Mac polling without consumption, idempotent acknowledgement, and no request survival after relay destruction;
+- reader revocation and replacement while a profile or refresh request body is still arriving;
 - deletion, including repetition after a client-side interruption;
 - every row of the response table; and
 - response-size ceilings and no intentional redirect;

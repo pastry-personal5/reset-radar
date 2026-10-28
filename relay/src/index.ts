@@ -450,11 +450,14 @@ export class RelayObject extends DurableObject {
     if ("failure" in parsed) return fail(parsed.failure);
     if (parsed.value.readerID !== reader.reader_id) return fail("badRequest");
     const result = this.ctx.storage.transactionSync(() => {
-      const current = this.one<Pick<StoredReader, "activated" | "profile_envelope" | "profile_revision" | "reader_id">>(
-        "SELECT reader_id, activated, profile_revision, profile_envelope FROM readers WHERE reader_id = ?",
+      const current = this.one<Pick<StoredReader, "activated" | "profile_envelope" | "profile_revision" | "reader_id" | "token_digest">>(
+        "SELECT reader_id, token_digest, activated, profile_revision, profile_envelope FROM readers WHERE reader_id = ?",
         reader.reader_id,
       );
-      if (current === undefined || current.activated !== 1) return "unauthorized" as const;
+      if (
+        current === undefined || current.activated !== 1 ||
+        !timingSafeDigestEqual(current.token_digest, reader.token_digest)
+      ) return "unauthorized" as const;
       if (current.profile_revision !== null && parsed.value.revision < current.profile_revision) {
         return "sequenceConflict" as const;
       }
@@ -525,9 +528,12 @@ export class RelayObject extends DurableObject {
     const target = parsed.value.target;
     const accountID = target === "account" ? parsed.value.accountID : null;
     const outcome = this.ctx.storage.transactionSync(() => {
-      this.ctx.storage.sql.exec("DELETE FROM refresh_requests WHERE expires_at <= ?", now);
       const current = this.one<StoredReader>("SELECT reader_id, token_digest, activated, pending_expires_at, last_accepted_at, last_accepted_id, last_completed_id FROM readers WHERE reader_id = ?", reader.reader_id);
-      if (current === undefined || current.activated !== 1) return { code: "unauthorized" as const };
+      if (
+        current === undefined || current.activated !== 1 ||
+        !timingSafeDigestEqual(current.token_digest, reader.token_digest)
+      ) return { code: "unauthorized" as const };
+      this.ctx.storage.sql.exec("DELETE FROM refresh_requests WHERE expires_at <= ?", now);
       if (current.last_completed_id === parsed.value.requestID) return { code: "requestAlreadyCompleted" as const };
       const existingID = this.one<StoredRefreshRequest>("SELECT request_id, reader_id, target, account_id, accepted_at, expires_at FROM refresh_requests WHERE request_id = ?", parsed.value.requestID);
       if (existingID !== undefined && existingID.reader_id !== current.reader_id) return { code: "badRequest" as const };

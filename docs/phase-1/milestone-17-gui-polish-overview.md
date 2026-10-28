@@ -230,6 +230,12 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
 
 ## Completion checklist
 
+- [x] Review the complete maintained codebase and active security documentation for credential
+  exposure, authorization, untrusted input, persistence, and lifecycle races; repair confirmed
+  findings, record focused regression evidence, and run the contribution-guide gate. Evidence:
+  the [security review](milestone-17-security-review.md) records three confirmed security repairs,
+  privacy and recovery documentation changes, focused regressions, the owner-approved dependency
+  audit cleanup, and the passing isolated-cache complete gate on 2026-10-28.
 - [x] Prevent the Mac menu-bar status refresh from recursively reentering SwiftUI's menu
   renderer when the menu is open; preserve the 30-second freshness update and verify the Mac
   tests, complete contribution-guide gate, and an open-menu runtime check. Evidence: the

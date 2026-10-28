@@ -175,7 +175,8 @@ relay that is still configured or unavailable.
 
 1. In **Settings → Relay & Pairing**, choose **Destroy Relay…** and confirm. Wait for **Relay data
    and local relay secrets were destroyed.** If the app says destruction is paused, leave the app
-   and its local state in place, restore connectivity or unlock the login keychain, and retry.
+   and its local state in place, restore connectivity or unlock the login keychain, and retry. If
+   the administration Keychain item is missing, use the account-side recovery below.
 2. In **Settings → General**, disable **Launch at login** and confirm that **Registration** is not
    `enabled`.
 3. In **Settings → Sources**, choose **Restore Previous Setting** if the Claude Code
@@ -201,6 +202,29 @@ relay that is still configured or unavailable.
 | Claude Code configuration is unsafe | Leave the existing command unchanged. The preview message distinguishes a helper installation problem from an existing command that needs a trusted, directly executable path. Repair the cause outside Reset Radar, then retry Preview. |
 | Changed signing identity | Rebuild using the identity that created the existing Release state. If that identity is unavailable, run relay setup again and later re-pair every reader; the app never exposes the raw recorded team identifier. |
 | Lost Mac | From a separately controlled, authenticated route, destroy the relay state. On the replacement Mac, install with its chosen stable identity, complete relay setup, and re-pair every reader. |
+| Administration token missing during Destroy Pending | Leave the Mac's local state paused. A missing token does not prove remote deletion; follow the account-side recovery below. |
+
+### Account-side relay recovery when the administration token is lost
+
+This is a manual recovery for an older `Destroy Pending` state with no durable remote-deletion
+confirmation. It is destructive and requires control of the Cloudflare account that hosts the
+`reset-radar-relay` Worker. Keep the Mac app and its local state in place until the remote
+namespace is gone.
+
+1. In the Cloudflare account, identify the exact `reset-radar-relay` Worker and its `RelayObject`
+   Durable Object namespace. Check that no other Worker binds to that namespace.
+2. Follow Cloudflare's [delete a Durable Object class](https://developers.cloudflare.com/durable-objects/reference/durable-objects-migrations/#delete-a-durable-object-class)
+   procedure in an isolated deployment copy: remove the `RelayObject` class from Worker code,
+   remove its binding, set its `exports` entry to a `deleted` tombstone, and deploy to that same
+   Worker and account. Cloudflare describes this as permanent namespace and data deletion. Do
+   not use the repository's normal relay deployment or Worker-delete script as a substitute.
+3. Verify in the Cloudflare account that the old namespace is absent. Deleting SQL rows in Data
+   Studio is insufficient for complete Durable Object storage deletion; Cloudflare documents
+   `deleteAll()` or namespace deletion for that purpose. See its
+   [storage guidance](https://developers.cloudflare.com/durable-objects/best-practices/access-durable-objects-storage/).
+4. After verifying remote deletion, complete the manual local uninstall steps 2–6 above. The
+   paused app cannot infer account-side deletion or finish its own Destroy Relay action without
+   the missing token. To use Reset Radar again, install and set up a new relay and re-pair readers.
 
 ### Locked Keychain or unexpected prompt
 
