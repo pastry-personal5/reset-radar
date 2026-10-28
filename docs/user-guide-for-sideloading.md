@@ -118,6 +118,27 @@ iPhone. Widget behavior, first-unlock and cache preservation, the reference iPad
 Watch app, and renewal preservation remain open checks; do not treat this guide as evidence that
 those paths pass.
 
+## Run the Watch app from Xcode
+
+If installation from the iPhone's Watch app remains on **Installing**, keep the existing iPhone
+installation and run the Watch app directly from Xcode:
+
+1. Connect the paired iPhone to the Mac, unlock both devices, and confirm that the physical Watch
+   appears in Xcode's Device Hub. Enable Developer Mode on both devices if Xcode requests it.
+2. Open the generated `ResetRadar.xcodeproj`, select the **ResetRadarWatch** scheme and the physical
+   Watch destination. Confirm **Product → Scheme → Edit Scheme → Run → Info** uses **Release**.
+   Regenerate the project first with `make generate` if the scheme still says **Development**.
+3. Confirm **Signing & Capabilities → Release** for the Watch app and Watch complication both use
+   the same Personal Team as the installed iPhone app, then choose **Product → Run**. Accept any
+   Watch registration or trust prompt. Xcode installs the Watch app without replacing the iPhone
+   app.
+
+The generated Watch scheme uses Release because Development explicitly disables code signing.
+An Xcode error mentioning `Development-watchos/ResetRadarWatch.app` and “No code signature found”
+means the Run action still selected Development. A signed Release build failing installation needs
+its own Xcode error diagnosis; do not change bundle identifiers, entitlements, or the existing
+iPhone installation to hide it.
+
 ## Renew before seven days
 
 A free Personal Team provisioning profile expires after seven days. Reset Radar's currently
@@ -146,6 +167,7 @@ accept re-pairing as equivalent renewal evidence.
 | iOS reports **Untrusted Developer** | Complete the **VPN & Device Management** trust flow above while the device is online. |
 | `make ipa` says the IPA already exists | Move only `.build/ipa/ResetRadar.ipa` aside, then rerun the command. |
 | Pairing or shared data disappears after reinstall | Stop the renewal test and preserve the existing app and evidence. Do not change bundle IDs, App Groups, Keychain groups, or entitlements. |
+| The iPhone Watch app stays on **Installing** | Use the signed Watch scheme's direct Xcode run procedure above and retain the iPhone installation. |
 
 Maintainers who need the package inspection commands and evidence boundaries should use the
 [owner-run installation procedure](research/personal-use-sideloading.md#p1-m14-reader-installation-procedure).

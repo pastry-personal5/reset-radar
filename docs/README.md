@@ -71,6 +71,7 @@ This index lists the design and process docs, one line each. Read only the doc y
 | [phase-1/milestone-17-gui-polish-sequence.md](phase-1/milestone-17-gui-polish-sequence.md) | P1-M17 implementation and validation order. Active. |
 | [phase-1/milestone-17-security-review.md](phase-1/milestone-17-security-review.md) | P1-M17 maintained-code security review, confirmed repairs, and validation evidence. Active. |
 | [research/cloudflare-relay-spike-runbook.md](research/cloudflare-relay-spike-runbook.md) | Active owner-run P1-M9 deployment, smoke, 30-minute sample, fault, release, and teardown procedure. |
+| [research/evidance-cloudflare.md](research/evidance-cloudflare.md) | Deferred record of the owner-present synthetic Cloudflare relay smoke test. |
 | [phase-1/owner-decisions.md](phase-1/owner-decisions.md) | Owner-approved P1-M1 product, security, scheduling, synchronization, and distribution decisions that constrain P1-M2. |
 | [research/initial-research-on-feasibility.md](research/initial-research-on-feasibility.md) | P1-M1 feasibility study: service limits, reset-time sources, iOS capabilities, prior art, and owner-approved scope. Active. |
 | [research/github-prior-art.md](research/github-prior-art.md) | P1-M1 GitHub survey: open-source reset trackers, data sources, credentials, licenses, maintenance signals, and issue patterns. Active. |

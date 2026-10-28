@@ -1,6 +1,6 @@
 # P1-M4: Domain model sequencing
 
-Status: Planned
+Status: Done
 
 Order of work, interfaces, and tests for [P1-M4](milestone-04-domain-model-overview.md). Behavior is defined in [Domain](../architecture/domain.md); this file adds only the file layout, signatures, and test cases that file leaves open. Each task is test-first: write the named tests, watch them fail, implement, then commit.
 

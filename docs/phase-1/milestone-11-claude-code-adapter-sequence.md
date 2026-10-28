@@ -54,9 +54,6 @@ session IDs, or account data. The Claude Code version recorded here is owner-run
 evidence, not a `ClaudeCodeConfigurator` input or runtime discovery contract. Have the
 `test_runner` execute the complete clean baseline gate.
 
-Done when the overview entry criteria contain concrete evidence and no open decision is embedded
-as an implementation assumption.
-
 ## Task 1: Make Claude Code calibration independent and runnable
 
 M10 already made the programs track the repository (the runbook requires an owner-approved clean

@@ -11,6 +11,9 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
   previous test/deployment tool tree had seven npm advisories; production dependencies had none.
   The deployment contract and lockfile now pin the approved versions.
 
+- 2026-10-28 — Owner — Set the shared app marketing version to v1.0.0. The concise release
+  note is in the user-facing README.
+
 - 2026-10-28 — Owner — Removed the fixed configured Codex account limit. The catalog, isolated
   app-server fleet, Sources Add row, and Home-wide per-account refresh outcomes now accept any
   number of Codex rows within existing bounded files and encrypted envelopes. Claude Code remains

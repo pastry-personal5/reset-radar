@@ -55,8 +55,10 @@ passes them.
 | 2026-10-27 | `make test-mac` | Passed when rerun alone. The first run overlapped relay CI and transiently failed 12 configurator cases that all passed both the focused package rerun and this isolated complete run. |
 | 2026-10-27 | `make relay-ci` | Passed: install, 28 Workers Vitest tests, 31 script tests, typecheck, generated bindings, and Wrangler deployment dry-run. `npm audit` reported 4 moderate and 3 high dependency findings; dependency changes require separate owner approval. |
 | 2026-10-27 | Signed IPA package and entitlement inspection | Passed for the existing 4,418,883-byte IPA: the iPhone app embeds the Watch app and Watch complication; the approved four app/extension identifiers are present; every component has the shared App Group; Watch components expose only application/team identity, App Group, and development-signing entitlements. |
+| 2026-10-28 | Physical Watch Xcode Run signing repair | The owner-provided install log targeted `Development-watchos/ResetRadarWatch.app` and failed with `0xe800801c` (no code signature). The generated scheme used unsigned Development for Run. After changing the checked-in XcodeGen scheme to Release, `make generate` produced a Release Run action; both Watch targets resolved to automatic Personal Team signing, a generic watchOS Release build passed, and host `codesign --verify --strict` passed on the app and complication. Physical installation remains unobserved after this repair. |
+| 2026-10-28 | Complete gate after signing repair | First `make gate` attempt passed format, strict lint, imports, pipeline tests, and Mac architecture, then four Claude Code configurator restore tests failed with transient `.unavailable`/`.helperNotCurrent` errors. The isolated 10-test suite passed; a second complete `make gate` passed Mac, iPhone, iPad, Watch, and relay stages. The first failure remains recorded as an observed intermittent test-run result. |
 
-## Simulator gate blocker
+## Earlier simulator gate blocker
 
 A combined iPhone/iPad invocation before the final lint-driven refactor completed the iPhone
 destination successfully. The iPad destination then lost multiple test runners with `Test crashed
@@ -74,15 +76,16 @@ run remained blocked waiting for workers beyond the earlier completion window. A
 restart, an isolated iPhone rerun developed the same missing-worker condition; it was terminated
 after the same bounded observation. No assertion from the final code failed in these retries.
 
-This is not accepted as a gate pass. The complete `make gate` row and M16 remain open until a clean
-host session completes the documented iPhone/iPad command.
+That earlier run was not accepted as a gate pass. A complete `make gate` passed on 2026-10-28 after
+the Watch scheme signing repair, including the documented iPhone/iPad command.
 
 ## Physical-device readiness
 
 The reference physical iPhone 17 Pro Max was attached and reported available and paired by
-`devicectl`. The paired physical Watch was not exposed as a separately available installation
-target, and the required workflow uses Sideloadly plus owner interaction. No install or device
-observation is inferred from attachment or package inspection.
+`devicectl` during the earlier check. The owner-provided 2026-10-28 Xcode log confirms a physical
+Watch running watchOS 27.0.1 was selected for installation, but its unsigned Development product
+was rejected before launch. No successful physical install or Watch behavior is inferred from the
+log, package inspection, or the later signed generic build.
 
 The sandboxed SwiftPM manifest cannot start because the toolchain invokes `sandbox-exec` and lacks
 its module-cache access. The same documented commands run successfully with the approved
@@ -91,8 +94,6 @@ check.
 
 ## Still required for closure
 
-- the final complete contribution gate after the local XCTest worker service can launch the
-  iPhone/iPad destinations cleanly;
 - rendered Watch app/background-delivery and complication observations on the reference devices;
 - the complete runtime security table with Watch rows closed; and
 - every sanitized reference-device observation in the paired Watch runbook, including the initial

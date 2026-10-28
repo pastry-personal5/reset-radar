@@ -244,6 +244,41 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
   and the complete host-access `make gate` passed on 2026-10-28. The newly built Development app
   launched with `--synthetic`; its menu showed the account status and all actions, remained
   accessible after 35 seconds open, and the process stayed alive. The test app then quit normally.
+- [ ] Add a compact dark-mode macOS Reset Radar JPEG screenshot to the README preview gallery.
+- [x] Polish the root README Preview gallery with accessible, platform-specific dark-mode product
+  screenshots and captions. Evidence: the macOS hero and iPhone product mockup use dark-mode
+  JPEGs with descriptive alternative text; `git diff --check` and local image/link resolution
+  passed on 2026-10-28.
+- [x] Refresh the README Preview with a tightly framed Mac capture and an iPhone 18 Pro Max
+  product mockup; remove the Apple Watch screenshot and verify its remaining asset references.
+  Evidence: `reset-radar-mac-dark.jpeg` is tightly cropped to its app window and
+  `reset-radar-home-dark.jpeg` presents the synthetic Home screen in an iPhone 18 Pro Max frame;
+  both decode as JPEGs and README has no remaining Watch asset reference.
+- [x] Replace the README preview with a compact dark-mode iPhone JPEG captured from synthetic
+  product data. Evidence: `reset-radar-home-dark.jpeg` appears with descriptive alternative text.
+- [x] Add available JPEG product screenshots to the root README with concise, accessible captions.
+  Evidence: `docs/images/reset-radar-home.jpeg` is a verified 1320×2868 JPEG captured from the
+  iPhone synthetic paired-data scenario and appears in README with descriptive alternative text.
+- [x] Rewrite the root README as concise American-English marketing copy while preserving accurate
+  privacy, cost, platform, and implementation claims. Evidence: the Fast by design, Privacy
+  first, and Cost savvy copy names native Swift/SwiftUI Apple apps, credential handling, and the
+  qualified free-account personal-sideloading path without claiming the TypeScript relay is Swift.
+- [x] Add an indexed product-limitations document and move root-README caveats and warnings into
+  it while keeping product claims accurate and traceable to the architecture. Evidence:
+  `product-limitations.md` is indexed, README links it, and the active-document local-link check
+  passes with its privacy, metadata, platform, installation, and native-implementation boundaries.
+- [x] Remove duplicate documentation content and reduce the root README to an accurate, concise
+  entry point that links to the detailed guides. Evidence: README is 27 lines and retains only
+  the product summary, distribution boundary, essential documentation links, version, and license;
+  duplicate relay evidence and repeated sequence prose were consolidated into canonical records.
+- [x] Audit active documentation for structure, links, terminology, and current-project consistency;
+  correct documented findings without changing product code or build configuration. Evidence: all
+  86 active Markdown documents have resolving local links and anchors; the Phase 1 and completed
+  P1-M4 sequence statuses now agree with their authoritative records, and the Deferred Cloudflare
+  smoke-test record is indexed.
+- [x] Set the shared marketing version to v1.0.0 and record its concise release note. Evidence:
+  `Config/Build/Shared.xcconfig` sets `MARKETING_VERSION = 1.0.0`; README Release notes says
+  `Version v1.0.0`.
 - [x] Remove the fixed Codex account-count limit across catalog validation, source setup,
   collection, manual-refresh results, and maintained product/UX documentation; macOS Sources
   continues to offer an Add row after any number of configured Codex accounts, while duplicate

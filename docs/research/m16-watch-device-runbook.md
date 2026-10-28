@@ -54,7 +54,10 @@ Remove the temporary directory after recording the redacted result.
    existing sideloading guide. Do not use Apple ID Sideload or allow bundle-ID rewriting.
 2. Trust and launch the iPhone app if the current Personal Team build requires it.
 3. In the iPhone Watch app, install Reset Radar from **Available Apps** if automatic companion-app
-   installation has not already installed it.
+   installation has not already installed it. If this stays on **Installing**, record the stalled
+   result and use the signed **ResetRadarWatch** scheme's direct Xcode Run procedure in the
+   [sideloading guide](../user-guide-for-sideloading.md#run-the-watch-app-from-xcode). Keep the
+   Sideloadly-installed iPhone app in place and record which path installed the Watch app.
 4. Launch Reset Radar on the Watch and record whether its empty state appears without a crash.
 5. Add the rectangular Reset Radar Allowance complication to a face. Confirm its configuration
    lists synthetic account aliases and the Five-hour and Weekly choices.

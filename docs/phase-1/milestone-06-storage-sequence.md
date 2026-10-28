@@ -132,8 +132,6 @@ Remove the Storage placeholder source and smoke test, search for remaining sourc
 
 ## Review focus
 
-Inputs the spec implies but its test list does not name; each has a test in the owning task.
-
 1. A `[RequestID: Date]` dictionary that encodes as a key-value array and fails to decode after a schema change (Task 2).
 2. A process killed after the lock is taken: the kernel frees `flock` on exit, so no stale lock file blocks the next launch (Task 1).
 3. A corrupt or empty (zero-byte) file at first launch must not crash or silently reset a paired reader (Task 2, Q7).

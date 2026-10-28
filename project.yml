@@ -69,7 +69,8 @@ schemes:
         ResetRadarWatch: all
         ResetRadarWatchWidgets: all
     run:
-      config: Development
+      # Development disables code signing and cannot install on a physical Watch.
+      config: Release
     test:
       config: Development
       testPlans:

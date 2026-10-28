@@ -98,6 +98,11 @@ and physical QR pairing succeeded on 2026-10-27. Extension behavior, first-unloc
 cache-persistence checks, the reference iPad run, and a seven-day renewal path still need device
 evidence.
 
+The generated `ResetRadarWatch` scheme runs in signed Release for a physical Watch. Its
+Development configuration remains unsigned for simulator builds and tests. If installation from
+the iPhone Watch app stalls, use the direct Xcode Run steps in the
+[sideloading guide](user-guide-for-sideloading.md#run-the-watch-app-from-xcode).
+
 After configuring Release signing in the untracked `Config/Build/Local.xcconfig` as that procedure
 requires, run `make ipa` from the repository root. It creates the signed package at
 `.build/ipa/ResetRadar.ipa`; if that file already exists, the target preserves it. Remove or move

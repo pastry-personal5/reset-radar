@@ -43,6 +43,7 @@ Owner-run closure evidence follows the synthetic [paired Watch runbook](../resea
 
 ## Completion checklist
 
+- [x] Physical Watch Run uses the signed Release configuration after project generation; verify the generated scheme and Release signing settings, and document the Xcode workaround for a stalled iPhone Watch-app installation. Evidence: generated Release LaunchAction, automatic Personal Team signing for both Watch targets, valid signatures on a generic watchOS Release build, and a passing complete gate on 2026-10-28; actual paired-device installation remains in the separate unchecked device row.
 - [x] Re-reviewed the M16 plan against the current integrated reader and scheduling work; recorded the M9/M14/M15 exit-gate exception, executable Watch handoff, failure recovery, and evidence boundaries. Evidence: revised overview and sequence on 2026-10-27; changed-doc links and `git diff --check` pass. The full gate is reported separately.
 - [x] Planning review identifies the binding Watch contracts, current scaffold and use-case seams, M14/M15 handoff, M9 exception, paired-device evidence, and security review ownership; overview and sequence are linked from the phase plan and docs index. Evidence: this review on 2026-10-26. iPhone, iPad, and Watch test runs remain suspended at the committed baseline.
 - [x] The owner selected reference devices for paired tests and moved the full seven-day Sideloadly refresh observation to Phase 1 exit after M16 closure on 2026-10-26; initial free-signed Watch installation and delivery remain M16 requirements.

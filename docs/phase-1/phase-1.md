@@ -1,6 +1,6 @@
 # Phase 1: Foundation
 
-Status: Planned
+Status: Active
 
 Goal: Settle what Reset Radar must do and how it is built, stand up a project that builds and passes the gate, then build the first usable version: a Mac collector that publishes encrypted readings through the relay to the iPhone, iPad, and Apple Watch.
 
