@@ -29,6 +29,8 @@ schemes:
         ResetRadarWatch: all
         ResetRadarWatchWidgets: all
     run:
+      environmentVariables:
+        LLVM_PROFILE_FILE: /dev/null
       config: Development
     test:
       config: Development
@@ -51,6 +53,8 @@ schemes:
           script: '"${SRCROOT}/Scripts/check-mac-signing.sh"'
           settingsTarget: ResetRadarMac
     run:
+      environmentVariables:
+        LLVM_PROFILE_FILE: /dev/null
       config: Development
     test:
       config: Development
@@ -69,6 +73,8 @@ schemes:
         ResetRadarWatch: all
         ResetRadarWatchWidgets: all
     run:
+      environmentVariables:
+        LLVM_PROFILE_FILE: /dev/null
       # Development disables code signing and cannot install on a physical Watch.
       config: Release
     test:

@@ -6,7 +6,15 @@
       "options": {}
     }
   ],
-  "defaultOptions": {},
+  "defaultOptions": {
+    "codeCoverage": false,
+    "environmentVariableEntries": [
+      {
+        "key": "LLVM_PROFILE_FILE",
+        "value": "/dev/null"
+      }
+    ]
+  },
   "testTargets": [
     {
       "target": {
