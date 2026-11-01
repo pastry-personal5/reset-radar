@@ -9,7 +9,12 @@ if [[ "${CONFIGURATION:-}" != "Release" ]]; then
   exit 0
 fi
 
-app="${TARGET_BUILD_DIR:?}/${FULL_PRODUCT_NAME:?}"
+if (( $# > 0 )); then
+  app=$1
+else
+  app="${TARGET_BUILD_DIR:?}/${FULL_PRODUCT_NAME:?}"
+fi
+[[ -d $app ]] || { print -u2 "Mac signing check: missing app bundle."; exit 1; }
 expected_team=""
 for item in "$app" "$app/Contents/Helpers/ResetRadarStatusLine"; do
   [[ -e $item ]] || { print -u2 "Mac signing check: missing $item"; exit 1; }

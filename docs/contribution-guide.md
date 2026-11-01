@@ -71,6 +71,8 @@ make format-check     # check formatting
 make lint             # strict SwiftLint
 make imports          # enforce the dependency rule
 make mac-arch-check   # build and inspect unsigned Release Mac binaries
+make mac-package      # archive and package a signed Release Mac app
+make install-macos    # install the Mac app and the rr launcher
 ```
 
 The relay exposes reproducible npm scripts for TypeScript checking, Workers Vitest tests, and a Wrangler deployment dry run that never contacts Cloudflare. Mac Release builds need an untracked `Config/Build/Local.xcconfig` copied from `Local.xcconfig.template`; Development builds and the gate do not. The architecture check makes an isolated unsigned Release build and verifies every Mach-O executable with `lipo`; it does not replace the signed Release scheme check. Do not run a real deployment until the synthetic-data procedure confirms Workers Free, disabled observability, and owner-present approval.
@@ -107,6 +109,18 @@ After configuring Release signing in the untracked `Config/Build/Local.xcconfig`
 requires, run `make ipa` from the repository root. It creates the signed package at
 `.build/ipa/ResetRadar.ipa`; if that file already exists, the target preserves it. Remove or move
 that specific package before running the target again when a fresh export is required.
+
+For the Mac collector, run `make mac-package` with the same local Release-signing configuration.
+It archives the Release `ResetRadarMac.app`, verifies the app and embedded helper have matching
+non-ad-hoc team signatures, checks every Mach-O is arm64-only, and creates
+`.build/mac/ResetRadarMac.zip`. It also unpacks and verifies the zip before publishing it. The
+target preserves an existing zip; move or remove that specific zip to build a replacement. The
+zip contains the app for the existing manual installation flow, not a notarized installer.
+`make install-macos` installs that package to `/Applications`, removes an existing
+`ResetRadarMac.app` there before copying the new bundle, and installs `rr` to `/usr/local/bin`.
+It may ask for administrator authorization for those locations. Set `MAC_APPLICATIONS_DIR` or
+`RR_INSTALL_DIR` when using a different local installation layout. Application Support and
+Keychain state are retained.
 
 ## Commit messages
 

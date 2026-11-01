@@ -42,15 +42,18 @@ the Development folder directly for startup and publication root-cause analysis.
    cp Config/Build/Local.xcconfig.template Config/Build/Local.xcconfig
    ```
 
-3. Open `ResetRadar.xcodeproj`. Select the `ResetRadarMac` scheme and **My Mac**, then use the
-   scheme editor to make its **Run** action use **Release**. Build the scheme. The `Check Mac
-   signing` post-action must report success; it rejects an ad-hoc signature, a missing team, or a
-   helper signed by another team. A Development build is deliberately unsigned and is not an
+3. Run `make mac-package`, or run `make install-macos` to package and install in one step. It
+   creates `.build/mac/ResetRadarMac.zip` from a signed Release
+   archive, then checks the app and embedded helper signatures and arm64 architecture after
+   unpacking. If the zip already exists, the command preserves it; move or remove that zip when
+   you intend to build a replacement. A Development build is deliberately unsigned and is not an
    install candidate.
 
-4. Find the resulting `ResetRadarMac.app` in Xcode's Products group, reveal it in Finder, and
-   copy it to `/Applications`. If a previous installed copy exists, quit it from the menu bar
-   first and replace only the bundle. Do not delete Application Support or Keychain items.
+4. `make install-macos` quits and removes the existing `/Applications/ResetRadarMac.app`, copies
+   the packaged app there, and installs an `rr` launcher in `/usr/local/bin`. It may ask for
+   administrator authorization. The target removes only the old app bundle; it preserves
+   Application Support and Keychain items. For the manual path, unpack `.build/mac/ResetRadarMac.zip`
+   and copy `ResetRadarMac.app` to `/Applications` instead.
 
 5. Open the copied app from Finder with **Open**. Approve the locally built app only if macOS
    Gatekeeper asks. Gatekeeper approval is expected for a local, non-notarized build; a Keychain

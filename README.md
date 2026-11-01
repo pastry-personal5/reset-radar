@@ -43,6 +43,9 @@ annual Apple Developer Program enrollment fee.
 
 ## Documentation
 
+- Build a signed Mac app archive with `make mac-package` after setting up local Release signing;
+  install the app from `.build/mac/ResetRadarMac.zip` using the [Mac installation guide](docs/mac-installation-and-recovery.md).
+- Run `make install-macos` to install the signed Mac app and use `rr` to launch it from a terminal.
 - [Documentation index](docs/README.md) — all active design, research, and planning documents.
 - [Product behavior](docs/product-behavior.md) — approved scope and non-goals.
 - [Product limitations](docs/product-limitations.md) — privacy, availability, and installation boundaries.

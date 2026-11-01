@@ -1,4 +1,4 @@
-.PHONY: help generate run run-mac iphone ipad watch ipa format format-check lint imports pipeline-tests mac-arch-check test-mac test-ios test-ipad test-ios-ipad test-watch test-apple relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
+.PHONY: help generate run run-mac iphone ipad watch ipa mac-package install-macos format format-check lint imports pipeline-tests mac-arch-check test-mac test-ios test-ipad test-ios-ipad test-watch test-apple relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
 
 # Also applies to multiple goals (make -j iphone ipad) and inherited MAKEFLAGS.
 .NOTPARALLEL:
@@ -13,6 +13,8 @@ help:
 		'ipad           Build the iPad app for the reference simulator' \
 		'watch          Build the Watch app for the reference simulator' \
 		'ipa            Create .build/ipa/ResetRadar.ipa if it is absent' \
+		'mac-package    Create .build/mac/ResetRadarMac.zip if it is absent' \
+		'install-macos  Install the Mac app and the rr launcher' \
 		'format         Format maintained Swift sources in place' \
 		'format-check   Check Swift formatting' \
 		'lint           Run strict SwiftLint' \
@@ -92,6 +94,13 @@ ipa: generate
 		cp "$$workdir/ResetRadar.ipa" "$$package_path"; \
 		printf '%s\n' "Created IPA: $$package_path"; \
 	fi
+
+# Local Apple Development signing preserves the Release app's Keychain identity.
+mac-package: generate
+	@COMMAND_TIMEOUT_SECONDS='$(COMMAND_TIMEOUT_SECONDS)' Scripts/package-mac-app.sh
+
+install-macos: mac-package
+	@Scripts/install-mac-app.sh
 
 format:
 	$(RUN_WITH_TIMEOUT) swift-format format --in-place --recursive $$(tr '\n' ' ' < Scripts/swift-roots.txt)
