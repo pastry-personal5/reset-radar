@@ -83,7 +83,7 @@ private struct ExecutiveSummaryView: View {
     let nextReset: NextReset
 
     var body: some View {
-        Section("Executive Summary") {
+        Section("Next Effective Reset") {
             VStack(alignment: .leading, spacing: 5) {
                 Text(nextReset.date.formatted(date: .abbreviated, time: .shortened))
                     .font(.largeTitle.weight(.semibold))

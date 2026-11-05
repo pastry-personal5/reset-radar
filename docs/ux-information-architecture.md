@@ -84,7 +84,7 @@ complication read only the Watch's last valid local cache.
 Each configured account has one Account Details destination containing:
 
 1. Displayed alias, product identity, and acquisition availability.
-2. Executive Summary for the next known future standard-window reset, when available.
+2. Next Effective Reset for the next known future standard-window reset, when available.
 3. Window Details for the five-hour allowance.
 4. Window Details for the weekly allowance.
 5. Window Details for every additional valid provider-reported limit.

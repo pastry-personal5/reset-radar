@@ -93,7 +93,7 @@ struct MacAccountDetailsView: View {
                         account: account, snapshot: model.snapshot, now: timeline.date)
                     if let nextReset = nextReset(in: details, now: timeline.date) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Executive Summary").font(.headline)
+                            Text("Next Effective Reset").font(.headline)
                             Text(
                                 nextReset.date.formatted(
                                     date: .abbreviated, time: .shortened)
@@ -126,11 +126,11 @@ struct MacAccountDetailsView: View {
     }
 
     private func nextReset(in details: [MacDetailWindow], now: Date) -> NextReset? {
-        func date(_ standard: AccountWindow.StandardWindow) -> Date? {
+        func date(_ standard: AccountWindow.StandardWindow) -> AllowanceWindow? {
             guard let detail = details.first(where: { $0.id == .standard(standard) }),
                 !detail.ambiguous
             else { return nil }
-            return detail.window?.resetsAt
+            return detail.window
         }
         return NextResetDerivation.derive(
             fiveHour: date(.fiveHour), weekly: date(.weekly), now: now)

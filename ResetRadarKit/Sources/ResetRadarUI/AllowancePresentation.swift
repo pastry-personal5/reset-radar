@@ -38,26 +38,38 @@ public struct NextReset: Equatable, Sendable {
 }
 
 public enum NextResetDerivation {
+    /// A window above this Percentage Used blocks usage until its own reset.
+    static let blockedAbove = 99.0
+
     public static func derive(from sections: [WindowSection], now: Date) -> NextReset? {
-        func date(for standard: AccountWindow.StandardWindow) -> Date? {
+        func window(for standard: AccountWindow.StandardWindow) -> AllowanceWindow? {
             guard let section = sections.first(where: { $0.id == .standard(standard) }),
                 !section.ambiguous
             else { return nil }
-            return section.details?.window.resetsAt
+            return section.details?.window
         }
-        return derive(fiveHour: date(for: .fiveHour), weekly: date(for: .weekly), now: now)
+        return derive(fiveHour: window(for: .fiveHour), weekly: window(for: .weekly), now: now)
     }
 
-    public static func derive(fiveHour: Date?, weekly: Date?, now: Date) -> NextReset? {
-        [
+    /// The reset that actually restores usage: the latest reset among blocked windows, else the
+    /// earliest known future reset. Equal times use the five-hour limit.
+    public static func derive(
+        fiveHour: AllowanceWindow?, weekly: AllowanceWindow?, now: Date
+    ) -> NextReset? {
+        let known = [
             (AccountWindow.StandardWindow.fiveHour, fiveHour),
             (.weekly, weekly),
-        ].compactMap { standard, date -> NextReset? in
-            guard let date, date > now else { return nil }
-            return NextReset(date: date, window: standard)
-        }.min { left, right in
-            if left.date == right.date { return left.window == .fiveHour }
-            return left.date < right.date
+        ].compactMap { standard, window -> (NextReset, blocked: Bool)? in
+            guard let date = window?.resetsAt, date > now else { return nil }
+            let blocked = (window?.observation?.usedPercent ?? 0) > blockedAbove
+            return (NextReset(date: date, window: standard), blocked)
+        }
+        let blocked = known.filter(\.blocked).map(\.0)
+        if !blocked.isEmpty {
+            return blocked.max { $0.date < $1.date || ($0.date == $1.date && $0.window != .fiveHour) }
+        }
+        return known.map(\.0).min {
+            $0.date < $1.date || ($0.date == $1.date && $0.window == .fiveHour)
         }
     }
 }

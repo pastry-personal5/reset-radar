@@ -169,7 +169,7 @@ accessibility text. Stale or unavailable data must remain visibly distinct from 
 ## Account Details
 
 Each configured account has one Account Details destination. It identifies the alias and product,
-then shows an Executive Summary for the next known future standard-window reset, followed by the
+then shows an Next Effective Reset for the next known future standard-window reset, followed by the
 five-hour and weekly windows and every other valid provider-reported window. The summary shows the
 local absolute time and the five-hour or weekly limit, without a percentage or data state. The
 ring selected from Home receives initial visual emphasis.

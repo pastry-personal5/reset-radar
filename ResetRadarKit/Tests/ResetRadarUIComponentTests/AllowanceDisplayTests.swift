@@ -125,6 +125,20 @@ import Testing
         #expect(
             NextResetDerivation.derive(from: sections, now: .distantFuture) == nil)
     }
+
+    @Test func nextEffectiveResetFollowsTheBlockingWindow() {
+        func derive(fiveHour: Double, weekly: Double) -> AccountWindow.StandardWindow? {
+            NextResetDerivation.derive(
+                fiveHour: window(codexA, resetsAt: at(100), percent: fiveHour),
+                weekly: window(
+                    codexA, limitID: "w", minutes: 10_080, resetsAt: at(900), percent: weekly),
+                now: at(0))?.window
+        }
+        #expect(derive(fiveHour: 100, weekly: 80) == .fiveHour)
+        #expect(derive(fiveHour: 0, weekly: 99.5) == .weekly)
+        #expect(derive(fiveHour: 100, weekly: 100) == .weekly)
+        #expect(derive(fiveHour: 10, weekly: 20) == .fiveHour)
+    }
 }
 
 @Suite struct PercentageUsedFormatterTests {
