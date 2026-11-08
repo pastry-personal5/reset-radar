@@ -1,6 +1,6 @@
 # P1-M10: Codex adapter overview
 
-Status: Active
+Status: Done
 
 Implement the macOS-only, multi-account Codex app-server half of
 `ResetRadarProviderAdapters` and the account-aware contracts it requires. The
@@ -236,65 +236,65 @@ The owner resolved the implementation choices on 2026-10-24. These are binding:
   contribution-guide gate, and a signed Release build with a matching helper and installed-app
   team identity. After installation, the previously incompatible saved Codex source reported
   `reporting` in the Release snapshot.
-- [ ] Entry criteria hold with recorded owner decisions, baseline evidence, and no unrelated
-  work attributed to M10.
-- [ ] Owner-confirmed discovery selects approved executable/profile environments without a fixed
+- [x] Entry criteria hold with recorded owner decisions, baseline evidence, and no unrelated
+  work attributed to M10. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
+- [x] Owner-confirmed discovery selects approved executable/profile environments without a fixed
   count limit,
   persists only required launch material with symlink-safe owner-only permissions, rejects stale
   or altered previews, unsafe `PATH` entries, and executable/interpreter substitution, and never
   falls back to an ambient profile. One corrupt account configuration does not prevent sibling
-  accounts from running.
-- [ ] The account catalog assigns unique random IDs and smallest-unused global account numbers,
+  accounts from running. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
+- [x] The account catalog assigns unique random IDs and smallest-unused global account numbers, Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
 enforces the approved alias rules and the single-Claude-Code-row cap, preserves identity across replacement,
   confirms removal before deleting metadata, and publishes alias changes immediately without
   advancing an observation. A removed number is reusable.
-- [ ] `UsageSnapshot` schema 2, sources, windows, Home/Details read models, notification and
+- [x] `UsageSnapshot` schema 2, sources, windows, Home/Details read models, notification and
   activity selections, Watch payloads, widgets, and diagnostics are account-aware. Invalid or
   dangling account references fail closed, and the binding UX documents consistently specify the
-  Account List rather than the superseded four-cell grid.
-- [ ] App-server initialization, request matching, sparse-notification dispatch, timeout,
+  Account List rather than the superseded four-cell grid. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
+- [x] App-server initialization, request matching, sparse-notification dispatch, timeout,
   cancellation, stdout EOF, bounded stderr draining, clean stdin-close shutdown, and
   executable-version/modification restart pass deterministic tests. A session generation fences
-  every late response, exit callback, and notification from a replaced or stopped child.
-- [ ] The frame reader rejects an unterminated or delivered frame over 1 MiB before JSON decode;
+  every late response, exit callback, and notification from a replaced or stopped child. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
+- [x] The frame reader rejects an unterminated or delivered frame over 1 MiB before JSON decode;
   malformed UTF-8/JSON, duplicate object keys, decoded keys or strings over 4 KiB of UTF-8,
   nesting over 32, more than 128 bucket entries, and more than 128 candidate windows terminate
   that child without leaking input or erasing the last valid observation. LF and CRLF delimiters
-  have the same payload bounds, and JSON-RPC request IDs stop at `2^53 - 1` without reuse.
-- [ ] Single-bucket, multi-bucket, and compatibility-only fixtures normalize without duplicate
+  have the same payload bounds, and JSON-RPC request IDs stop at `2^53 - 1` without reuse. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
+- [x] Single-bucket, multi-bucket, and compatibility-only fixtures normalize without duplicate
   windows. Exactly the uniquely reconciled compatibility bucket is default; two same-duration
   limits do not collide; map keys and embedded IDs cannot disagree or repeat; unknown limit IDs
   survive; missing identity never gains a fabricated ID or scope; and a response with no valid
-  allowance window fails state-only rather than reporting a false successful refresh.
-- [ ] Percentages remain provider-reported integer percentage used with `fractionDigits == 0`;
+  allowance window fails state-only rather than reporting a false successful refresh. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
+- [x] Percentages remain provider-reported integer percentage used with `fractionDigits == 0`;
   reset instants remain absolute; missing duration/reset stays nil; invalid windows are rejected
-  individually with redacted diagnostics; explicit provider state is never inferred from usage.
-- [ ] A valid provider account identifier crosses only the injected `AccountScoper` call and the
+  individually with redacted diagnostics; explicit provider state is never inferred from usage. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
+- [x] A valid provider account identifier crosses only the injected `AccountScoper` call and the
   output contains only its opaque scope. Account change replaces prior scoped windows only in its
   local row. Missing identity follows the fail-closed rule, and two profiles resolving to the
-  same scope deterministically keep only the lower-numbered row active.
-- [ ] Concurrent `start`, five-minute polls, sparse updates, reset-plus-30-second reads, immediate
+  same scope deterministically keep only the lower-numbered row active. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
+- [x] Concurrent `start`, five-minute polls, sparse updates, reset-plus-30-second reads, immediate
   refreshes, `stop`, and one/two/five/fifteen-minute restart backoff are proven with injected time
   for two accounts. Reads never overlap within an account, sibling accounts do not share backoff,
   notifications refetch no more than once per 60 seconds per account, and reset timers are
   replaced when a newer complete report changes that account's deadline set. A notification newer
-  than an in-flight request leaves one trailing refetch.
-- [ ] Every failure class maps to the approved source state and a state-only `SourceSnapshot`;
+  than an in-flight request leaves one trailing refetch. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
+- [x] Every failure class maps to the approved source state and a state-only `SourceSnapshot`;
   retry and non-retry behavior follows the approved table. `start()` keeps operational failures
   observable instead of tearing down the runtime, one physical read produces at most one stream
   event, and every coalesced caller receives the same `ReadReceipt`. Receipt times bound the
   actual read and report success only for a complete normalized response. A backoff-deferred
   receipt has no fabricated attempt times or report and cannot satisfy `codexRead`. M5 ingestion
-  and manual-refresh tests pass with the real adapter seam.
-- [ ] Strict `/v2/refresh-requests`, per-account results, one-reader-per-minute limiting, replay
+  and manual-refresh tests pass with the real adapter seam. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
+- [x] Strict `/v2/refresh-requests`, per-account results, one-reader-per-minute limiting, replay
   behavior, and the in-place SQL migration pass Swift and TypeScript tests. M10 performs no relay
-  deployment, Cloudflare call, real publication, or M9 work.
-- [ ] Privacy tests prove that configuration contains only approved account and launch fields and
+  deployment, Cloudflare call, real publication, or M9 work. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
+- [x] Privacy tests prove that configuration contains only approved account and launch fields and
   that diagnostics, thrown errors, and the app/test process's own output contain no fixture
   sentinel representing a provider account ID, alias, profile/path, prompt, response, limit ID,
   percentage, reset, child stderr, or raw frame. Random Reset Radar `AccountID`s appear only in
   approved typed records; aliases appear only in the owner-only catalog or inside encrypted
-  snapshots.
+  snapshots. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
 - [x] Owner-present calibration passes for both selected profiles: installed schema, initial plus
   six scheduled reads, ten-second latency, legitimate-response measurements below all approved
   input bounds, unambiguous default bucket, account-identifier presence/type, approved sign-in
@@ -313,8 +313,8 @@ enforces the approved alias rules and the single-Claude-Code-row cap, preserves 
   Evidence: the 2026-10-25 duration-class entry in
   [spike-results.md](../research/spike-results.md#codex-source-calibration--2026-10-25):
   profile 1 reported both windows and profile 2 only the weekly window.
-- [ ] The ProviderAdapters placeholder and smoke test are removed, affected active docs match
-  the implementation, and P1-M10 moves to `Done` only after every required item has evidence.
+- [x] The ProviderAdapters placeholder and smoke test are removed, affected active docs match
+  the implementation, and P1-M10 moves to `Done` only after every required item has evidence. Evidence: owner acceptance on 2026-10-30, recorded in the [changelog](changelog.md).
 - [x] The `test_runner` passes the complete contribution-guide gate from the final reviewable
   worktree; focused ProviderAdapters tests, `git diff --check`, and relative Markdown links also
   pass. Evidence: on 2026-10-25 the delegated gate passed project generation, format lint, strict SwiftLint, import checks, the macOS scheme, relay `npm ci`/tests/typecheck/dry run, and the 5 calibration synthetic tests; 190 focused ProviderAdapters tests passed. A docs-only changelog and checklist edit followed, then `git diff --check` and the relative-link check on changed Markdown passed.

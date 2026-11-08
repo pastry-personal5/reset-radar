@@ -1,6 +1,6 @@
 # P1-M10: Codex adapter sequencing
 
-Status: Active
+Status: Done
 
 Work order and acceptance tests for the
 [M10 overview](milestone-10-codex-adapter-overview.md). The binding behavior remains in

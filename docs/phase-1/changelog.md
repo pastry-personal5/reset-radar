@@ -6,6 +6,11 @@ Decisions and plan changes for Phase 1 that are not clear from commits.
 
 ## Entries
 
+- 2026-10-30 — Owner/Claude — Owner accepted P1-M10 (Codex adapter). The remaining checklist items are checked citing this acceptance, and the [overview](milestone-10-codex-adapter-overview.md) and [sequence](milestone-10-codex-adapter-sequence.md) move to `Done`. The deferred Codex update-notification observation stays with M12.
+- 2026-10-29 — Owner/Codex — Added a local signed Mac app packaging command to the active M17
+  work. It produces a verified arm64-only zip for the existing manual installation flow, using
+  the stable Personal Team Release identity and preserving any previous package.
+
 - 2026-10-28 — Owner/Codex — Approved exact relay development dependency updates after a
   security audit: Vitest 4.1.12, Workers Vitest plugin 1.4.9, and Wrangler 4.154.0. The
   previous test/deployment tool tree had seven npm advisories; production dependencies had none.

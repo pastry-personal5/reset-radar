@@ -6,6 +6,8 @@ Polish the existing iPhone, macOS, and Watch presentation and repair the support
 pairing, and relay-management seams required for that presentation to remain truthful. Provider
 acquisition, allowance semantics, pairing-package wire bytes, and platform distribution remain
 unchanged; M17 adds the owner-approved encrypted reader-profile relay operation described below.
+The owner's Mac packaging request also adds a local signed-app artifact target within the existing
+manual installation model.
 The [sequence](milestone-17-gui-polish-sequence.md) records the implementation and evidence order.
 
 ## Goal and entry
@@ -19,7 +21,8 @@ worktree. Their outstanding device, scheduling, and WatchConnectivity evidence r
 milestones: M17 neither reopens nor closes it. Record the starting revision, worktree state, and
 affected simulator destinations before implementation. M17 may change local application and
 storage and relay models where explicitly listed below, but no pairing-package wire bytes,
-provider adapter, dependency, build-tool, signing, or product-distribution change is in scope.
+provider adapter, dependency, signing, or product-distribution change is in scope. The local
+packaging command is the sole build-workflow addition.
 
 ## Owner-approved presentation behavior
 
@@ -44,16 +47,17 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
 - On macOS Main, Global Messages spans the combined Account List and Account Details region
   below those panes. The Main Sidebar stays separate; Settings retains its existing
   detail-column-only Global Messages placement.
-- On iPhone and macOS, show a distinct **Executive Summary** section before every window section
+- On iPhone and macOS, show a distinct **Next Effective Reset** section before every window section
   only when a future standard-window reset is known. It has that visible heading, an
   accessibility-scaled, very large device-local absolute reset time, and a small reset-limit
   label. It shows no Percentage Used or state; the ordinary five-hour and weekly details below
   remain the truthful source for those values.
-- The Executive Summary also shows the account's next reset as the earlier known future reset
-  among the five-hour and weekly standard windows. Its localized absolute text has the form
-  a device-local equivalent of `Oct 27, 2026 at 7:45 PM`, followed by `5h Reset` or `Weekly
-  Reset` in small text. If only one future reset is known, use it; if neither is known, omit the
-  card. Equal times use the five-hour limit as the stable tie-breaker.
+- The Next Effective Reset shows the reset that restores usage: when a standard window is above
+  99% Percentage Used, the latest reset among such blocked windows; otherwise the earlier known
+  future reset among the five-hour and weekly standard windows. Its localized absolute text has
+  the form a device-local equivalent of `Oct 27, 2026 at 7:45 PM`, followed by `5h Reset` or
+  `Weekly Reset` in small text. If neither reset is known, omit the card. Equal times use the
+  five-hour limit as the stable tie-breaker.
 - For Claude Code accounts, every visible Percentage Used surface shows a whole percentage with
   no tenths digit: `96.0%` displays as `96%`. This is display-only; retain the provider's raw
   one-decimal observation and floor non-integral values (`96.9%` displays as `96%`). Codex
@@ -269,6 +273,14 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
   Host-access `make gate` stops at the existing line-length violation in
   `ResetRadarKit/Sources/ResetRadarUI/AllowancePresentation.swift:69`; visual confirmation remains pending.
 
+- [x] `make mac-package` creates a signed, arm64-only Release Mac app archive for the existing
+  manual installation flow, preserves an existing artifact, and documents verification and use.
+  Evidence: on 2026-10-29, the target archived the Release app, verified the app and helper
+  signatures and every Mach-O before and after zip extraction, and created
+  `.build/mac/ResetRadarMac.zip`. A second run preserved its SHA-256 digest. The complete
+  contribution-guide gate passed after a targeted clean cleared a stale iOS module build; an
+  intermittent provider-fleet test failed once during an earlier gate attempt but passed in the
+  final complete run.
 - [x] Review the complete maintained codebase and active security documentation for credential
   exposure, authorization, untrusted input, persistence, and lifecycle races; repair confirmed
   findings, record focused regression evidence, and run the contribution-guide gate. Evidence:
