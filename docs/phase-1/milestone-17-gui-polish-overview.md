@@ -230,6 +230,17 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
 
 ## Completion checklist
 
+- [x] Repair and verify Mac and Watch app icon catalogs, compiled bundle icon references,
+  and preservation through the existing Mac install/package and iPhone-with-Watch IPA paths;
+  retain signing, arm64-only Mac builds, and existing distribution artifacts.
+  Evidence (2026-11-08): restored the Mac catalog manifests and explicit AppIcon build setting;
+  all ten Mac PNG slots decode at their declared sizes with transparent rounded-tile margins,
+  and the Watch source is opaque 1024×1024 RGB. Removed one byte-identical unused Mac PNG.
+  All 17 pipeline regressions and the complete host-access `make gate` passed. Fresh signed
+  temporary Mac ZIP and iPhone IPA builds passed icon checks before and after extraction,
+  including the embedded Watch companion identifier. The Mac installer rejects a missing icon
+  before quitting or replacing the installed app. No installed app was changed.
+
 - [ ] Review maintained code across module boundaries; repair alias-publication recovery after
   an oversized envelope, relay timestamps after delayed body receipt, and Watch forwarding
   across concurrent Forget Mac cleanup, with regression tests
@@ -315,8 +326,11 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
   2026-10-28, covering Mac, iPhone, iPad, Watch, and relay targets. The three former limit error
   cases remain unreachable compatibility symbols so incremental Apple test binaries retain their
   enum layout.
-- [ ] Give the Mac app its own rasterized radar icon asset at every required macOS size; verify
+- [x] Give the Mac app its own rasterized radar icon asset at every required macOS size; verify
   that the Mac Development app bundle contains the compiled icon and inspect its appearance.
+  Evidence (2026-11-08): all standard source slots through 512×512 @2x are assigned and valid;
+  the gate-built Development app passes the compiled-icon check, and `iconutil` decodes its
+  ICNS successfully. Source inspection confirms the radar artwork and transparent rounded tile.
 - [ ] Review the M17 alias, pairing, reader-profile, relay-roster, and presentation paths against
   their approved invariants; repair concrete findings and record static evidence without running
   the deferred test gate.

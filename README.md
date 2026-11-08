@@ -58,6 +58,7 @@ annual Apple Developer Program enrollment fee.
 
 Unreleased
 
+- Restored the Mac app icon and added Mac and Watch icon checks to packaging and installation.
 - Fixed a race that could forward old usage to Apple Watch during Forget Mac cleanup.
 - Alias edits can recover publication after an oversized snapshot when the updated snapshot fits.
 - Delayed relay uploads retain the full refresh-request lifetime and accurate pairing timestamps.

@@ -124,6 +124,14 @@ It may ask for administrator authorization for those locations. Set `MAC_APPLICA
 `RR_INSTALL_DIR` when using a different local installation layout. Application Support and
 Keychain state are retained.
 
+Project generation checks the Mac and Watch source icon slots and PNG dimensions with
+`Scripts/check-app-icons.py`. Mac packaging verifies the compiled `AppIcon.icns`, asset catalog,
+and Info.plist references before and after ZIP extraction; installation repeats those checks
+before quitting or replacing the installed app. `make ipa` verifies the embedded Watch app's
+icon catalog and companion identifier before and after IPA extraction. These checks retain
+existing package-preservation behavior. There is no Watch `install-*` target; use the signed
+Release Xcode Run or the iPhone companion installation flow described above.
+
 ## Commit messages
 
 Use [Conventional Commits](https://www.conventionalcommits.org):

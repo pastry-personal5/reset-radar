@@ -24,6 +24,7 @@ check_app() {
   local app=$1 binary architectures candidate description checked=0
   CONFIGURATION=Release Scripts/check-mac-signing.sh "$app"
   codesign --verify --deep --strict "$app"
+  python3 -I Scripts/check-app-icons.py --mac-app "$app"
   for binary in "$app/Contents/MacOS/ResetRadarMac" \
     "$app/Contents/Helpers/ResetRadarStatusLine"; do
     [[ -f $binary ]] || { print -u2 "Mac package: missing executable in app bundle."; return 1; }

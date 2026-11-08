@@ -87,9 +87,13 @@ ipa: generate
 			-archivePath "$$workdir/ResetRadar.xcarchive" -allowProvisioningUpdates; \
 		archive_app="$$workdir/ResetRadar.xcarchive/Products/Applications/ResetRadar.app"; \
 		codesign --verify --deep --strict "$$archive_app"; \
+		python3 -I Scripts/check-app-icons.py --ios-app "$$archive_app"; \
 		mkdir -p "$$workdir/Payload"; \
 		ditto "$$archive_app" "$$workdir/Payload/ResetRadar.app"; \
 		ditto -c -k --sequesterRsrc --keepParent "$$workdir/Payload" "$$workdir/ResetRadar.ipa"; \
+		mkdir "$$workdir/unpacked"; \
+		ditto -x -k "$$workdir/ResetRadar.ipa" "$$workdir/unpacked"; \
+		python3 -I Scripts/check-app-icons.py --ios-app "$$workdir/unpacked/Payload/ResetRadar.app"; \
 		mkdir -p "$$(dirname "$$package_path")"; \
 		cp "$$workdir/ResetRadar.ipa" "$$package_path"; \
 		printf '%s\n' "Created IPA: $$package_path"; \

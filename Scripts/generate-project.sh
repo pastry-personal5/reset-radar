@@ -4,6 +4,8 @@
 set -euo pipefail
 cd "${0:A:h}/.."
 
+python3 -I Scripts/check-app-icons.py
+
 required_version="2.46.0"
 actual_version=$(xcodegen --version | sed -n 's/^Version: //p')
 if [[ $actual_version != $required_version ]]; then

@@ -36,6 +36,15 @@ run_as_owner_or_root() {
   fi
 }
 
+workdir=$(mktemp -d /private/tmp/reset-radar-mac-install.XXXXXX)
+trap 'rm -rf "$workdir"' EXIT
+ditto -x -k "$package_path" "$workdir"
+staged_app="$workdir/$app_name"
+[[ -d $staged_app ]] || { print -u2 "Mac install: package is missing $app_name"; exit 1; }
+CONFIGURATION=Release Scripts/check-mac-signing.sh "$staged_app"
+codesign --verify --deep --strict "$staged_app"
+python3 -I Scripts/check-app-icons.py --mac-app "$staged_app"
+
 if pgrep -x ResetRadarMac >/dev/null 2>&1; then
   osascript -e 'tell application id "com.unidentifiedstealthstartup.ResetRadarMac" to quit' >/dev/null
   for _ in {1..20}; do
@@ -47,12 +56,6 @@ if pgrep -x ResetRadarMac >/dev/null 2>&1; then
     exit 1
   fi
 fi
-
-workdir=$(mktemp -d /private/tmp/reset-radar-mac-install.XXXXXX)
-trap 'rm -rf "$workdir"' EXIT
-ditto -x -k "$package_path" "$workdir"
-staged_app="$workdir/$app_name"
-[[ -d $staged_app ]] || { print -u2 "Mac install: package is missing $app_name"; exit 1; }
 
 # Remove only the previously installed application bundle. Application Support and Keychain
 # state are deliberately retained so an update keeps the configured collector identity.

@@ -61,6 +61,8 @@ make ipa
 The command creates `.build/ipa/ResetRadar.ipa`. It deliberately preserves an existing package,
 so move the old file aside before running the command when you need a new export. Do not share or
 commit the IPA; it contains owner-specific signing material.
+The IPA includes the companion Watch app; packaging checks its compiled icon and companion
+identifier both before and after unpacking the generated IPA.
 
 ## 3. Choose the safe Sideloadly settings
 
