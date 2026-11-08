@@ -5,6 +5,32 @@ import Testing
 
 @testable import ResetRadarApplication
 
+/// Simulates another process forgetting the Mac after a read, before payload persistence.
+private struct ForgottenAfterLoadStore: ReaderStore {
+    let base: FakeReaderStore
+    let erasure: WatchErasure?
+
+    func load() async throws -> ReaderState {
+        let before = try await base.load()
+        base.seed {
+            $0.pairing = nil
+            $0.snapshot = nil
+            $0.committedSequence = nil
+            $0.transportStatus = .notPaired
+            $0.lastWatchPayload = nil
+            $0.watchDeliveryRevision = 9
+            $0.watchErasePending = erasure
+        }
+        return before
+    }
+
+    func transact<T: Sendable>(
+        _ body: @Sendable (inout ReaderState) throws -> T
+    ) async throws -> T {
+        try await base.transact(body)
+    }
+}
+
 @Suite struct ForwardToWatchTests {
     let rig = WatchForwardRig()
 
@@ -47,6 +73,34 @@ import Testing
         rig.store.seed { $0.snapshot = newest }
         await rig.makeForward().send(after: oldEvent)
         #expect(rig.link.contexts.first?.snapshot?.windows.first?.observation?.usedPercent == 88)
+    }
+
+    @Test(arguments: [false, true])
+    func forgetBetweenLoadAndPersistenceCannotResurrectUsage(pendingReceipt: Bool) async {
+        let clear = watchPayload(9, cleared: true)
+        let store = ForgottenAfterLoadStore(
+            base: rig.store, erasure: pendingReceipt ? WatchErasure(clear: clear) : nil)
+        await rig.preferences.setComplicationEnabled(true)
+        let forward = ForwardToWatch(
+            reader: store, preferences: rig.preferences, watch: rig.link, clock: rig.clock)
+        await forward.send(after: rig.event())
+        #expect(rig.link.contexts == (pendingReceipt ? [clear] : []))
+        #expect(rig.link.transfers.isEmpty)
+        #expect(rig.store.state.watchDeliveryRevision == 9)
+        #expect(rig.store.state.lastWatchPayload == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func interactiveReplyCannotResurrectUsageAfterConcurrentForget(pendingReceipt: Bool) async {
+        rig.store.seed { $0.snapshot = rig.event().snapshot }
+        let clear = watchPayload(9, cleared: true)
+        let store = ForgottenAfterLoadStore(
+            base: rig.store, erasure: pendingReceipt ? WatchErasure(clear: clear) : nil)
+        let forward = ForwardToWatch(
+            reader: store, preferences: rig.preferences, watch: rig.link, clock: rig.clock)
+        #expect(await forward.currentPayload() == (pendingReceipt ? clear : nil))
+        #expect(rig.store.state.watchDeliveryRevision == 9)
+        #expect(rig.store.state.lastWatchPayload == nil)
     }
 
     @Test func contextAndComplicationTransferCarryTheSameRevision() async {

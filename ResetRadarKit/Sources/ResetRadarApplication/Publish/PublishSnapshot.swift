@@ -34,11 +34,13 @@ public actor PublishSnapshot {
 
     /// What drives the encoded size. A refused envelope is not retried until this changes.
     private struct Shape: Equatable {
+        let accounts: [AccountMetadata]
         let windows: Set<WindowID>
         let results: Int
         let diagnostics: Int
 
         init(_ snapshot: UsageSnapshot) {
+            accounts = snapshot.accounts
             windows = Set(snapshot.windows.map(\.id))
             results = snapshot.manualRefreshResults.count
             diagnostics = snapshot.diagnostics.count

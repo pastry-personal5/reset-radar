@@ -56,6 +56,12 @@ annual Apple Developer Program enrollment fee.
 
 ## Release notes
 
+Unreleased
+
+- Fixed a race that could forward old usage to Apple Watch during Forget Mac cleanup.
+- Alias edits can recover publication after an oversized snapshot when the updated snapshot fits.
+- Delayed relay uploads retain the full refresh-request lifetime and accurate pairing timestamps.
+
 Version v1.0.0
 
 - Fixed a Mac menu-bar crash during allowance-status refresh.

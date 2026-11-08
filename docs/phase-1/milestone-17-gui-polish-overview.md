@@ -230,6 +230,18 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
 
 ## Completion checklist
 
+- [ ] Review maintained code across module boundaries; repair alias-publication recovery after
+  an oversized envelope, relay timestamps after delayed body receipt, and Watch forwarding
+  across concurrent Forget Mac cleanup, with regression tests
+  and the complete contribution gate. Record review scope and remaining validation limits in
+  the maintained security review.
+  Evidence (2026-11-08): four repairs and focused regressions are recorded in the
+  [maintained review](milestone-17-security-review.md#2026-11-08-reliability-review).
+  Focused publication and Watch forwarding tests, Mac tests, relay CI, pipeline tests,
+  generation, formatting, strict lint, imports, and arm64 Release inspection pass. The item
+  remains unchecked because automatic approval review rejected host simulator preflight;
+  iPhone/iPad/Watch simulator checks and the complete gate remain pending.
+
 - [x] Ensure `make install-macos` builds and installs a fresh signed Release package at
   `/Applications/ResetRadarMac.app` by default, even when an older distribution ZIP exists;
   verify failure propagation and preservation of the distribution ZIP.

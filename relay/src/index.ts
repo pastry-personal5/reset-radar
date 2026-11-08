@@ -378,16 +378,16 @@ export class RelayObject extends DurableObject {
 
   private async activateReader(request: Request): Promise<Response> {
     const reader = await this.authenticatedReader(request);
-    const now = this.clock.now();
-    if (reader === undefined || !this.readerIsUsable(reader, now)) return failure("unauthorized");
+    if (reader === undefined || !this.readerIsUsable(reader, this.clock.now())) return failure("unauthorized");
     const empty = await requestHasNoBody(request);
     if ("error" in empty) return failure(empty.error);
     const activated = this.ctx.storage.transactionSync(() => {
+      const now = this.clock.now();
       const current = this.one<StoredReader>("SELECT reader_id, token_digest, activated, pending_expires_at, last_accepted_at, last_accepted_id, last_completed_id FROM readers WHERE reader_id = ?", reader.reader_id);
       if (
         current === undefined ||
         !timingSafeDigestEqual(current.token_digest, reader.token_digest) ||
-        !this.readerIsUsable(current, this.clock.now())
+        !this.readerIsUsable(current, now)
       ) {
         return false;
       }
@@ -518,7 +518,6 @@ export class RelayObject extends DurableObject {
     const fail = (code: ErrorCode): Response =>
       failure(code, { protocolVersion: REFRESH_PROTOCOL_VERSION });
     const reader = await this.authenticatedReader(request);
-    const now = this.clock.now();
     if (reader === undefined || reader.activated !== 1) return fail("unauthorized");
     const body = await readBody(request, REFRESH_LIMIT);
     if ("error" in body) return fail(body.error);
@@ -528,6 +527,7 @@ export class RelayObject extends DurableObject {
     const target = parsed.value.target;
     const accountID = target === "account" ? parsed.value.accountID : null;
     const outcome = this.ctx.storage.transactionSync(() => {
+      const now = this.clock.now();
       const current = this.one<StoredReader>("SELECT reader_id, token_digest, activated, pending_expires_at, last_accepted_at, last_accepted_id, last_completed_id FROM readers WHERE reader_id = ?", reader.reader_id);
       if (
         current === undefined || current.activated !== 1 ||

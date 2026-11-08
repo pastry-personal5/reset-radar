@@ -41,6 +41,34 @@ claim that every possible secret format can be recognized.
 | Low | The iOS Privacy screen described only encrypted snapshots, omitting encrypted reader profiles and opaque refresh metadata; the relay document understated the v2 list limit and omitted its schema table. | Updated [iOS copy](../../ResetRadar/SettingsView.swift), [product limitations](../product-limitations.md), and [relay architecture](../architecture/relay.md). |
 | Tooling | npm reported seven advisories in development tools, including high-severity transitive packages. | With owner approval, pinned Vitest 4.1.12, Workers Vitest plugin 1.4.9, and Wrangler 4.154.0 in the manifest, lockfile, and deployment contract. `npm audit --audit-level=low` now reports zero vulnerabilities; the three direct licenses remain MIT or MIT OR Apache-2.0. |
 
+## 2026-11-08 reliability review
+
+This follow-up reviewed maintained module boundaries across the Swift package, Apple composition
+roots, relay, and build scripts. Inspection focused on snapshot publication and ingestion,
+pairing/profile state, cache locking and atomic replacement, reset scheduling, Watch delivery,
+bounded provider decoding, relay authorization and expiry, and command supervision. This was a
+repository-wide boundary review, not an exhaustive audit of every line or a substitute for the
+remaining physical-device checks.
+
+| Priority | Finding and impact | Repair and regression |
+|---|---|---|
+| High | Watch forwarding checked pairing and pending erasure only before its payload transaction. A concurrent Forget Mac could clear the cache and allocate its erase revision, then an old event could allocate a higher revision carrying forgotten usage. The interactive reply path shared this transaction. | Recheck pending erasure, pairing, cleanup, and activation under the transaction before allocating a usage revision. `ForwardToWatchTests` simulates Forget Mac between the read and transaction for both forwarding and interactive replies, with pending-receipt and completed-cleanup cases. Only the saved clear or no payload may escape. |
+| Medium | The oversized-publication retry guard ignored account metadata. Shortening or removing an alias could leave publication blocked even after the snapshot fit, until a window-set change or app restart. | Include account metadata in the guarded shape. `PublishSnapshotTests.aliasChangesRetryAnOversizedEnvelopeWithoutChangingItsWindows` covers blocked unchanged retries and successful recovery after alias removal. |
+| Medium | Refresh acceptance sampled the clock before awaiting the request body. A slow upload could produce an already-expired mailbox entry and prematurely consume the reader's rate-limit interval. | Sample time in the committing transaction after body validation. A streaming regression advances the clock by 90 seconds during receipt, then checks the full 60-second lifetime, mailbox visibility, and rate-limit boundary. |
+| Low | Reader activation stored the time before the empty body stream finished, so the Mac's **Paired** timestamp could precede actual activation. | Sample time in the activation transaction; preserve the expiry recheck and idempotent activation timestamp. A delayed-stream regression checks the timestamp and its stability on retry. |
+
+Publication's 15 focused tests, Watch forwarding's 16 focused tests (including four new
+parameterized cases), and all 12 pipeline tests pass. `make relay-ci` passes: 33 Workers Vitest
+tests, 31 Node tests, TypeScript checking, dependency audit, and the Wrangler deployment dry run.
+The complete gate is pending: sandbox execution stops at CoreSimulator preflight with
+`Connection refused`, and automatic approval review rejected host `make gate` and the narrower
+`make simulator-preflight` before dispatch without a reason. iPhone, iPad, and Watch simulator
+validation remains unrun. Independently executed host checks passed: `make generate` with
+XcodeGen 2.46.0, `make imports`, `make test-mac`, and `make mac-arch-check` (two Release Mach-O
+executables, both arm64-only). `make format-check` and `make lint` also pass, with zero lint
+violations across 377 files, after a formatting-only line wrap in `AllowancePresentation.swift`.
+No dependency, wire-format, reset-rule, or distribution change is part of these repairs.
+
 ## Recovery and remaining validation
 
 The owner chose an account-side recovery guide for older `Destroy Pending` installations that

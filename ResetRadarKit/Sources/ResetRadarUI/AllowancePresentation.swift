@@ -66,7 +66,9 @@ public enum NextResetDerivation {
         }
         let blocked = known.filter(\.blocked).map(\.0)
         if !blocked.isEmpty {
-            return blocked.max { $0.date < $1.date || ($0.date == $1.date && $0.window != .fiveHour) }
+            return blocked.max {
+                $0.date < $1.date || ($0.date == $1.date && $0.window != .fiveHour)
+            }
         }
         return known.map(\.0).min {
             $0.date < $1.date || ($0.date == $1.date && $0.window == .fiveHour)

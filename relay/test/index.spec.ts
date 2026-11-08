@@ -108,6 +108,21 @@ function requestReplacingReaderOnBodyRead(path: string, body: string): Promise<R
   }));
 }
 
+function requestAdvancingClockOnBodyRead(path: string, body: string, milliseconds: number): Promise<Response> {
+  const stream = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      await setClock(milliseconds);
+      if (body.length > 0) controller.enqueue(new TextEncoder().encode(body));
+      controller.close();
+    },
+  }, { highWaterMark: 0 });
+  return SELF.fetch(new Request(`https://relay.invalid${path}`, {
+    body: stream,
+    headers: { Authorization: `Bearer ${tokens.reader}`, "Content-Type": "application/json" },
+    method: "POST",
+  }));
+}
+
 describe("Relay Worker v1 snapshots and v2 refresh", () => {
   it("canonicalizes nested response objects recursively", () => {
     expect(canonicalJSON({ values: [{ z: 1, a: 2 }] })).toBe('{"values":[{"a":2,"z":1}]}');
@@ -492,6 +507,40 @@ describe("Relay Worker v1 snapshots and v2 refresh", () => {
     expect((await requestReplacingReaderOnBodyRead("/v2/refresh-requests", postRefresh.requestBody)).status).toBe(401);
     expect(await (await request("/v2/refresh-requests", "GET", tokens.writer)).text())
       .toBe('{"protocolVersion":2,"requests":[]}');
+  });
+
+  it("timestamps activation at body completion and retains that time on retry", async () => {
+    await setClock(registrationStart);
+    expect((await register()).status).toBe(200);
+    const activatedAt = registrationStart + 30_000;
+    expect((await requestAdvancingClockOnBodyRead("/v1/readers/activate", "", activatedAt)).status).toBe(200);
+    await setClock(activatedAt + 30_000);
+    expect((await activateReader()).status).toBe(200);
+    const listing = await request("/v2/readers", "GET", tokens.admin);
+    expect(await listing.json()).toEqual({
+      protocolVersion: 2,
+      readers: [{ activated: true, activatedAt: new Date(activatedAt).toISOString(), readerID: readerOneID }],
+    });
+  });
+
+  it("gives a delayed refresh upload its full lifetime after acceptance", async () => {
+    await setClock(registrationStart);
+    expect((await register()).status).toBe(200);
+    expect((await activateReader()).status).toBe(200);
+    const acceptedAt = registrationStart + 90_000;
+    const posted = await requestAdvancingClockOnBodyRead(postRefresh.path, postRefresh.requestBody, acceptedAt);
+    expect(posted.status).toBe(202);
+    const expiresAt = new Date(acceptedAt + 60_000).toISOString();
+    expect(await posted.json()).toEqual({ expiresAt, protocolVersion: 2 });
+    const listed = await request(listRefresh.path, listRefresh.method, tokens.writer);
+    expect(await listed.json()).toEqual({
+      protocolVersion: 2,
+      requests: [{ expiresAt, readerID: readerOneID, requestID: "56565656565656565656565656565656", target: "allCodex" }],
+    });
+    const nextBody = postRefresh.requestBody.replaceAll("56565656565656565656565656565656", "57575757575757575757575757575757");
+    expect((await request(postRefresh.path, postRefresh.method, tokens.reader, nextBody)).status).toBe(429);
+    await setClock(acceptedAt + 60_000);
+    expect((await request(postRefresh.path, postRefresh.method, tokens.reader, nextBody)).status).toBe(202);
   });
 
   it("keeps concurrent snapshot, registration, and mailbox transitions atomic", async () => {

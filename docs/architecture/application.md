@@ -162,7 +162,7 @@ It commits locally through `LocalSnapshotCommitting`, without assigning a relay 
 5. sends it through `RelayGateway`; and
 6. maps the outcome with `BackoffPolicy`.
 
-It never runs before relay setup. An oversized envelope is a typed incompatibility that leaves the last relay snapshot in place and stops automatic retries until the source shape or application changes. It stops automatic retries on `400`, `401`, `409`, `413`, or `422`, and reports `secretsUnavailable` when `SecretStore` fails with `interactionRequired`.
+It never runs before relay setup. An oversized envelope is a typed incompatibility that leaves the last relay snapshot in place and stops automatic retries until the source shape, account metadata, or application changes. Account metadata includes aliases, so shortening or removing an alias permits another size check even when the window set is unchanged. It stops automatic retries on `400`, `401`, `409`, `413`, or `422`, and reports `secretsUnavailable` when `SecretStore` fails with `interactionRequired`.
 
 **`ConfigureSources`** drives `SourceConfigurator` for Codex discovery and the Claude Code guided
 setup. It enumerates opaque options, previews the exact add or replacement, rejects stale

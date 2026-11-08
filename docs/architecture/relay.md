@@ -165,6 +165,11 @@ Error bodies are generic, at most 4 KiB, and never reveal whether a token, publi
 
 ### Authentication
 
+Activation and refresh-acceptance timestamps are sampled in the committing transaction after
+body receipt. A slow upload does not consume the refresh request's 60-second lifetime or
+rate-limit interval before acceptance. Activation retries retain the original activation time;
+pending-reader expiry is still rechecked at commit.
+
 - **Where tokens are checked.** The Worker checks write and administration tokens against Worker-secret digests before calling the Durable Object. Read tokens are checked inside the Durable Object against stored digests: an invalid read token causes a lookup but never a write. Reader writes recheck the same token digest inside the committing transaction after body receipt, so a revoked token cannot write to a replacement registration with the same reader ID. Only an authenticated, activated reader may create a refresh request; revocation deletes its pending request in the same transaction. A pending reader may only preflight-read a snapshot or activate itself before its relay-assigned deadline.
 - **Order of checks.** Authentication precedes body parsing beyond the size check.
 - **Comparison.** Presented-token digests use constant-time comparison.

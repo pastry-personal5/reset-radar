@@ -88,6 +88,9 @@ public actor ForwardToWatch: AfterCommitStep {
         return try await reader.transact { state in
             // A commit event may have waited behind a newer ingest or Forget Mac. Always prefer
             // the value held by the same locked ReaderStore transaction used for the revision.
+            if let erasure = state.watchErasePending { return erasure.clear }
+            guard !state.forgetCleanupPending, !state.awaitingActivation, state.pairing != nil
+            else { throw ForwardError.invalidSnapshot }
             guard let snapshot = Self.watchCopy(of: state.snapshot ?? event.snapshot) else {
                 throw ForwardError.invalidSnapshot
             }

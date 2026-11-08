@@ -113,6 +113,23 @@ final class PublishRig: @unchecked Sendable {
         #expect(rig.relay.calls(.putSnapshot).isEmpty)
     }
 
+    @Test func aliasChangesRetryAnOversizedEnvelopeWithoutChangingItsWindows() async throws {
+        let use = rig.makePublisher()
+        let original = currentSnapshot()
+        let alias = try AccountAlias(validating: "Long account alias")
+        let aliasedValue = try original.replacingAlias(for: codexAccountID, with: alias)
+        let aliased = try #require(aliasedValue)
+        rig.cipher.setTargetSize(65_537)
+        #expect(await publish(use, aliased) == .envelopeTooLarge)
+        rig.cipher.setTargetSize(65_536)
+        // A heartbeat alone must still avoid repeating the oversized publication.
+        #expect(await publish(use, aliased, .none, .heartbeat) == .envelopeTooLarge)
+        #expect(rig.store.nextSequenceCalls == 1)
+        // Removing the alias reduces the payload without changing window IDs or counts.
+        #expect(await publish(use, original, .metadataOnly) == .published(sequence: 2))
+        #expect(rig.relay.calls(.putSnapshot).count == 1)
+    }
+
     @Test func aNewInstanceOrResumeClearsAStoppedState() async {
         let use = rig.makePublisher()
         rig.relay.queuePut(.unauthorized)
