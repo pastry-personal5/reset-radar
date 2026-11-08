@@ -230,6 +230,22 @@ provider adapter, dependency, build-tool, signing, or product-distribution chang
 
 ## Completion checklist
 
+- [x] Ensure `make install-macos` builds and installs a fresh signed Release package at
+  `/Applications/ResetRadarMac.app` by default, even when an older distribution ZIP exists;
+  verify failure propagation and preservation of the distribution ZIP.
+  Evidence (2026-11-08): all 12 pipeline tests passed, including stale-package and failed-build
+  regressions. Host-access `make install-macos` exited 0; the installed app passed signature
+  verification, app and helper were arm64, and `rr` targeted the canonical application path.
+  Shell syntax checks passed. The complete gate stopped at the existing unrelated
+  `AllowancePresentation.swift:69` formatting violation.
+
+- [ ] Remove the macOS Main window's extra 40-point top gap and verify that the panes
+  fill the available content height while retaining the 180-point Global Messages area.
+  The explicit top padding and matching height deduction are removed; the upper pane now uses
+  the available height minus 180 points. The changed file passes `swift-format lint`.
+  Host-access `make gate` stops at the existing line-length violation in
+  `ResetRadarKit/Sources/ResetRadarUI/AllowancePresentation.swift:69`; visual confirmation remains pending.
+
 - [x] Review the complete maintained codebase and active security documentation for credential
   exposure, authorization, untrusted input, persistence, and lifecycle races; repair confirmed
   findings, record focused regression evidence, and run the contribution-guide gate. Evidence:

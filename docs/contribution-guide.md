@@ -116,7 +116,9 @@ non-ad-hoc team signatures, checks every Mach-O is arm64-only, and creates
 `.build/mac/ResetRadarMac.zip`. It also unpacks and verifies the zip before publishing it. The
 target preserves an existing zip; move or remove that specific zip to build a replacement. The
 zip contains the app for the existing manual installation flow, not a notarized installer.
-`make install-macos` installs that package to `/Applications`, removes an existing
+`make install-macos` builds a fresh temporary signed Release package on every invocation, using
+the same signature and architecture checks, and installs it to `/Applications`. It does not reuse
+or replace `.build/mac/ResetRadarMac.zip`. It removes an existing
 `ResetRadarMac.app` there before copying the new bundle, and installs `rr` to `/usr/local/bin`.
 It may ask for administrator authorization for those locations. Set `MAC_APPLICATIONS_DIR` or
 `RR_INSTALL_DIR` when using a different local installation layout. Application Support and

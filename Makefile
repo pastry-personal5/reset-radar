@@ -14,7 +14,7 @@ help:
 		'watch          Build the Watch app for the reference simulator' \
 		'ipa            Create .build/ipa/ResetRadar.ipa if it is absent' \
 		'mac-package    Create .build/mac/ResetRadarMac.zip if it is absent' \
-		'install-macos  Install the Mac app and the rr launcher' \
+		'install-macos  Build fresh and install to /Applications with the rr launcher' \
 		'format         Format maintained Swift sources in place' \
 		'format-check   Check Swift formatting' \
 		'lint           Run strict SwiftLint' \
@@ -99,8 +99,12 @@ ipa: generate
 mac-package: generate
 	@COMMAND_TIMEOUT_SECONDS='$(COMMAND_TIMEOUT_SECONDS)' Scripts/package-mac-app.sh
 
-install-macos: mac-package
-	@Scripts/install-mac-app.sh
+install-macos: generate
+	@set -eu; \
+	workdir=$$(mktemp -d /private/tmp/reset-radar-mac-fresh-install.XXXXXX); \
+	trap 'rm -rf "$$workdir"' EXIT; \
+	COMMAND_TIMEOUT_SECONDS='$(COMMAND_TIMEOUT_SECONDS)' Scripts/package-mac-app.sh "$$workdir/ResetRadarMac.zip"; \
+	MAC_PACKAGE_PATH="$$workdir/ResetRadarMac.zip" Scripts/install-mac-app.sh
 
 format:
 	$(RUN_WITH_TIMEOUT) swift-format format --in-place --recursive $$(tr '\n' ' ' < Scripts/swift-roots.txt)

@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "${0:A:h}/.."
 
-package_path=.build/mac/ResetRadarMac.zip
+package_path=${1:-.build/mac/ResetRadarMac.zip}
 if [[ -e $package_path ]]; then
   print "Mac package already exists: $package_path"
   exit 0

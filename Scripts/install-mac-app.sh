@@ -42,6 +42,10 @@ if pgrep -x ResetRadarMac >/dev/null 2>&1; then
     pgrep -x ResetRadarMac >/dev/null 2>&1 || break
     sleep 0.25
   done
+  if pgrep -x ResetRadarMac >/dev/null 2>&1; then
+    print -u2 "Mac install: Reset Radar is still running. Quit every Mac copy and retry."
+    exit 1
+  fi
 fi
 
 workdir=$(mktemp -d /private/tmp/reset-radar-mac-install.XXXXXX)
@@ -58,13 +62,15 @@ fi
 run_as_owner_or_root "$app_path" mkdir -p -- "$applications_dir"
 run_as_owner_or_root "$app_path" ditto "$staged_app" "$app_path"
 
-run_as_owner_or_root "$rr_path" mkdir -p -- "$rr_dir"
 launcher="$workdir/rr"
 cat > "$launcher" <<EOF
 #!/bin/sh
 exec open -a "$app_path" --args "\$@"
 EOF
-run_as_owner_or_root "$rr_path" install -m 755 "$launcher" "$rr_path"
+if [[ ! -x $rr_path ]] || ! cmp -s "$launcher" "$rr_path"; then
+  run_as_owner_or_root "$rr_path" mkdir -p -- "$rr_dir"
+  run_as_owner_or_root "$rr_path" install -m 755 "$launcher" "$rr_path"
+fi
 
 print "Installed $app_path"
 print "Installed launcher: $rr_path"

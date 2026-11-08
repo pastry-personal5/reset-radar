@@ -130,6 +130,8 @@ Code; Relay & Pairing separates relay setup, reader pairing, and paired devices;
 sections for product information, license, and owner-initiated GitHub feedback and support links.
 Diagnostics collection remains active without a Settings destination.
 
+The Mac Main panes begin directly below the native title bar, without an extra top inset.
+
 Main and Settings share one Global Messages history. A pane at the bottom of each detail column,
 to the right of its sidebar, shows a boxed **Global Messages** tab title above a scrollable area
 about eight text lines tall. Message text is two points smaller than normal body text; newer

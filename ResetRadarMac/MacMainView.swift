@@ -71,13 +71,11 @@ struct MacMainView: View {
                         detailPane
                             .frame(maxWidth: .infinity)
                     }
-                    .frame(height: max(0, geometry.size.height - 220))
+                    .frame(height: max(0, geometry.size.height - 180))
                     GlobalMessagesPane(messages: messages)
                         .frame(height: 180, alignment: .bottom)
                 }
             }
-            .frame(height: max(0, geometry.size.height - 40))
-            .padding(.top, 40)
         }
         .task {
             await model.load()
