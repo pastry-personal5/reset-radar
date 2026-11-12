@@ -94,10 +94,7 @@ struct MacAccountDetailsView: View {
                     if let nextReset = nextReset(in: details, now: timeline.date) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Next Effective Reset").font(.headline)
-                            Text(
-                                nextReset.date.formatted(
-                                    date: .abbreviated, time: .shortened)
-                            )
+                            Text(nextReset.displayText(now: timeline.date))
                             .font(.system(.largeTitle, design: .rounded).weight(.semibold))
                             .minimumScaleFactor(0.65)
                             Text(nextReset.label).font(.caption).foregroundStyle(.secondary)

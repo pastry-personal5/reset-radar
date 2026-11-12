@@ -85,7 +85,7 @@ private struct ExecutiveSummaryView: View {
     var body: some View {
         Section("Next Effective Reset") {
             VStack(alignment: .leading, spacing: 5) {
-                Text(nextReset.date.formatted(date: .abbreviated, time: .shortened))
+                Text(nextReset.displayText())
                     .font(.largeTitle.weight(.semibold))
                     .minimumScaleFactor(0.65)
                 Text(nextReset.label).font(.caption).foregroundStyle(.secondary)

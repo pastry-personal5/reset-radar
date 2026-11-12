@@ -139,6 +139,18 @@ import Testing
         #expect(derive(fiveHour: 100, weekly: 100) == .weekly)
         #expect(derive(fiveHour: 10, weekly: 20) == .fiveHour)
     }
+
+    @Test func nextResetDisplaysTodayAndTomorrow() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = at(0)
+        func text(_ offset: TimeInterval) -> String {
+            NextReset(date: at(offset), window: .fiveHour).displayText(now: now, calendar: calendar)
+        }
+        #expect(text(60).hasPrefix("Today, "))
+        #expect(text(86_400).hasPrefix("Tomorrow, "))
+        #expect(!text(3 * 86_400).contains("Today"))
+    }
 }
 
 @Suite struct PercentageUsedFormatterTests {
