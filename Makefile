@@ -1,4 +1,4 @@
-.PHONY: help generate run run-mac iphone ipad watch ipa mac-package install-macos format format-check lint imports pipeline-tests mac-arch-check test-mac test-ios test-ipad test-ios-ipad test-watch test-apple relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
+.PHONY: help generate run run-mac iphone ipad watch ipa mac-package install-mac format format-check lint imports pipeline-tests mac-arch-check test-mac test-ios test-ipad test-ios-ipad test-watch test-apple relay-install relay-test relay-typecheck relay-dry-run relay-ci test gate
 
 # Also applies to multiple goals (make -j iphone ipad) and inherited MAKEFLAGS.
 .NOTPARALLEL:
@@ -14,7 +14,7 @@ help:
 		'watch          Build the Watch app for the reference simulator' \
 		'ipa            Create .build/ipa/ResetRadar.ipa if it is absent' \
 		'mac-package    Create .build/mac/ResetRadarMac.zip if it is absent' \
-		'install-macos  Build fresh and install to /Applications with the rr launcher' \
+		'install-mac  Build fresh and install to /Applications with the rr launcher' \
 		'format         Format maintained Swift sources in place' \
 		'format-check   Check Swift formatting' \
 		'lint           Run strict SwiftLint' \
@@ -103,7 +103,7 @@ ipa: generate
 mac-package: generate
 	@COMMAND_TIMEOUT_SECONDS='$(COMMAND_TIMEOUT_SECONDS)' Scripts/package-mac-app.sh
 
-install-macos: generate
+install-mac: generate
 	@set -eu; \
 	workdir=$$(mktemp -d /private/tmp/reset-radar-mac-fresh-install.XXXXXX); \
 	trap 'rm -rf "$$workdir"' EXIT; \
