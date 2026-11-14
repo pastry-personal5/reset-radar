@@ -42,9 +42,10 @@ struct CodexFleetTests {
 
     @Test("different provider scopes refresh concurrently and remain independent")
     func distinctScopes() async throws {
-        let first = source(accountID: firstID, providerID: "first")
-        let second = source(accountID: secondID, providerID: "second")
-        let third = source(accountID: thirdID, providerID: "third")
+        // Each row keeps its own scope on the refresh read too; the fake's fallback scope is shared.
+        let first = source(accountID: firstID, providerID: "first", reads: 2)
+        let second = source(accountID: secondID, providerID: "second", reads: 2)
+        let third = source(accountID: thirdID, providerID: "third", reads: 2)
         let fleet = try CodexFleet(accounts: [
             CodexFleetAccount(accountID: firstID, accountNumber: 1, source: first.source),
             CodexFleetAccount(accountID: secondID, accountNumber: 2, source: second.source),
@@ -106,7 +107,7 @@ struct CodexFleetTests {
     }
 
     private func source(
-        accountID: AccountID, providerID: String
+        accountID: AccountID, providerID: String, reads: Int = 1
     ) -> (source: CodexAppServerSource, session: FakeCodexRPCSession) {
         let limits = JSONValue.object([
             "accountId": .string(providerID),
@@ -121,7 +122,7 @@ struct CodexFleetTests {
         ])
         let session = FakeCodexRPCSession(
             statuses: [.success(FakeCodexRPCSession.authenticated)],
-            rateLimits: [.success(limits)])
+            rateLimits: Array(repeating: .success(limits), count: reads))
         let source = CodexAppServerSource(
             accountID: accountID, sourceVersion: "codex 0.164.0",
             factory: FakeCodexRPCSessionFactory(session: session),
