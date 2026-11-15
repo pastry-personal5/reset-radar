@@ -95,8 +95,8 @@ struct MacAccountDetailsView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Next Effective Reset").font(.headline)
                             Text(nextReset.displayText(now: timeline.date))
-                            .font(.system(.largeTitle, design: .rounded).weight(.semibold))
-                            .minimumScaleFactor(0.65)
+                                .font(.system(.largeTitle, design: .rounded).weight(.semibold))
+                                .minimumScaleFactor(0.65)
                             Text(nextReset.label).font(.caption).foregroundStyle(.secondary)
                         }
                         .padding(18)

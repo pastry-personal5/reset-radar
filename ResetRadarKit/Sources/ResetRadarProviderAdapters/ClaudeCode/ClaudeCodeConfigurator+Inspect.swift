@@ -60,6 +60,13 @@ extension ClaudeCodeConfigurator {
     func trustedExecutable(for command: String) throws -> ExecutableIdentity {
         let path = try ExistingStatusLineParser.parse(command, homeDirectory: paths.homeDirectory)
         let identity = try validator.identity(of: path)
+        // Another flavor's helper would chain Reset Radar into itself and then into its prior.
+        let helperNames: Set = [StatusLineHelperInstaller.helperName, "ResetRadarStatusLine"]
+        if [path, identity.canonicalPath].contains(where: {
+            helperNames.contains(URL(fileURLWithPath: $0).lastPathComponent)
+        }) {
+            throw ExistingStatusLineParseError.unsupported
+        }
         if ExistingStatusLineParser.isBashHomeScript(command) {
             let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: path))
             defer { try? handle.close() }

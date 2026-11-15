@@ -72,7 +72,7 @@ make lint             # strict SwiftLint
 make imports          # enforce the dependency rule
 make mac-arch-check   # build and inspect unsigned Release Mac binaries
 make mac-package      # archive and package a signed Release Mac app
-make install-macos    # install the Mac app and the rr launcher
+make install-mac      # install the Mac app and the rr launcher
 ```
 
 The relay exposes reproducible npm scripts for TypeScript checking, Workers Vitest tests, and a Wrangler deployment dry run that never contacts Cloudflare. Mac Release builds need an untracked `Config/Build/Local.xcconfig` copied from `Local.xcconfig.template`; Development builds and the gate do not. The architecture check makes an isolated unsigned Release build and verifies every Mach-O executable with `lipo`; it does not replace the signed Release scheme check. Do not run a real deployment until the synthetic-data procedure confirms Workers Free, disabled observability, and owner-present approval.
@@ -116,7 +116,7 @@ non-ad-hoc team signatures, checks every Mach-O is arm64-only, and creates
 `.build/mac/ResetRadarMac.zip`. It also unpacks and verifies the zip before publishing it. The
 target preserves an existing zip; move or remove that specific zip to build a replacement. The
 zip contains the app for the existing manual installation flow, not a notarized installer.
-`make install-macos` builds a fresh temporary signed Release package on every invocation, using
+`make install-mac` builds a fresh temporary signed Release package on every invocation, using
 the same signature and architecture checks, and installs it to `/Applications`. It does not reuse
 or replace `.build/mac/ResetRadarMac.zip`. It removes an existing
 `ResetRadarMac.app` there before copying the new bundle, and installs `rr` to `/usr/local/bin`.
@@ -129,7 +129,10 @@ Project generation checks the Mac and Watch source icon slots and PNG dimensions
 and Info.plist references before and after ZIP extraction; installation repeats those checks
 before quitting or replacing the installed app. `make ipa` verifies the embedded Watch app's
 icon catalog and companion identifier before and after IPA extraction. These checks retain
-existing package-preservation behavior. There is no Watch `install-*` target; use the signed
+existing package-preservation behavior. `Scripts/check-mac-helper.sh` copies the embedded
+`ResetRadarStatusLine` to a lone `bin/` directory, as the app installs it, and requires
+`--version` to succeed there; `make mac-arch-check`, Mac packaging, and installation run it, so a
+helper that needs bundle-relative frameworks is rejected. There is no Watch `install-*` target; use the signed
 Release Xcode Run or the iPhone companion installation flow described above.
 
 ## Commit messages

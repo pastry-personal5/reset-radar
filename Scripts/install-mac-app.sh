@@ -44,6 +44,7 @@ staged_app="$workdir/$app_name"
 CONFIGURATION=Release Scripts/check-mac-signing.sh "$staged_app"
 codesign --verify --deep --strict "$staged_app"
 python3 -I Scripts/check-app-icons.py --mac-app "$staged_app"
+Scripts/check-mac-helper.sh "$staged_app"
 
 if pgrep -x ResetRadarMac >/dev/null 2>&1; then
   osascript -e 'tell application id "com.unidentifiedstealthstartup.ResetRadarMac" to quit' >/dev/null

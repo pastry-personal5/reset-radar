@@ -15,8 +15,8 @@ public enum StatusLineHelperInstallerError: Error, Equatable, Sendable {
     case versionMismatch
 }
 
-/// Copies the embedded helper to a stable owner-only path and verifies it. It never executes an
-/// installed file until ownership, mode, type, and content identity have been proved.
+/// Copies the embedded helper to a stable owner-only path. It runs only its own exclusively
+/// written copy, and only a copy that reports the expected version replaces the stable path.
 public struct StatusLineHelperInstaller: Sendable {
     public static let binDirectoryName = "bin"
     public static let helperName = "reset-radar-statusline"
@@ -73,15 +73,17 @@ public struct StatusLineHelperInstaller: Sendable {
         }
         var cleanup = true
         defer { if cleanup { unlink(temporary.path) } }
+        // Verify beside the destination first: the same directory resolves `@rpath` the same
+        // way, and a copy that cannot run must never become the content-current helper.
+        guard try version(of: temporary) == expectedVersion else {
+            throw StatusLineHelperInstallerError.versionMismatch
+        }
         try requireReplaceableDestination()
         guard rename(temporary.path, installedURL.path) == 0 else {
             throw StatusLineHelperInstallerError.unavailable
         }
         cleanup = false
         guard try state() == .current else { throw StatusLineHelperInstallerError.unsafeLocation }
-        guard try installedVersion() == expectedVersion else {
-            throw StatusLineHelperInstallerError.versionMismatch
-        }
     }
 
     /// A just-written executable can be briefly busy ("text file busy") when another thread
@@ -106,11 +108,11 @@ public struct StatusLineHelperInstaller: Sendable {
         }
     }
 
-    /// Runs the content-verified installed copy with `--version` under a short timeout.
-    func installedVersion() throws -> String {
-        guard try state() == .current else { throw StatusLineHelperInstallerError.versionMismatch }
+    /// Runs this installer's own exclusively written owner-only copy with `--version` under a
+    /// short timeout.
+    private func version(of executable: URL) throws -> String {
         let process = Process()
-        process.executableURL = installedURL
+        process.executableURL = executable
         process.arguments = ["--version"]
         let output = Pipe()
         process.standardOutput = output

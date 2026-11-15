@@ -69,4 +69,5 @@ done < <(/usr/bin/find "$app" -type f -print0)
   print -u2 "Mac architecture check: expected at least ${#expected_binaries} Mach-O executables; found $checked."
   exit 1
 }
+Scripts/check-mac-helper.sh "$app"
 print "Mac architecture check passed: all Mac target settings and $checked Release Mach-O executables are arm64 only."

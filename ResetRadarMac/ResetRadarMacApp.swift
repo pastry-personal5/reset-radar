@@ -21,7 +21,8 @@ final class MacBootstrap: ObservableObject {
     }
 
     func start() async {
-        guard environment == nil, !startupFailed, !isStarting else { return }
+        // A test host must never touch the owner's real flavor data, locks, or installed helper.
+        guard !Self.isTestHost, environment == nil, !startupFailed, !isStarting else { return }
         isStarting = true
         defer { isStarting = false }
         await log.startMaintenance()
@@ -49,9 +50,7 @@ final class MacBootstrap: ObservableObject {
                 }
             case .secondInstance:
                 await log.record(.lifecycle(.secondInstance))
-                if !Self.isTestHost {
-                    NSApplication.shared.terminate(nil)
-                }
+                NSApplication.shared.terminate(nil)
             case .stopped:
                 await log.record(.lifecycle(.stopped))
                 messages.post("Mac collector stopped before startup completed.", tone: .attention)

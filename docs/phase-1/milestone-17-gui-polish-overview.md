@@ -257,6 +257,25 @@ packaging command is the sole build-workflow addition.
   remains unchecked because automatic approval review rejected host simulator preflight;
   iPhone/iPad/Watch simulator checks and the complete gate remain pending.
 
+- [x] The status-line helper installer verifies a new copy's `--version` before it replaces
+  the stable `bin/reset-radar-statusline`, so an unrunnable source never becomes the
+  content-current installed helper; regression test and the complete gate.
+  Evidence (2026-11-15): repeated `reset-radar-statusline` dyld crashes came from a
+  framework-linked Mac test-host helper copied to `ResetRadar.dev/bin` and composed by the
+  Release helper. `StatusLineHelperInstallerTests` covers a failing source with and without a
+  prior copy; the complete host-access `make gate` passed.
+
+- [x] Claude Code setup refuses another Reset Radar status-line helper as the prior command,
+  the Mac XCTest host never starts the collector against the owner's flavor data, and
+  `make mac-arch-check`, Mac packaging, and installation reject a helper that cannot run
+  outside the app bundle;
+  regression test and the complete gate.
+  Evidence (2026-11-15): `ClaudeCodeConfiguratorTests` rejects another flavor's helper directly
+  and through a symlink; `make test-mac` left the dev helper and lock files unchanged;
+  `check-mac-helper.sh` rejected the test-host build with the original dyld error and passed
+  the normal Development build; `test_mac_helper.py` covers it. The complete host-access
+  `make gate` passed.
+
 - [x] Ensure `make install-macos` builds and installs a fresh signed Release package at
   `/Applications/ResetRadarMac.app` by default, even when an older distribution ZIP exists;
   verify failure propagation and preservation of the distribution ZIP.

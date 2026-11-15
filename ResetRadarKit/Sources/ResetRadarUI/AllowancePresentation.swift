@@ -33,9 +33,8 @@ public struct NextReset: Equatable, Sendable {
     public func displayText(now: Date = .now, calendar: Calendar = .current) -> String {
         let time = date.formatted(date: .omitted, time: .shortened)
         if calendar.isDate(date, inSameDayAs: now) { return "Today, \(time)" }
-        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
-            calendar.isDate(date, inSameDayAs: tomorrow)
-        {
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)
+        if let tomorrow, calendar.isDate(date, inSameDayAs: tomorrow) {
             return "Tomorrow, \(time)"
         }
         return date.formatted(date: .abbreviated, time: .shortened)

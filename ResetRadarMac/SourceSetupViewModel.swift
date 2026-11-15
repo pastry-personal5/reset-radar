@@ -172,7 +172,8 @@ final class SourceSetupViewModel: ObservableObject {
             if error as? ConfigureSourcesError == .unsafeExistingConfiguration {
                 return "The existing Claude Code status line cannot be composed safely. "
                     + "Reset Radar accepts a trusted executable path or a simple "
-                    + "bash $HOME/<script> command inside your home folder. "
+                    + "bash $HOME/<script> command inside your home folder, "
+                    + "but not another Reset Radar status-line helper. "
                     + "Claude Code settings were not changed."
             }
         }

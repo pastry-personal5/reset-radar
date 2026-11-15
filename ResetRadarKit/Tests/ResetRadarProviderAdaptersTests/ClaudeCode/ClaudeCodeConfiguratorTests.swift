@@ -80,7 +80,18 @@ struct ClaudeCodeConfiguratorTests {
         try await withAsyncTrustedHome { home in
             let rig = try SetupRig(home)
             let line = try writeExecutable("#!/bin/sh\n", at: home.appending(path: "line"))
+            // Another flavor's installed helper, directly and behind a renamed symlink.
+            let otherFlavor = home.appending(path: "ResetRadar.dev/bin")
+            try FileManager.default.createDirectory(
+                at: otherFlavor, withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700])
+            let otherHelper = try writeExecutable(
+                "#!/bin/sh\n", at: otherFlavor.appending(path: "reset-radar-statusline"))
+            let alias = home.appending(path: "alias")
+            try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: otherHelper)
             let cases = [
+                settingsJSON(command: "\"\(otherHelper.path)\""),
+                settingsJSON(command: alias.path),
                 "{\"statusLine\":{\"type\":\"command\",\"command\":\"\(line.path) --flag\"}}",
                 "{\"statusLine\":{\"type\":\"command\",\"command\":\"TOKEN=abc \(line.path)\"}}",
                 "{\"statusLine\":{\"type\":\"command\",\"command\":\"/usr/bin/true\"}}",

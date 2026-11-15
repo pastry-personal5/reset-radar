@@ -42,7 +42,7 @@ struct CodexFleetTests {
 
     @Test("different provider scopes refresh concurrently and remain independent")
     func distinctScopes() async throws {
-        // Each row keeps its own scope on the refresh read too; the fake's fallback scope is shared.
+        // Each row keeps its own scope on the refresh read; the fake's fallback scope is shared.
         let first = source(accountID: firstID, providerID: "first", reads: 2)
         let second = source(accountID: secondID, providerID: "second", reads: 2)
         let third = source(accountID: thirdID, providerID: "third", reads: 2)

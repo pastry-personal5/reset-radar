@@ -46,6 +46,32 @@ struct StatusLineHelperInstallerTests {
         }
     }
 
+    @Test func anUnrunnableSourceNeverBecomesTheInstalledHelper() throws {
+        try withTrustedHome { home in
+            let root = home.appending(path: "ResetRadar")
+            // Models a helper whose dynamic libraries are missing outside the app bundle.
+            let broken = try writeExecutable(
+                "#!/bin/sh\nexit 134\n", at: home.appending(path: "broken"))
+            let brokenInstaller = StatusLineHelperInstaller(
+                embeddedHelper: broken, rootDirectory: root)
+            #expect(throws: StatusLineHelperInstallerError.versionMismatch) {
+                try brokenInstaller.ensureCurrent()
+            }
+            #expect(try brokenInstaller.state() == .missing)
+            let good = StatusLineHelperInstaller(
+                embeddedHelper: try embedded(home), rootDirectory: root)
+            try good.install()
+            #expect(throws: StatusLineHelperInstallerError.versionMismatch) {
+                try brokenInstaller.ensureCurrent()
+            }
+            // The prior working copy survives and nothing is left behind.
+            #expect(try good.state() == .current)
+            let leftovers = try FileManager.default.contentsOfDirectory(
+                atPath: good.binDirectoryURL.path)
+            #expect(leftovers == ["reset-radar-statusline"])
+        }
+    }
+
     @Test func refusesSymlinkedUnsafeAndInvalidLocations() throws {
         try withTrustedHome { home in
             let source = try embedded(home)

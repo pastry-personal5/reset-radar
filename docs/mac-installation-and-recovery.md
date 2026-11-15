@@ -49,7 +49,7 @@ the Development folder directly for startup and publication root-cause analysis.
    you intend to build a replacement. A Development build is deliberately unsigned and is not an
    install candidate.
 
-4. `make install-macos` always builds a fresh signed Release package in a temporary directory,
+4. `make install-mac` always builds a fresh signed Release package in a temporary directory,
    with the same signature and architecture checks, regardless of any existing distribution ZIP.
    It leaves `.build/mac/ResetRadarMac.zip` unchanged. It verifies the staged app's signature
    and compiled icon before quitting or replacing the installed app. After a successful build, it quits and
