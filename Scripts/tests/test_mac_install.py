@@ -38,7 +38,7 @@ class FreshMacInstallTests(unittest.TestCase):
             env = os.environ.copy()
             env["MAC_PACKAGE_PATH"] = str(package)
             result = subprocess.run(
-                ["make", "RUN_WITH_TIMEOUT=", "install-mac"], cwd=root,
+                ["make", "RUN_WITH_TIMEOUT=", "rel-mac-install"], cwd=root,
                 env=env, capture_output=True, text=True, timeout=10,
             )
             self.assertEqual(package.read_text(), "stale distribution")

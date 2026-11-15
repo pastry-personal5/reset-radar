@@ -20,7 +20,7 @@ provider output.
 ## 1. Build and inspect the signed package
 
 Move any existing `.build/ipa/ResetRadar.ipa` out of the way if a fresh package is required, then
-run `make ipa`. Do not delete an uninspected package. Record pass/fail and the generated file's
+run `make rel-ipa`. Do not delete an uninspected package. Record pass/fail and the generated file's
 size, not its signing identity or embedded profile.
 
 In a temporary directory, inspect the package without copying it into the repository:

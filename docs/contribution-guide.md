@@ -8,10 +8,10 @@ The documented local checks are named targets in the root `Makefile`; run `make 
 list them and `make gate` for the complete gate. Make serializes its goals even with `-j` or
 inherited `MAKEFLAGS`: generation, Apple builds/tests, and relay dependency installation must
 finish before their consumers run. `make test` runs macOS, iPhone, iPad, Watch, then relay tests.
-`make test-ios-ipad` runs the two iOS destinations in order with a shared reusable DerivedData
+`make test-iphone-ipad` runs the two iOS destinations in order with a shared reusable DerivedData
 cache. Mac, iOS, and Watch caches remain separate to avoid cross-platform module reuse.
 
-Apple simulator targets start with `make simulator-preflight`, a bounded CoreSimulator service
+Apple simulator targets start with `make check-simulators`, a bounded CoreSimulator service
 check. Run Apple validation in the logged-in host user session. A coding-agent filesystem sandbox
 cannot access CoreSimulator's launchd service or Xcode/SwiftPM's user caches; errors such as
 `Operation not permitted`, `Connection refused`, and missing runtimes in that environment require
@@ -21,7 +21,7 @@ does not grant service access. Do not run independent gates against the same che
 Potentially blocking Make commands have a 600-second wall-clock watchdog. Override it for a
 known-slow machine with `make COMMAND_TIMEOUT_SECONDS=900 gate`. The watchdog prints progress
 every 30 seconds, forwards cancellation, kills remaining descendants even when their leader exits,
-and returns 124 on timeout. `make pipeline-tests` checks deadline validation, exit codes, timeout,
+and returns 124 on timeout. `make test-scripts` checks deadline validation, exit codes, timeout,
 and cancellation without requiring Xcode. Failed Apple test actions retain their console log and
 result bundle at the printed `/private/tmp/reset-radar-xcode-test.*` path; successful actions remove
 that scratch directory. Test results use unique local paths and coverage collection is disabled.
@@ -29,7 +29,7 @@ Neither setting is evidence that the workspace volume or coverage caused a stall
 
 The iOS runner executes the complete test plan once per destination, with Xcode worker
 parallelism disabled. It has one deadline for the entire action and does not retry or split test
-methods to conceal a failure. Run `make test-ios` or `make test-ipad` for one reference device.
+methods to conceal a failure. Run `make test-iphone` or `make test-ipad` for one reference device.
 Hosted reader tests inject a separate `FakeWatchLink` per harness. Never construct multiple
 live bridges around `WCSession.default` in parallel tests: replacing its singleton delegate can
 strand another harness's activation continuation and leave the test action waiting indefinitely.
@@ -41,7 +41,7 @@ storage instead. UI tests wait with `appears(timeout:)` or `waitUntil(timeout:_:
 `ResetRadarUITests/ReaderUITestSupport.swift`, not `waitForExistence(timeout:)` or
 `XCTNSPredicateExpectation`, because XCTest checks those only about once a second.
 
-Run `make run-mac` to generate, build, and open the Development Mac collector with its normal
+Run `make dev-mac` to generate, build, and open the Development Mac collector with its normal
 live-source mode. Use Xcode to supply launch arguments such as `--synthetic` for fixture work.
 For local root-cause analysis, read Development's bounded JSON Lines in
 `~/Library/Logs/ResetRadar.dev/`. Release has a separate
@@ -62,17 +62,17 @@ redacted events and retain at most eight UTC days. Do not copy the logs into the
   substitute models implicitly.
 
 ```sh
-make generate         # generate the ignored Xcode project
-make test-mac         # bounded macOS tests
-make test-ios-ipad    # reference iPhone, then iPad
-make test-watch       # bounded Watch app and package tests
-make format           # format maintained Swift roots
-make format-check     # check formatting
-make lint             # strict SwiftLint
-make imports          # enforce the dependency rule
-make mac-arch-check   # build and inspect unsigned Release Mac binaries
-make mac-package      # archive and package a signed Release Mac app
-make install-mac      # install the Mac app and the rr launcher
+make generate           # generate the ignored Xcode project
+make test-mac           # bounded macOS tests
+make test-iphone-ipad   # reference iPhone, then iPad
+make test-watch         # bounded Watch app and package tests
+make format             # format maintained Swift roots
+make check-format       # check formatting
+make lint               # strict SwiftLint
+make check-imports      # enforce the dependency rule
+make check-mac-arch     # build and inspect unsigned Release Mac binaries
+make rel-mac-package    # archive and package a signed Release Mac app
+make rel-mac-install    # install the Mac app and the rr launcher
 ```
 
 The relay exposes reproducible npm scripts for TypeScript checking, Workers Vitest tests, and a Wrangler deployment dry run that never contacts Cloudflare. Mac Release builds need an untracked `Config/Build/Local.xcconfig` copied from `Local.xcconfig.template`; Development builds and the gate do not. The architecture check makes an isolated unsigned Release build and verifies every Mach-O executable with `lipo`; it does not replace the signed Release scheme check. Do not run a real deployment until the synthetic-data procedure confirms Workers Free, disabled observability, and owner-present approval.
@@ -106,17 +106,17 @@ the iPhone Watch app stalls, use the direct Xcode Run steps in the
 [sideloading guide](user-guide-for-sideloading.md#run-the-watch-app-from-xcode).
 
 After configuring Release signing in the untracked `Config/Build/Local.xcconfig` as that procedure
-requires, run `make ipa` from the repository root. It creates the signed package at
+requires, run `make rel-ipa` from the repository root. It creates the signed package at
 `.build/ipa/ResetRadar.ipa`; if that file already exists, the target preserves it. Remove or move
 that specific package before running the target again when a fresh export is required.
 
-For the Mac collector, run `make mac-package` with the same local Release-signing configuration.
+For the Mac collector, run `make rel-mac-package` with the same local Release-signing configuration.
 It archives the Release `ResetRadarMac.app`, verifies the app and embedded helper have matching
 non-ad-hoc team signatures, checks every Mach-O is arm64-only, and creates
 `.build/mac/ResetRadarMac.zip`. It also unpacks and verifies the zip before publishing it. The
 target preserves an existing zip; move or remove that specific zip to build a replacement. The
 zip contains the app for the existing manual installation flow, not a notarized installer.
-`make install-mac` builds a fresh temporary signed Release package on every invocation, using
+`make rel-mac-install` builds a fresh temporary signed Release package on every invocation, using
 the same signature and architecture checks, and installs it to `/Applications`. It does not reuse
 or replace `.build/mac/ResetRadarMac.zip`. It removes an existing
 `ResetRadarMac.app` there before copying the new bundle, and installs `rr` to `/usr/local/bin`.
@@ -127,11 +127,11 @@ Keychain state are retained.
 Project generation checks the Mac and Watch source icon slots and PNG dimensions with
 `Scripts/check-app-icons.py`. Mac packaging verifies the compiled `AppIcon.icns`, asset catalog,
 and Info.plist references before and after ZIP extraction; installation repeats those checks
-before quitting or replacing the installed app. `make ipa` verifies the embedded Watch app's
+before quitting or replacing the installed app. `make rel-ipa` verifies the embedded Watch app's
 icon catalog and companion identifier before and after IPA extraction. These checks retain
 existing package-preservation behavior. `Scripts/check-mac-helper.sh` copies the embedded
 `ResetRadarStatusLine` to a lone `bin/` directory, as the app installs it, and requires
-`--version` to succeed there; `make mac-arch-check`, Mac packaging, and installation run it, so a
+`--version` to succeed there; `make check-mac-arch`, Mac packaging, and installation run it, so a
 helper that needs bundle-relative frameworks is rejected. There is no Watch `install-*` target; use the signed
 Release Xcode Run or the iPhone companion installation flow described above.
 

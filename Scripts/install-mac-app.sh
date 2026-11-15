@@ -13,7 +13,7 @@ rr_path="$rr_dir/rr"
 
 [[ -f $package_path ]] || {
   print -u2 "Mac install: missing package: $package_path"
-  print -u2 "Run make mac-package first."
+  print -u2 "Run make rel-mac-package first."
   exit 1
 }
 

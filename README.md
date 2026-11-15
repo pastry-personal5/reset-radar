@@ -43,9 +43,9 @@ annual Apple Developer Program enrollment fee.
 
 ## Documentation
 
-- Build a signed Mac app archive with `make mac-package` after setting up local Release signing;
+- Build a signed Mac app archive with `make rel-mac-package` after setting up local Release signing;
   install the app from `.build/mac/ResetRadarMac.zip` using the [Mac installation guide](docs/mac-installation-and-recovery.md).
-- Run `make install-mac` to build and install a fresh signed Mac app to `/Applications`; use
+- Run `make rel-mac-install` to build and install a fresh signed Mac app to `/Applications`; use
   `rr` to launch it from a terminal. Existing distribution ZIPs are preserved and never reused by this target.
 - [Documentation index](docs/README.md) — all active design, research, and planning documents.
 - [Product behavior](docs/product-behavior.md) — approved scope and non-goals.

@@ -55,7 +55,7 @@ This is a one-time setup for the Mac. Skip it when the untracked
 From the repository root, run:
 
 ```sh
-make ipa
+make rel-ipa
 ```
 
 The command creates `.build/ipa/ResetRadar.ipa`. It deliberately preserves an existing package,
@@ -151,7 +151,7 @@ package.
 Before the current profile expires:
 
 1. move the existing `.build/ipa/ResetRadar.ipa` aside;
-2. run `make ipa` with the same `Local.xcconfig` and Personal Team;
+2. run `make rel-ipa` with the same `Local.xcconfig` and Personal Team;
 3. repeat the **Normal Install** steps; and
 4. confirm pairing, cached readings, widget configuration, and Watch state were preserved.
 
@@ -167,7 +167,7 @@ accept re-pairing as equivalent renewal evidence.
 | **Start** is disabled | Confirm that the IPA is loaded and the physical device—not **Apple Silicon**—is selected. |
 | Sideloadly reopened in another signing mode | Return to Settings and select **Normal Install** again before starting. |
 | iOS reports **Untrusted Developer** | Complete the **VPN & Device Management** trust flow above while the device is online. |
-| `make ipa` says the IPA already exists | Move only `.build/ipa/ResetRadar.ipa` aside, then rerun the command. |
+| `make rel-ipa` says the IPA already exists | Move only `.build/ipa/ResetRadar.ipa` aside, then rerun the command. |
 | Pairing or shared data disappears after reinstall | Stop the renewal test and preserve the existing app and evidence. Do not change bundle IDs, App Groups, Keychain groups, or entitlements. |
 | The iPhone Watch app stays on **Installing** | Use the signed Watch scheme's direct Xcode run procedure above and retain the iPhone installation. |
 

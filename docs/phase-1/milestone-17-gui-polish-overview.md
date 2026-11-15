@@ -459,6 +459,12 @@ packaging command is the sole build-workflow addition.
 - [ ] The owner-approved iPhone 18 Pro Max and iPad Air 11-inch (M4) iOS 27.0 simulator
   destinations resolve uniquely, and their build and combined test targets complete without a
   stuck Xcode finalization process.
+- [x] Make targets use task-grouped names: `dev-*` for Development builds, `rel-*` for signed
+  Release artifacts, `check-*` for static checks, and `test-*` for suites; `make help` labels
+  each configuration, and maintained docs, scripts, and pipeline tests use the new names.
+  Evidence (2026-11-15): `make -n` resolves `gate`, `test`, `test-apple`, `test-iphone-ipad`,
+  `run`, `dev-iphone`, `rel-ipa`, and `rel-mac-install`; all 20 `make test-scripts` tests pass.
+  The complete gate was not rerun for this rename.
 - [x] Potentially blocking Make build, test, simulator, and relay commands have a configurable
   wall-clock watchdog that terminates their process group and reports a distinct timeout status.
 - [x] Diagnose the iPhone, iPad, and Watch pipeline stalls from revision `91ca7eb` with

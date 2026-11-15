@@ -42,14 +42,14 @@ the Development folder directly for startup and publication root-cause analysis.
    cp Config/Build/Local.xcconfig.template Config/Build/Local.xcconfig
    ```
 
-3. Run `make mac-package` for a reusable distribution ZIP. It
+3. Run `make rel-mac-package` for a reusable distribution ZIP. It
    creates `.build/mac/ResetRadarMac.zip` from a signed Release
    archive, then checks the compiled app icon, app and embedded helper signatures, and arm64 architecture after
    unpacking. If the zip already exists, the command preserves it; move or remove that zip when
    you intend to build a replacement. A Development build is deliberately unsigned and is not an
    install candidate.
 
-4. `make install-mac` always builds a fresh signed Release package in a temporary directory,
+4. `make rel-mac-install` always builds a fresh signed Release package in a temporary directory,
    with the same signature and architecture checks, regardless of any existing distribution ZIP.
    It leaves `.build/mac/ResetRadarMac.zip` unchanged. It verifies the staged app's signature
    and compiled icon before quitting or replacing the installed app. After a successful build, it quits and
