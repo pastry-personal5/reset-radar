@@ -15,17 +15,37 @@ XCODE_WRAPPER = WATCHDOG.with_name("run-xcode-test.sh")
 
 
 class ResultBundleTests(unittest.TestCase):
-    def run_action(self, status):
+    def run_action(self, status, passed=3):
         code = (
             "import sys; from pathlib import Path; "
             "bundle = Path(sys.argv[sys.argv.index('-resultBundlePath') + 1]); "
             "bundle.mkdir(); print(bundle.parent, flush=True); "
             f"raise SystemExit({status})"
         )
-        return subprocess.run(
-            ["/bin/zsh", str(XCODE_WRAPPER), "5", sys.executable, "-I", "-c", code],
-            capture_output=True, text=True, timeout=10,
-        )
+        with tempfile.TemporaryDirectory() as bin_dir:
+            fake_xcrun = Path(bin_dir) / "xcrun"
+            summary = (
+                f'{{"totalTestCount": {passed}, "passedTests": {passed}, '
+                '"skippedTests": 0, "failedTests": 0}'
+            )
+            fake_xcrun.write_text(f"#!/bin/sh\necho '{summary}'\n")
+            fake_xcrun.chmod(0o755)
+            env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+            return subprocess.run(
+                ["/bin/zsh", str(XCODE_WRAPPER), "5", sys.executable, "-I", "-c", code],
+                capture_output=True, text=True, timeout=10, env=env,
+            )
+
+    def test_success_without_passing_tests_fails_and_retains_diagnostics(self):
+        result = self.run_action(0, passed=0)
+        directory = Path(result.stdout.strip().splitlines()[0])
+        try:
+            self.assertEqual(result.returncode, 65)
+            self.assertIn("no passing tests", result.stderr)
+            self.assertTrue((directory / "result.xcresult").is_dir())
+        finally:
+            if directory.name.startswith("reset-radar-xcode-test."):
+                shutil.rmtree(directory)
 
     def test_failure_retains_diagnostics_and_exit_status(self):
         result = self.run_action(65)
@@ -42,7 +62,8 @@ class ResultBundleTests(unittest.TestCase):
     def test_success_removes_scratch(self):
         result = self.run_action(0)
         self.assertEqual(result.returncode, 0)
-        self.assertFalse(Path(result.stdout.strip()).exists())
+        self.assertIn("Tests: 3 total, 3 passed", result.stdout)
+        self.assertFalse(Path(result.stdout.strip().splitlines()[0]).exists())
 
 
 class WatchdogTests(unittest.TestCase):

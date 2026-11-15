@@ -22,7 +22,9 @@ Potentially blocking Make commands have a 600-second wall-clock watchdog. Overri
 known-slow machine with `make COMMAND_TIMEOUT_SECONDS=900 gate`. The watchdog prints progress
 every 30 seconds, forwards cancellation, kills remaining descendants even when their leader exits,
 and returns 124 on timeout. `make test-scripts` checks deadline validation, exit codes, timeout,
-and cancellation without requiring Xcode. Failed Apple test actions retain their console log and
+and cancellation without requiring Xcode. Each Apple test action prints its result-bundle test
+counts and fails with status 65 when xcodebuild succeeds without recording any passing test.
+Failed Apple test actions retain their console log and
 result bundle at the printed `/private/tmp/reset-radar-xcode-test.*` path; successful actions remove
 that scratch directory. Test results use unique local paths and coverage collection is disabled.
 Neither setting is evidence that the workspace volume or coverage caused a stall.
