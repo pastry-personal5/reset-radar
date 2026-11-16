@@ -471,6 +471,9 @@ packaging command is the sole build-workflow addition.
   the existing uncommitted M17 work preserved; verify sandbox/service access, cache and result
   paths, bounded cancellation and parallel Make scheduling, then run the complete gate and
   record reproducible evidence for the repaired pipeline.
+- [ ] `WCSessionBridge.activate()` checks the activation state and queues its waiter under one
+  lock, so concurrent launch-time callers on the iPhone cannot miss the activation callback and
+  stall scene activation. Evidence pending iPhone and Watch builds and the complete gate.
 
 ## Implementation evidence
 

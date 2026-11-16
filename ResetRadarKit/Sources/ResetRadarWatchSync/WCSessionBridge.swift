@@ -89,10 +89,14 @@
         }
 
         public func activate() async {
-            if session.activationState == .activated { return }
             await withCheckedContinuation { continuation in
-                lock.withLock { activationWaiters.append(continuation) }
-                session.activate()
+                // Check and queue under the delegate's lock so a callback cannot land in between.
+                let ready = lock.withLock {
+                    guard session.activationState != .activated else { return true }
+                    activationWaiters.append(continuation)
+                    return false
+                }
+                if ready { continuation.resume() } else { session.activate() }
             }
         }
 
